@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 import os, sys
 from optparse import OptionParser
 import shlex, subprocess
@@ -17,7 +18,8 @@ def get_runs_and_hltkey(path, hltkeys):
     for run in runs:
         runNumber = os.path.basename(run).strip('run')
         if runNumber not in hltkeys.keys():
-            p = subprocess.Popen([hltkeysscript, '-r', runNumber], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen([hltkeysscript, '-r', runNumber],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate()
             #print out, err
             if err:
@@ -42,17 +44,22 @@ def watch_and_inject(path):
     #print hltkeys
     #for run in runs:
     #for run in ["/store/lustre/mergeMacro/run224074", "/store/lustre/mergeMacro/run224080", "/store/lustre/mergeMacro/run224148", "/store/lustre/mergeMacro/run224187", "/store/lustre/mergeMacro/run224230", "/store/lustre/mergeMacro/run224236", "/store/lustre/mergeMacro/run224238", "/store/lustre/mergeMacro/run224241", "/store/lustre/mergeMacro/run224244", "/store/lustre/mergeMacro/run224259", "/store/lustre/mergeMacro/run224273", "/store/lustre/mergeMacro/run224286", "/store/lustre/mergeMacro/run224307", "/store/lustre/mergeMacro/run224324", "/store/lustre/mergeMacro/run224326", "/store/lustre/mergeMacro/run224328", "/store/lustre/mergeMacro/run224340", "/store/lustre/mergeMacro/run224352", "/store/lustre/mergeMacro/run224359", "/store/lustre/mergeMacro/run224371", "/store/lustre/mergeMacro/run224373", "/store/lustre/mergeMacro/run224374", "/store/lustre/mergeMacro/run224375", "/store/lustre/mergeMacro/run224376", "/store/lustre/mergeMacro/run224379", "/store/lustre/mergeMacro/run224380", "/store/lustre/mergeMacro/run224393", "/store/lustre/mergeMacro/run224397", "/store/lustre/mergeMacro/run224409", "/store/lustre/mergeMacro/run224412", "/store/lustre/mergeMacro/run224413", "/store/lustre/mergeMacro/run224417", "/store/lustre/mergeMacro/run224440", "/store/lustre/mergeMacro/run224457", "/store/lustre/mergeMacro/run224471", "/store/lustre/mergeMacro/run224481", "/store/lustre/mergeMacro/run224482", "/store/lustre/mergeMacro/run224483", "/store/lustre/mergeMacro/run224484", "/store/lustre/mergeMacro/run224497", "/store/lustre/mergeMacro/run224499", "/store/lustre/mergeMacro/run224502", "/store/lustre/mergeMacro/run224506", "/store/lustre/mergeMacro/run224512"]: 
-       
-    for run in ["/store/lustre/mergeMacro/run224512"]:
+
+    # MWGR4 good runs: 225075, 225080, 225115, 225117, 225119, 225125
+    mwgr4runs = [225075, 225080, 225115, 225117, 225119, 225125]
+    for runNumber in mwgr4runs[1:]:
+        runNumber = '%d' % runNumber
+        run = "/store/lustre/mergeMacro/run" + runNumber
         #try:
         #    os.mkdir(run + "/transferred")
         #except OSError, e:
         #    continue
         
-        runNumber = os.path.basename(run).strip('run')
         print "************ Run ", runNumber, " *******************"
 
-        p = subprocess.Popen([hltkeysscript, '-r', runNumber], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        args = [hltkeysscript, '-r', runNumber]
+        print "I'll run:\n", ' '.join(args)
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         if err:
             hltkeys[runNumber] = "UNKNOWN"
@@ -74,9 +81,25 @@ def watch_and_inject(path):
                 #call the actual inject script
                 if eventsNumber != 0:
 
-                    #prepare for GR3 --> CMSSW version updated
-                    print "I'll run:\n", injectscript, '--filename', fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", fileSize, "--hltkey", hltkeys[runNumber]
-                    p = subprocess.Popen([injectscript, "--filename", fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", str(fileSize), "--hltkey", hltkeys[runNumber]], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ)
+                    #prepare for GR4 --> CMSSW version updated
+                    command_args = [injectscript,
+                                    '--filename', fileName,
+                                    "--path", run,
+                                    "--type", "streamer",
+                                    "--runnumber", runNumber,
+                                    "--lumisection",  str(lumiSection),
+                                    "--numevents", str(eventsNumber),
+                                    "--appname", "CMSSW",
+                                    "--appversion", "CMSSW_7_1_6",
+                                    "--stream", streamName,
+                                    "--setuplabel", "Data",
+                                    "--config", "/opt/injectworker/.db.conf",
+                                    "--destination", "Global",
+                                    "--filesize", str(fileSize),
+                                    "--hltkey", hltkeys[runNumber]]
+                    print "I'll run:\n", ' '.join(command_args)
+                    p = subprocess.Popen(command_args, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, env=os.environ)
 
 
                     #this is to check the status of the files
