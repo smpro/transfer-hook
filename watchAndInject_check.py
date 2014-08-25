@@ -75,13 +75,13 @@ def watch_and_inject(path):
                 if eventsNumber != 0:
 
                     #prepare for GR3 --> CMSSW version updated
-                    #print "I'll run:\n", injectscript, '--filename', fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", fileSize, "--hltkey", hltkeys[runNumber]
-                    #p = subprocess.Popen([injectscript, "--filename", fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", str(fileSize), "--hltkey", hltkeys[runNumber]], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ)
+                    print "I'll run:\n", injectscript, '--filename', fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", fileSize, "--hltkey", hltkeys[runNumber]
+                    p = subprocess.Popen([injectscript, "--filename", fileName, "--path", run, "--type", "streamer", "--runnumber", runNumber, "--lumisection",  str(lumiSection), "--numevents", str(eventsNumber), "--appname", "CMSSW", "--appversion", "CMSSW_7_1_4_patch1", "--stream", streamName, "--setuplabel", "Data", "--config", "/opt/injectworker/.db.conf", "--destination", "Global", "--filesize", str(fileSize), "--hltkey", hltkeys[runNumber]], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ)
 
 
                     #this is to check the status of the files
-                    print "I'll run:\n", injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"
-                    p = subprocess.Popen([injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    #print "I'll run:\n", injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"
+                    #p = subprocess.Popen([injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
                     out, err = p.communicate()
                     print out
