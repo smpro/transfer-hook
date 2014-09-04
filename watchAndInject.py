@@ -47,7 +47,13 @@ def watch_and_inject(path):
 
     # MWGR4 good runs: 225075, 225080, 225115, 225117, 225119, 225125
     mwgr4runs = [225075, 225080, 225115, 225117, 225119, 225125]
-    for runNumber in mwgr4runs[1:]:
+    mwgr5runs1 = [225709, 225713]
+    mwgr5runs2 = [225826, 225829, 225832, 225834, 225838, 225843, 
+                  225849, 225860, 225861, 225862, 225893, 225896,
+                  225904, 225906, 225909, 225910, 225916, 225918, 
+                  225919, 225930, 225948, 225949, 225953, 225956, ]
+    runs_to_transfer = mwgr5runs2
+    for runNumber in runs_to_transfer[:]:
         runNumber = '%d' % runNumber
         run = "/store/lustre/mergeMacro/run" + runNumber
         #try:
@@ -82,29 +88,30 @@ def watch_and_inject(path):
                 if eventsNumber != 0:
 
                     #prepare for GR4 --> CMSSW version updated
-                    command_args = [injectscript,
-                                    '--filename', fileName,
-                                    "--path", run,
-                                    "--type", "streamer",
-                                    "--runnumber", runNumber,
-                                    "--lumisection",  str(lumiSection),
-                                    "--numevents", str(eventsNumber),
-                                    "--appname", "CMSSW",
-                                    "--appversion", "CMSSW_7_1_6",
-                                    "--stream", streamName,
-                                    "--setuplabel", "Data",
-                                    "--config", "/opt/injectworker/.db.conf",
-                                    "--destination", "Global",
-                                    "--filesize", str(fileSize),
-                                    "--hltkey", hltkeys[runNumber]]
-                    print "I'll run:\n", ' '.join(command_args)
-                    p = subprocess.Popen(command_args, stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE, env=os.environ)
-
+                    args_transfer = [injectscript   ,
+                            '--filename'   , fileName,
+                            "--path"       , run,
+                            "--type"       , "streamer",
+                            "--runnumber"  , runNumber,
+                            "--lumisection",  str(lumiSection),
+                            "--numevents"  , str(eventsNumber),
+                            "--appname"    , "CMSSW",
+                            "--appversion" , "CMSSW_7_1_6",
+                            "--stream"     , streamName,
+                            "--setuplabel" , "Data",
+                            "--config"     , "/opt/injectworker/.db.conf",
+                            "--destination", "Global",
+                            "--filesize"   , str(fileSize),
+                            "--hltkey"     , hltkeys[runNumber]]
 
                     #this is to check the status of the files
-                    #print "I'll run:\n", injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"
-                    #p = subprocess.Popen([injectscript, '--check', '--filename', fileName, "--config", "/opt/injectworker/.db.conf"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    args_check = [injectscript, '--check'             ,
+                            '--filename', fileName                    ,
+                            "--config"  , "/opt/injectworker/.db.conf",]
+                    args = args_transfer
+                    print "I'll run:\n", ' '.join(args)
+                    p = subprocess.Popen(args, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
 
                     out, err = p.communicate()
                     print out
