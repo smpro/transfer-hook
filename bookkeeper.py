@@ -6,12 +6,13 @@ files for a given lumi of a given run and stream.
 Jan Veverka, 3 September 2014, veverka@mit.edu
 '''
 import os
+import json
 import glob
 import pprint
 
 _input_dir = '/store/lustre/oldMergeMacro'
 _run_number = 225115
-_exclude_stream = ['EventDisplay', 'DQMHistograms']
+_excluded_streams = ['EventDisplay', 'DQMHistograms']
 
 #_______________________________________________________________________________
 def main():
@@ -29,8 +30,10 @@ def main():
     ## last lumi stored in the last_lumi variable
     files_per_lumi = {}
     for stream in streams:
-        files_per_lumi[stream] = get_files_per_lumi(json_filenames, stream,
-                                                    last_lumi)
+        if stream in _excluded_streams:
+            print 'Skipping stream', stream
+            continue
+        files_per_lumi[stream] = get_files_per_lumi(stream, last_lumi)
     report(streams, files_per_lumi)
 ## main
 
@@ -47,6 +50,7 @@ def get_json_filenames(run_dir):
 
 #_______________________________________________________________________________
 def parse_json_filenames(json_filenames):
+    json_map = {}
     streams = set()
     last_lumi = 0
     json_filenames.sort()
@@ -55,17 +59,16 @@ def parse_json_filenames(json_filenames):
         streams.add(stream)
         if lumi > last_lumi:
             last_lumi = lumi
-    pprint.pprint(streams)
-    print 'Last lumi:', last_lumi
     return last_lumi, streams
 ## parse_json_filenames
 
 #_______________________________________________________________________________
 def parse_single_json_filename(filename):
     '''Extracts the run number, stream name and luminosity section number
-    from the given filename of the json file.  An example json filename is:
-    run225115_ls0011_streamALCAPHISYM_StorageManager.jsn
+    from the given filename of the json file.
     '''
+    ## A JSON filename looks for example like this:
+    ## run225115_ls0011_streamALCAPHISYM_StorageManager.jsn
     root, extention = os.path.splitext(filename)
     tokens = root.split('_')
     skip_message = "INFO: Skipping `%s' ..." % filename
@@ -88,18 +91,54 @@ def parse_single_json_filename(filename):
 
 
 #_______________________________________________________________________________
-def get_files_per_lumi(json_filenames, stream, last_lumi):
-    files_per_lumi = []
-    return files_per_lumi
+def get_files_per_lumi(stream, last_lumi):
+    records = []
+    for lumi in range(1, last_lumi + 1):
+        number_of_files = get_number_of_files(stream, lumi)
+        record = dict(run             = _run_number,
+                      stream          = stream,
+                      lumi            = lumi,
+                      number_of_files = number_of_files)
+        records.append(record)
+    return records
 ## get_files_per_lumi
 
 
 #_______________________________________________________________________________
+def get_number_of_files(stream, lumi):
+    '''Returns the number of files for the given run, stream and luminosity
+    section.  This is either 0 or 1. It is 0 if no data file is present or
+    if there is no accepted events in the data file.'''
+    run_dir   = os.path.join(_input_dir, 'run%d' % _run_number)
+    file_name = get_json_filename(stream, lumi)
+    full_path = os.path.join(run_dir, file_name)
+    if not os.path.exists(full_path):
+        return 0
+    print 'Parsing', full_path
+    with open(full_path) as source:
+        meta_data = json.load(source)
+    number_of_accepted_events = meta_data['data'][1]
+    if number_of_accepted_events == 0:
+        return 0
+    else:
+        return 1
+## get_number_of_files
+
+
+#_______________________________________________________________________________
+def get_json_filename(stream, lumi):
+    '''Returns the filename string for the JSON file corresponding to the
+    given run, stream and lumi.'''
+    ## Eample: The call get_json_filename(225115, 11, 'ALCAPHISYM') returns:
+    ## 'run225115_ls0011_streamALCAPHISYM_StorageManager.jsn'
+    return 'run%06d_ls%04d_stream%s_StorageManager.jsn' % (_run_number, lumi,
+                                                           stream)
+## get_json_filename
+
+#_______________________________________________________________________________
 def report(streams, files_per_lumi):
-    for stream in streams:
-        for index, files in enumerate(files_per_lumi[stream]):
-            lumi = index + 1
-            print 'stream: %s, lumi: %d, files: %d' % (stream, lumi, files)
+    pprint.pprint(streams)
+    pprint.pprint(files_per_lumi)
 ## report
 
 
