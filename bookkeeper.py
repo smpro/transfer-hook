@@ -9,16 +9,36 @@ import os
 import json
 import glob
 import pprint
+import socket
+import cx_Oracle
 
+#run 225*   files
+#----------------
+#075        37
+#080        91
+#115        15
+#117        213
+#119        200
+#125        844
+#----------------
+#total      1400
+
+_db_config = '.db.int2r.stomgr_w.cfg.py'
+execfile(_db_config)
+_db_sid = db_sid
+_db_user = db_user
+_db_pwd = db_pwd
 _input_dir = '/store/lustre/oldMergeMacro'
 _run_number = 225115
+_test_run_number = 8
 _excluded_streams = ['EventDisplay', 'DQMHistograms']
 
 #_______________________________________________________________________________
 def main():
     run_dir            = os.path.join(_input_dir, 'run%d' % _run_number)
     json_filenames     = get_json_filenames(run_dir)
-    last_lumi, streams = parse_json_filenames(json_filenames)
+    stream_lumi_map    = parse_json_filenames(json_filenames)
+    last_lumi          = get_last_lumi(stream_lumi_map)
     ## Dictionary of lists giving the number of files for given lumi and stream.
     ## Stream is given by the dictionary key. The dictionary value is a list
     ## of the file counts with one entry per each lumi section. The lumi section
@@ -29,12 +49,18 @@ def main():
     ## N is the total number of lumis, which is equal to the number of the
     ## last lumi stored in the last_lumi variable
     files_per_lumi = {}
-    for stream in streams:
+    for stream, lumi_map in stream_lumi_map.items():
         if stream in _excluded_streams:
             print 'Skipping stream', stream
             continue
-        files_per_lumi[stream] = get_files_per_lumi(stream, last_lumi)
-    report(streams, files_per_lumi)
+        files_per_lumi[stream] = get_files_per_lumi(lumi_map, last_lumi)
+    # report(stream_lumi_map, files_per_lumi)
+    connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
+    cursor = connection.cursor()
+    fill_streams(files_per_lumi, cursor)
+    fill_runs(last_lumi, cursor)
+    connection.commit()
+    connection.close()
 ## main
 
 
@@ -50,17 +76,27 @@ def get_json_filenames(run_dir):
 
 #_______________________________________________________________________________
 def parse_json_filenames(json_filenames):
-    json_map = {}
+    stream_lumi_map = {}
     streams = set()
     last_lumi = 0
-    json_filenames.sort()
     for json in json_filenames:
         run, lumi, stream = parse_single_json_filename(json)
-        streams.add(stream)
-        if lumi > last_lumi:
-            last_lumi = lumi
-    return last_lumi, streams
+        if stream in stream_lumi_map:
+            stream_lumi_map[stream][lumi] = json
+        else:
+            stream_lumi_map[stream] = {lumi: json}
+    return stream_lumi_map
 ## parse_json_filenames
+
+
+#_______________________________________________________________________________
+def get_last_lumi(stream_lumi_map):
+    last_lumi = 0
+    for lumi_map in stream_lumi_map.values():
+        last_lumi = max(last_lumi, max(lumi_map.keys()))
+    return last_lumi
+## get_last_lumi
+
 
 #_______________________________________________________________________________
 def parse_single_json_filename(filename):
@@ -91,13 +127,15 @@ def parse_single_json_filename(filename):
 
 
 #_______________________________________________________________________________
-def get_files_per_lumi(stream, last_lumi):
+def get_files_per_lumi(lumi_map, last_lumi):
     records = []
     for lumi in range(1, last_lumi + 1):
-        number_of_files = get_number_of_files(stream, lumi)
-        record = dict(run             = _run_number,
-                      stream          = stream,
-                      lumi            = lumi,
+        if lumi in lumi_map:
+            filename = lumi_map[lumi]
+            number_of_files = get_number_of_files(filename)
+        else:
+            number_of_files = 0
+        record = dict(lumi            = lumi,
                       number_of_files = number_of_files)
         records.append(record)
     return records
@@ -105,13 +143,12 @@ def get_files_per_lumi(stream, last_lumi):
 
 
 #_______________________________________________________________________________
-def get_number_of_files(stream, lumi):
+def get_number_of_files(filename):
     '''Returns the number of files for the given run, stream and luminosity
     section.  This is either 0 or 1. It is 0 if no data file is present or
     if there is no accepted events in the data file.'''
     run_dir   = os.path.join(_input_dir, 'run%d' % _run_number)
-    file_name = get_json_filename(stream, lumi)
-    full_path = os.path.join(run_dir, file_name)
+    full_path = os.path.join(run_dir, filename)
     if not os.path.exists(full_path):
         return 0
     print 'Parsing', full_path
@@ -136,11 +173,75 @@ def get_json_filename(stream, lumi):
 ## get_json_filename
 
 #_______________________________________________________________________________
-def report(streams, files_per_lumi):
-    pprint.pprint(streams)
+def report(stream_lumi_map, files_per_lumi):
+    pprint.pprint(stream_lumi_map.keys())
     pprint.pprint(files_per_lumi)
 ## report
 
+
+#_______________________________________________________________________________
+def fill_streams(files_per_lumi, cursor):
+    for stream, records in files_per_lumi.items():
+        for record in records:
+            fill_number_of_files(cursor, stream, **record)
+## fill_streams
+
+
+#_______________________________________________________________________________
+def fill_number_of_files(cursor, stream, lumi, number_of_files):
+    '''
+    Define the values to be filled for the streams table. 
+    '''
+    target_table = 'cms_stomgr.streams2'
+    values_to_insert = dict(
+        runnumber   = _test_run_number,
+        lumisection = lumi,
+        stream      = "'" + stream + "'",
+        instance    = 1,
+        filecount   = number_of_files,
+        ## dummy for now
+        ctime       = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')",
+        eols        = 1,
+        )
+    insert(values_to_insert, target_table, cursor)
+## fill_number_of_files
+
+
+#_______________________________________________________________________________
+def fill_runs(last_lumi, cursor):
+    target_table = 'cms_stomgr.runs2'
+    values_to_insert = dict(
+        runnumber        = _test_run_number,
+        instance         = 1,
+        hostname         = "'%s'" % socket.gethostname(),
+        n_instances      = 1,
+        n_lumisections   = last_lumi,
+        status           = 0,
+        ## dummy for now
+        start_time       = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')",
+        ## dummy for now
+        end_time         = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')", 
+        max_lumisection  = last_lumi,
+        last_consecutive = last_lumi,
+        )
+    insert(values_to_insert, target_table, cursor)
+## fill_runs
+
+
+#_______________________________________________________________________________
+def insert(values, table, cursor):
+    columns = values.keys()
+    columns_in_curly_brackets = ['{%s}' % c for c in columns]
+    line_to_format = '    (%s)' % ', '.join(columns_in_curly_brackets)
+    lines = ['insert into %(table)s' % locals(),
+             '    (%s)' % ', '.join(columns)      ,
+             'values'                            ,
+             line_to_format.format(**values)     ]
+    statement = '\n'.join(lines)
+    print 'SQL>', statement
+    cursor.execute(statement)
+## insert
+    
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
