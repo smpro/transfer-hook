@@ -4,6 +4,15 @@ Extracts the list of streams and lumis for a given run and the number of
 files for a given lumi of a given run and stream.
 
 Jan Veverka, 3 September 2014, veverka@mit.edu
+
+TODO: 
+  * Check the meaning of CMS_STOMGR.runs.status from the twiki 
+    (done 2014/09/08)
+  * Understand the Tier0-usage query (done 2014/09/08)
+  * Use the *_len shortcut variables for the string lengths in single json 
+    parsing
+  * Use SQL variable binding 
+  * Use SQL prepared statements
 '''
 import os
 import json
@@ -30,7 +39,6 @@ _db_user = db_user
 _db_pwd = db_pwd
 _input_dir = '/store/lustre/oldMergeMacro'
 _run_number = 225115
-_test_run_number = 8
 _excluded_streams = ['EventDisplay', 'DQMHistograms']
 
 #_______________________________________________________________________________
@@ -112,6 +120,7 @@ def parse_single_json_filename(filename):
         print skip_message
         return None
     run_token, ls_token, stream_token, sm_token = tokens
+    run_len, ls_len, stream_len, sm_len = map(len, tokens)
     if (run_token   [:len('run')   ] != 'run'         or
         ls_token    [:len('ls')    ] != 'ls'          or
         stream_token[:len('stream')] != 'stream'      or
@@ -192,9 +201,9 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
     '''
     Define the values to be filled for the streams table. 
     '''
-    target_table = 'cms_stomgr.streams2'
+    target_table = 'cms_stomgr.streams'
     values_to_insert = dict(
-        runnumber   = _test_run_number,
+        runnumber   = _run_number,
         lumisection = lumi,
         stream      = "'" + stream + "'",
         instance    = 1,
@@ -209,9 +218,9 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
 
 #_______________________________________________________________________________
 def fill_runs(last_lumi, cursor):
-    target_table = 'cms_stomgr.runs2'
+    target_table = 'cms_stomgr.runs'
     values_to_insert = dict(
-        runnumber        = _test_run_number,
+        runnumber        = _run_number,
         instance         = 1,
         hostname         = "'%s'" % socket.gethostname(),
         n_instances      = 1,
@@ -238,7 +247,7 @@ def insert(values, table, cursor):
              'values'                            ,
              line_to_format.format(**values)     ]
     statement = '\n'.join(lines)
-    print 'SQL>', statement
+    print 'SQL>', statement, ';'
     cursor.execute(statement)
 ## insert
     
