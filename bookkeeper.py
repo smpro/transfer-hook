@@ -32,7 +32,8 @@ import cx_Oracle
 #----------------
 #total      1400
 
-_db_config = '.db.int2r.stomgr_w.cfg.py'
+#_db_config = '.db.int2r.stomgr_w.cfg.py'
+_db_config = '.db.rcms.stomgr_w.cfg.py'
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
