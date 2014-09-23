@@ -7,6 +7,7 @@ from subprocess import call
 import glob 
 import json
 import shutil
+import pprint
 
 hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
@@ -39,6 +40,7 @@ def get_runs_and_hltkey(path, hltkeys):
                 hltkeys[runNumber] = "UNKNOWN"
             else:
                 hltkeys[runNumber] = out.strip()
+    runs.sort()
     return runs
 
 
@@ -50,21 +52,12 @@ def watch_and_inject(path):
     #while True:
 
     #this gets all the hltkeys, useful only if the watched path is clean - and we actually loop through all the existing runs
-    runs = get_runs_and_hltkey(path, hltkeys)
-
-
-    # MWGR4 good runs: 225075, 225080, 225115, 225117, 225119, 225125
-    mwgr4runs = [225075, 225080, 225115, 225117, 225119, 225125]
-    mwgr5runs1 = [225709, 225713]
-    mwgr5runs2 = [225826, 225829, 225832, 225834, 225838, 225843, 
-                  225849, 225860, 225861, 225862, 225893, 225896,
-                  225904, 225906, 225909, 225910, 225916, 225918, 
-                  225919, 225930, 225948, 225949, 225953, 225956, ]
-    mwgr7runs = [226485,]
-    runs_to_transfer = runs
-    print 'Runs to transfer:', runs_to_transfer
-    print 'HLT keys:', hltkeys
-    for run in runs_to_transfer[:]:
+    runs_to_transfer = get_runs_and_hltkey(path, hltkeys)
+    print 'Runs to transfer:', 
+    pprint.pprint(runs_to_transfer)
+    print 'HLT keys:', 
+    pprint.pprint(hltkeys)
+    for run in runs_to_transfer:
         runNumber = os.path.basename(run).replace('run', '')
         run = "/store/lustre/mergeMacro/run" + runNumber
         # run = "/store/lustre/oldMergeMacro/run" + runNumber
@@ -77,7 +70,10 @@ def watch_and_inject(path):
 
 
         jsns = glob.glob(run + '/*jsn')
-        for jsn_file in jsns[:]:
+        jsns.sort()
+        print 'Processing JSON files:'
+        pprint.ppring(jsns)
+        for jsn_file in jsns:
             if ("streamError" not in jsn_file and
                 'BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
