@@ -32,14 +32,14 @@ import cx_Oracle
 #----------------
 #total      1400
 
-#_db_config = '.db.int2r.stomgr_w.cfg.py'
+# _db_config = '.db.int2r.stomgr_w.cfg.py'
 _db_config = '.db.rcms.stomgr_w.cfg.py'
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
-_input_dir = '/store/lustre/oldMergeMacro'
-_run_number = 225115
+_input_dir = '/store/lustre/mergeMacro'
+_run_number = 226485
 _excluded_streams = ['EventDisplay', 'DQMHistograms']
 
 #_______________________________________________________________________________
@@ -89,7 +89,11 @@ def parse_json_filenames(json_filenames):
     streams = set()
     last_lumi = 0
     for json in json_filenames:
-        run, lumi, stream = parse_single_json_filename(json)
+        meta_data = parse_single_json_filename(json)
+        if meta_data:
+            run, lumi, stream = meta_data
+        else:
+            continue
         if stream in stream_lumi_map:
             stream_lumi_map[stream][lumi] = json
         else:
@@ -210,7 +214,7 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
         instance    = 1,
         filecount   = number_of_files,
         ## dummy for now
-        ctime       = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')",
+        ctime       = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')",
         eols        = 1,
         )
     insert(values_to_insert, target_table, cursor)
@@ -228,9 +232,9 @@ def fill_runs(last_lumi, cursor):
         n_lumisections   = last_lumi,
         status           = 0,
         ## dummy for now
-        start_time       = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')",
+        start_time       = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')",
         ## dummy for now
-        end_time         = "TO_DATE('2014-09-05 12:15:35', 'YYYY-MM-DD HH24:MI:SS')", 
+        end_time         = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')", 
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         )
@@ -257,3 +261,4 @@ def insert(values, table, cursor):
 if __name__ == '__main__':
     main()
     import user
+
