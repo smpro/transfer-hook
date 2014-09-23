@@ -17,12 +17,18 @@ _run_number_max = 300000
 
 def get_runs_and_hltkey(path, hltkeys):
     
-    runs = glob.glob(path)
-    for run in runs:
-        runNumber = os.path.basename(run).strip('run')
+    runs = []
+    for run in glob.glob(path):
+        runNumber = os.path.basename(run).replace('run', '')
+        run_number = int(runNumber)
+        if run_number < _run_number_min or _run_number_max < run_number:
+            continue
+        runs.append(run)
         if runNumber not in hltkeys.keys():
-            p = subprocess.Popen([hltkeysscript, '-r', runNumber],
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+     
+            args = [hltkeysscript, '-r', runNumber]
+            print "I'll run:\n", ' '.join(args)
+            p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate()
             #print out, err
             if err:
@@ -41,7 +47,7 @@ def watch_and_inject(path):
     #while True:
 
     #this gets all the hltkeys, useful only if the watched path is clean - and we actually loop through all the existing runs
-    #runs = get_runs_and_hltkey(path, hltkeys)
+    runs = get_runs_and_hltkey(path, hltkeys)
 
 
     # MWGR4 good runs: 225075, 225080, 225115, 225117, 225119, 225125
@@ -52,9 +58,11 @@ def watch_and_inject(path):
                   225904, 225906, 225909, 225910, 225916, 225918, 
                   225919, 225930, 225948, 225949, 225953, 225956, ]
     mwgr7runs = [226485,]
-    runs_to_transfer = mwgr7runs
-    for runNumber in runs_to_transfer[:2]:
-        runNumber = '%d' % runNumber
+    runs_to_transfer = runs
+    print 'Runs to transfer:', runs_to_transfer
+    print 'HLT keys:', hltkeys
+    for run in runs_to_transfer[:]:
+        runNumber = os.path.basename(run).replace('run', '')
         run = "/store/lustre/mergeMacro/run" + runNumber
         # run = "/store/lustre/oldMergeMacro/run" + runNumber
         #try:
@@ -64,20 +72,18 @@ def watch_and_inject(path):
         
         print "************ Run ", runNumber, " *******************"
 
-        args = [hltkeysscript, '-r', runNumber]
-        print "I'll run:\n", ' '.join(args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        if err:
-            hltkeys[runNumber] = "UNKNOWN"
-        else:
-            hltkeys[runNumber] = out.strip()
 
         jsns = glob.glob(run + '/*jsn')
-        for jsn_file in jsns[:100]:
-            if "streamError" not in jsn_file:
+        for jsn_file in jsns[:]:
+            if ("streamError" not in jsn_file and
+                'BoLS' not in jsn_file and
+                'EoLS' not in jsn_file and
+                'EoR' not in jsn_file and
+                'index' not in jsn_file):
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
+                if len(settings['data']) < 5:
+                    continue
                 eventsNumber = int(settings['data'][1])
                 fileName = str(settings['data'][3])
                 fileSize = int(settings['data'][4])
@@ -150,5 +156,5 @@ if __name__ == '__main__':
         parser.error('Please provide the path to watch')
  
 
-    watch_and_inject(options.path + "/run*")
+    watch_and_inject(os.path.join(options.path, 'run*'))
 
