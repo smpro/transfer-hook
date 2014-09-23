@@ -1,5 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+'''
+TODO:
+   * Add time stamps to output
+   * Add checksums
+   * Move to use the log file as the transfer test instead inject*.pl
+   * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
+   * Run in an infinite loop
+   
+'''
 import os, sys
 from optparse import OptionParser
 import shlex, subprocess
@@ -8,6 +17,7 @@ import glob
 import json
 import shutil
 import pprint
+import time
 
 hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
@@ -16,7 +26,7 @@ injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 ## DQM should be transferred but it's taken out because it causes 
 ## problems
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM']
-_run_number_min = 226485
+_run_number_min = 226556
 _run_number_max = 300000
 
 def get_runs_and_hltkey(path, hltkeys):
@@ -53,9 +63,9 @@ def watch_and_inject(path):
 
     #this gets all the hltkeys, useful only if the watched path is clean - and we actually loop through all the existing runs
     runs_to_transfer = get_runs_and_hltkey(path, hltkeys)
-    print 'Runs to transfer:', 
+    print 'Runs to transfer: ', 
     pprint.pprint(runs_to_transfer)
-    print 'HLT keys:', 
+    print 'HLT keys: ', 
     pprint.pprint(hltkeys)
     for run in runs_to_transfer:
         runNumber = os.path.basename(run).replace('run', '')
@@ -71,8 +81,8 @@ def watch_and_inject(path):
 
         jsns = glob.glob(run + '/*jsn')
         jsns.sort()
-        print 'Processing JSON files:'
-        pprint.ppring(jsns)
+        print 'Processing JSON files: ',
+        pprint.pprint(jsns)
         for jsn_file in jsns:
             if ("streamError" not in jsn_file and
                 'BoLS' not in jsn_file and
@@ -154,6 +164,9 @@ if __name__ == '__main__':
     if (options.path == None):
         parser.error('Please provide the path to watch')
  
-
-    watch_and_inject(os.path.join(options.path, 'run*'))
-
+    for iteration in range(1000):
+        print '======================================'
+        print '============ ITERATION %d ============' % iteration
+        print '======================================'
+        watch_and_inject(os.path.join(options.path, 'run*'))
+        time.sleep(60)
