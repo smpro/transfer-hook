@@ -16,6 +16,7 @@ TODO:
   * Use SQL prepared statements
 '''
 import os
+import sys
 import json
 import glob
 import pprint
@@ -40,7 +41,7 @@ _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
 _input_dir = '/store/lustre/mergeMacro'
-_run_number = 226490
+_run_number = 226485
 ## EventDisplay and DQMHistograms should not be transferred
 ## DQM should be transferred but it's taken out because it causes 
 ## problems
@@ -263,6 +264,13 @@ def insert(values, table, cursor):
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 1:
+        for run_number_as_str in sys.argv[1:]:
+            _run_number = int(run_number_as_str)
+            print '************** Run %d *****************' % _run_number
+            main()
+    else:
+        main()
+    #main()
     import user
 
