@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
 Extracts the list of streams and lumis for a given run and the number of
@@ -39,8 +40,11 @@ _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
 _input_dir = '/store/lustre/mergeMacro'
-_run_number = 226485
-_excluded_streams = ['EventDisplay', 'DQMHistograms']
+_run_number = 226490
+## EventDisplay and DQMHistograms should not be transferred
+## DQM should be transferred but it's taken out because it causes 
+## problems
+_excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM']
 
 #_______________________________________________________________________________
 def main():
