@@ -11,7 +11,10 @@ import shutil
 hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 #injectscript = "/opt/transferTests/testParams.sh"
-_streams_to_ignore = ['EventDisplay', 'DQMHistograms']
+## EventDisplay and DQMHistograms should not be transferred
+## DQM should be transferred but it's taken out because it causes 
+## problems
+_streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM']
 _run_number_min = 226485
 _run_number_max = 300000
 
