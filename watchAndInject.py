@@ -2,14 +2,26 @@
 # -*- coding: utf-8 -*-
 '''
 TODO:
-   * Add time stamps to output
+   * Include lumi bookkeeping.
    * Add checksums
-   * Move to use the log file as the transfer test instead inject*.pl
+   * Move to using the log file as the transfer test instead inject*.pl
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
-   * Run in an infinite loop
-   
+   * Only process each JSON file once. Move both the JSON and data to a new 
+     location first. Then inject it in the transfer.
+## new CMSSW version: 7_1_10
 '''
-import os, sys
+__author__     = 'Lavinia Darlea, Jan Veverka'
+__copyright__  = 'Unknown'
+__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
+
+__licence__    = 'Unknonw'
+__version__    = '0.2.1'
+__maintainer__ = 'Jan Veverka'
+__email__      = 'veverka@mit.edu'
+__status__     = 'Development'
+
+import os
+import sys
 from optparse import OptionParser
 import shlex, subprocess
 from subprocess import call
@@ -26,7 +38,7 @@ injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 ## DQM should be transferred but it's taken out because it causes 
 ## problems
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM']
-_run_number_min = 226556
+_run_number_min = 226673
 _run_number_max = 300000
 
 def get_runs_and_hltkey(path, hltkeys):
@@ -41,7 +53,7 @@ def get_runs_and_hltkey(path, hltkeys):
         if runNumber not in hltkeys.keys():
      
             args = [hltkeysscript, '-r', runNumber]
-            print "I'll run:\n", ' '.join(args)
+            log("I'll run:\n  %s" % ' '.join(args))
             p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = p.communicate()
             #print out, err
@@ -63,9 +75,9 @@ def watch_and_inject(path):
 
     #this gets all the hltkeys, useful only if the watched path is clean - and we actually loop through all the existing runs
     runs_to_transfer = get_runs_and_hltkey(path, hltkeys)
-    print 'Runs to transfer: ', 
+    log('Runs to transfer: ', newline=False) 
     pprint.pprint(runs_to_transfer)
-    print 'HLT keys: ', 
+    log('HLT keys: ', newline=False)
     pprint.pprint(hltkeys)
     for run in runs_to_transfer:
         runNumber = os.path.basename(run).replace('run', '')
@@ -81,7 +93,7 @@ def watch_and_inject(path):
 
         jsns = glob.glob(run + '/*jsn')
         jsns.sort()
-        print 'Processing JSON files: ',
+        log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
         for jsn_file in jsns:
             if ("streamError" not in jsn_file and
@@ -126,7 +138,7 @@ def watch_and_inject(path):
                             '--filename', fileName                    ,
                             "--config"  , "/opt/injectworker/.db.conf",]
                     args = args_check
-                    print "I'll run:\n", ' '.join(args)
+                    log("I'll run:\n  %s" % ' '.join(args))
                     p = subprocess.Popen(args, stdout=subprocess.PIPE,
                                          stderr=subprocess.PIPE)
 
@@ -149,6 +161,16 @@ def watch_and_inject(path):
                     #else:
                     #    print "I've encountered some error:\n", out
         
+def log(msg, newline=True):
+    msg = "%s: %s" % (strftime(), msg)
+    if newline:
+	print msg
+    else:
+	print msg,
+ 
+def strftime():
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+
 if __name__ == '__main__':
     parser = OptionParser(usage="usage: %prog [-h|--help] [-p|--path]")
     parser.add_option("-p", "--path",
