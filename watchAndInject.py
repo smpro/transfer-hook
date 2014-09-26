@@ -33,11 +33,13 @@ import time
 
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
-_streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM']
-_run_number_min = 226673
+_streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
+                      'DQMCalibration']
+_run_number_min = 226800 ## Before the CalibrationDQM stream was included
 _run_number_max = 300000
-_CMSSW_version_old = 'CMSSW_7_1_9_patch1'
-_CMSSW_version_new = 'CMSSW_7_1_10'
+_old_cmssw_version = 'CMSSW_7_1_9_patch1'
+_new_cmssw_version = 'CMSSW_7_1_10'
+_first_run_with_new_cmssw_version = 226911
 
 def get_runs_and_hltkey(path, hltkeys):
     runs = []
@@ -67,6 +69,10 @@ def watch_and_inject(path):
     pprint.pprint(hltkeys)
     for run in runs_to_transfer:
         runNumber = os.path.basename(run).replace('run', '')
+        if _first_run_with_new_cmssw_version <= int(runNumber):
+            appversion = _new_cmssw_version
+        else:
+            appversion = _old_cmssw_version
         run = "/store/lustre/mergeMacro/run" + runNumber
         # run = "/store/lustre/oldMergeMacro/run" + runNumber
         #try:
@@ -105,13 +111,10 @@ def watch_and_inject(path):
 
 
                     #this is to check the status of the files
-                    args = [_injectscript, '--check'                   ,
+                    args_check = [_injectscript, '--check'                   ,
                             '--filename', fileName                    ,
                             "--config"  , "/opt/injectworker/.db.conf",]
-                    out, err = log_and_exec(args, print_output=True)
-                    if 'File not found in database.' in out:
-                        print 'Ready to transfer', jsn_file
-                        args = [_injectscript,
+                    args_transfer = [_injectscript,
                             '--filename'   , fileName,
                             "--path"       , run,
                             "--type"       , "streamer",
@@ -119,14 +122,21 @@ def watch_and_inject(path):
                             "--lumisection", str(lumiSection),
                             "--numevents"  , str(eventsNumber),
                             "--appname"    , "CMSSW",
-                            "--appversion" , "CMSSW_7_1_9_patch1",
+                            "--appversion" , appversion,
                             "--stream"     , streamName,
                             "--setuplabel" , "Data",
                             "--config"     , "/opt/injectworker/.db.conf",
                             "--destination", "Global",
                             "--filesize"   , str(fileSize),
                             "--hltkey"     , hltkeys[runNumber]]
-                        out, err = log_and_exec(args, print_output=True)
+                    args_renotify = args_transfer[:] + ["--renotify"]
+                    out, err = log_and_exec(args_check, print_output=True)
+                    if 'File not found in database.' in out:
+                        print 'Ready to transfer', jsn_file
+                        log_and_exec(args_transfer, print_output=True)
+                    elif 'FILES_TRANS_CHECKED' not in out:
+                        print 'Ready to re-transfer', jsn_file
+                        log_and_exec(args_renotify, print_output=True)
                     #if "File sucessfully submitted for transfer" in out:
                         #shutil.move(jsn_file,run + "/transferred/" + os.path.basename(jsn_file))
                         #shutil.move(run + fileName, run + "/transferred/" + fileName)
@@ -150,6 +160,7 @@ def log(msg, newline=True):
 	print msg,
  
 def strftime():
+    #return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
 if __name__ == '__main__':
