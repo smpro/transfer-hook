@@ -35,11 +35,15 @@ _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration']
-_run_number_min = 226800 ## Before the CalibrationDQM stream was included
+_run_number_min = 226496
 _run_number_max = 300000
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _new_cmssw_version = 'CMSSW_7_1_10'
 _first_run_with_new_cmssw_version = 226911
+_file_status_list_to_retransfer = [
+    'FILES_TRANS_NEW',
+    'FILES_TRANS_COPIED',
+    ]
 
 def get_runs_and_hltkey(path, hltkeys):
     runs = []
@@ -134,7 +138,7 @@ def watch_and_inject(path):
                     if 'File not found in database.' in out:
                         print 'Ready to transfer', jsn_file
                         log_and_exec(args_transfer, print_output=True)
-                    elif 'FILES_TRANS_CHECKED' not in out:
+                    elif need_to_retransfer(out):
                         print 'Ready to re-transfer', jsn_file
                         log_and_exec(args_renotify, print_output=True)
                     #if "File sucessfully submitted for transfer" in out:
@@ -151,6 +155,12 @@ def log_and_exec(args, print_output=False):
         print out
         print err
     return out, err
+
+def need_to_retransfer(out):
+    for status in _file_status_list_to_retransfer:
+        if status.lower() in out.lower():
+            return True
+    return False
 
 def log(msg, newline=True):
     msg = "%s: %s" % (strftime(), msg)
