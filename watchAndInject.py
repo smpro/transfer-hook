@@ -170,8 +170,7 @@ def log(msg, newline=True):
 	print msg,
  
 def strftime():
-    #return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 if __name__ == '__main__':
     parser = OptionParser(usage="usage: %prog [-h|--help] [-p|--path]")
