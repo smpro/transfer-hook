@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import cx_Oracle
 ## defines db_sid, db_user and db_pwd
@@ -19,9 +20,10 @@ def main():
 #______________________________________________________________________________
 def dump_queries(cursor):
     # dump_runs2(cursor)
+    dump_runs(cursor)
     # dump_streams2(cursor)
-    dump_closed_lumis_and_filecount(cursor)
-    dump_closed_runs(cursor)
+    # dump_closed_lumis_and_filecount(cursor)
+    # dump_closed_runs(cursor)
 ## dump_queries
 
 
@@ -36,12 +38,22 @@ def dump_streams2(cursor):
 
 #______________________________________________________________________________
 def dump_runs2(cursor):
-    query = 'select RUNNUMBER, HOSTNAME from cms_stomgr.runs2'
+    query = 'select RUNNUMBER, HOSTNAME, N_LUMISECTIONS from cms_stomgr.runs2'
     print query
     cursor.execute(query)
     for result in cursor:
-        print 'run, hostname:', result
+        print 'run, hostname, lumis:', result
 ## dump_runs2 
+
+
+#______________________________________________________________________________
+def dump_runs(cursor):
+    query = 'select RUNNUMBER, HOSTNAME, N_LUMISECTIONS from cms_stomgr.runs where runnumber > 226485'
+    print query
+    cursor.execute(query)
+    for result in cursor:
+        print 'run, hostname, lumis:', result
+## dump_runs 
 
 
 #______________________________________________________________________________
