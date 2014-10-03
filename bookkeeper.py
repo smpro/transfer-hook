@@ -34,8 +34,9 @@ import cx_Oracle
 #----------------
 #total      1400
 
-# _db_config = '.db.int2r.stomgr_w.cfg.py'
-_db_config = '.db.rcms.stomgr_w.cfg.py'
+_dry_run = True
+_db_config = '.db.int2r.stomgr_w.cfg.py'
+# _db_config = '.db.rcms.stomgr_w.cfg.py'
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
@@ -49,6 +50,7 @@ _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM']
 
 #_______________________________________________________________________________
 def main():
+    setup()
     run_dir            = os.path.join(_input_dir, 'run%d' % _run_number)
     json_filenames     = get_json_filenames(run_dir)
     stream_lumi_map    = parse_json_filenames(json_filenames)
@@ -76,6 +78,16 @@ def main():
     connection.commit()
     connection.close()
 ## main
+
+
+#_______________________________________________________________________________
+def setup():
+    global execute_sql
+    if _dry_run:
+        execute_sql = lambda cursor, statement: None ## Does no work
+    else:
+        execute_sql = lambda cursor, statement: cursor.execute(statement)
+## setup
 
 
 #_______________________________________________________________________________
@@ -258,9 +270,9 @@ def insert(values, table, cursor):
              line_to_format.format(**values)     ]
     statement = '\n'.join(lines)
     print 'SQL>', statement, ';'
-    cursor.execute(statement)
+    execute_sql(cursor, statement)
 ## insert
-    
+
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
