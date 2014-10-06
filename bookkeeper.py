@@ -68,16 +68,22 @@ def main():
     ## N is the total number of lumis, which is equal to the number of the
     ## last lumi stored in the last_lumi variable
     files_per_lumi = {}
+    missing_lumi_map = {}
     for stream, lumi_map in stream_lumi_map.items():
         if stream in _excluded_streams:
             print 'Skipping stream', stream
             continue
         files_per_lumi[stream] = get_files_per_lumi(lumi_map, last_lumi)
+        present_lumis = lumi_map.keys()
+        missing_lumi_map[stream] = get_missing_lumis(present_lumis, last_lumi)
+        print 'Missing lumis for stream %s:' % stream
+        pprint.pprint(missing_lumi_map[stream])
     # report(stream_lumi_map, files_per_lumi)
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
-    fill_streams(files_per_lumi, cursor)
-    fill_runs(last_lumi, cursor)
+    #fill_streams(files_per_lumi, cursor)
+    #fill_runs(last_lumi, cursor)
+    fill_missing_lumis(missing_lumi_map, cursor)
     connection.commit()
     connection.close()
 ## main
@@ -87,7 +93,7 @@ def main():
 def setup():
     global execute_sql
     if _dry_run:
-        execute_sql = lambda cursor, statement: None ## Does no work
+        execute_sql = lambda cursor, statement: None ## Does nothing
     else:
         execute_sql = lambda cursor, statement: cursor.execute(statement)
 ## setup
@@ -171,6 +177,21 @@ def get_files_per_lumi(lumi_map, last_lumi):
 
 
 #_______________________________________________________________________________
+def get_missing_lumis(present_lumis, last_lumi):
+    '''
+    Given the list of lumis, for which there is a JSON file present, 
+    present_lumis, and the last_lumi, returns the list of lumis
+    that have a missing JSON file.
+    '''
+    missing_lumis = []
+    for lumi in range(1, last_lumi + 1):
+        if lumi not in present_lumis:
+            missing_lumis.append(lumi)
+    return missing_lumis
+## get_missing_lumis
+
+
+#_______________________________________________________________________________
 def get_number_of_files(filename):
     '''Returns the number of files for the given run, stream and luminosity
     section.  This is either 0 or 1. It is 0 if no data file is present or
@@ -213,6 +234,14 @@ def fill_streams(files_per_lumi, cursor):
         for record in records:
             fill_number_of_files(cursor, stream, **record)
 ## fill_streams
+
+
+#_______________________________________________________________________________
+def fill_missing_lumis(missing_lumi_map, cursor):
+    for stream, missing_lumis in missing_lumi_map.items():
+        for lumi in missing_lumis:
+            fill_number_of_files(cursor, stream, lumi, number_of_files=0)
+## fill_missing_lumis
 
 
 #_______________________________________________________________________________
