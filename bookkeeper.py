@@ -23,6 +23,8 @@ import pprint
 import socket
 import cx_Oracle
 
+from collections import defaultdict
+
 #run 225*   files
 #----------------
 #075        37
@@ -103,19 +105,13 @@ def get_json_filenames(run_dir):
 
 #_______________________________________________________________________________
 def parse_json_filenames(json_filenames):
-    stream_lumi_map = {}
-    streams = set()
-    last_lumi = 0
+    stream_lumi_map = defaultdict(dict)
     for json in json_filenames:
-        meta_data = parse_single_json_filename(json)
-        if meta_data:
-            run, lumi, stream = meta_data
-        else:
-            continue
-        if stream in stream_lumi_map:
-            stream_lumi_map[stream][lumi] = json
-        else:
-            stream_lumi_map[stream] = {lumi: json}
+        try:
+            run, lumi, stream = parse_single_json_filename(json)
+        except TypeError:
+            continue ## not a meta-data JSON file
+        stream_lumi_map[stream][lumi] = json
     return stream_lumi_map
 ## parse_json_filenames
 
