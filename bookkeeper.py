@@ -1,20 +1,33 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Extracts the list of streams and lumis for a given run and the number of
-files for a given lumi of a given run and stream.
+Extracts the list of streams and luminosity sections (lumis) for a given run
+and the number of files for a given lumi of a given run and stream and inserts
+these in the database.  Supports also insertion of data only for lumis with
+missing files to fill in gaps of consecutive luminosity sections.
 
-Jan Veverka, 3 September 2014, veverka@mit.edu
+Jan Veverka, 3 September 2014 - 6 October 2014, veverka@mit.edu
 
-TODO: 
+TODO:
   * Check the meaning of CMS_STOMGR.runs.status from the twiki 
     (done 2014/09/08)
   * Understand the Tier0-usage query (done 2014/09/08)
   * Use the *_len shortcut variables for the string lengths in single json 
-    parsing
+    parsing (done 2014/10/03)
   * Use SQL variable binding 
   * Use SQL prepared statements
 '''
+
+__author__     = 'Jan Veverka'
+__copyright__  = 'Unknown'
+__credits__    = ['Hannes Sakulin', 'Dirk Hufnagel', 'Lavinia Darlea',
+                  'Guillelmo Gomez-Ceballos', 'Remi Mommsen']
+__licence__    = 'Unknonw'
+__version__    = '0.1.3'
+__maintainer__ = 'Jan Veverka'
+__email__      = 'veverka@mit.edu'
+__status__     = 'Development'
+
 import os
 import sys
 import json
@@ -45,9 +58,7 @@ _db_user = db_user
 _db_pwd = db_pwd
 _input_dir = '/store/lustre/mergeMacro'
 _run_number = 226485
-## EventDisplay and DQMHistograms should not be transferred
-## DQM should be transferred but it's taken out because it causes 
-## problems
+## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
                      'CalibrationDQM']
 
