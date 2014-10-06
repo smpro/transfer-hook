@@ -46,7 +46,8 @@ _run_number = 226485
 ## EventDisplay and DQMHistograms should not be transferred
 ## DQM should be transferred but it's taken out because it causes 
 ## problems
-_excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM']
+_excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
+                     'CalibrationDQM']
 
 #_______________________________________________________________________________
 def main():
