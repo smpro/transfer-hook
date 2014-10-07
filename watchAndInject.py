@@ -8,7 +8,9 @@ TODO:
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
    * Only process each JSON file once. Move both the JSON and data to a new 
      location first. Then inject it in the transfer.
-## new CMSSW version: 7_1_10
+   * 
+CMSSW versions
+CMSSW_7_1_10_patch1 
 '''
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -20,74 +22,92 @@ __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
-import os
-import sys
-from optparse import OptionParser
-import shlex, subprocess
-from subprocess import call
 import glob 
 import json
-import shutil
+import os
 import pprint
+import shlex
+import shutil
+import subprocess
+import sys
 import time
 
+from optparse import OptionParser
+from subprocess import call
+
+_dry_run = True
+_max_iterations = 1000
+_seconds_to_sleep = 60
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration']
-_run_number_min = 226496
+_run_number_min = 227163
 _run_number_max = 300000
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
-_new_cmssw_version = 'CMSSW_7_1_10'
-_first_run_with_new_cmssw_version = 226911
+_first_run_to_new_cmssw_version_map = {
+    226911: 'CMSSW_7_1_10',
+    227163: 'CMSSW_7_1_10_patch1',
+    }
+
 _file_status_list_to_retransfer = [
     'FILES_TRANS_NEW',
     'FILES_TRANS_COPIED',
+    #'FILES_TRANS_CHECKED',
+    'FILES_TRANS_INSERTED',
     ]
 
-def get_runs_and_hltkey(path, hltkeys):
-    runs = []
-    for run in glob.glob(path):
-        runNumber = os.path.basename(run).replace('run', '')
-        run_number = int(runNumber)
-        if run_number < _run_number_min or _run_number_max < run_number:
-            continue
-        runs.append(run)
-        if runNumber not in hltkeys.keys():
-            args = [_hltkeysscript, '-r', runNumber]
-            out, err = log_and_exec(args)
-            if err:
-                hltkeys[runNumber] = "UNKNOWN"
-            else:
-                hltkeys[runNumber] = out.strip()
-    runs.sort()
-    return runs
+
+#_______________________________________________________________________________
+def main():
+    '''
+    Main entry point to execution.
+    '''
+    options, args = parse_args()
+    for iteration in range(1, _max_iterations + 1):
+        print '======================================'
+        print '============ ITERATION %d ============' % iteration
+        print '======================================'
+        iterate(options.path)
+        time.sleep(_seconds_to_sleep)
+## main()
 
 
-def watch_and_inject(path):
-    hltkeys = dict()
-    runs_to_transfer = get_runs_and_hltkey(path, hltkeys)
-    log('Runs to transfer: ', newline=False) 
-    pprint.pprint(runs_to_transfer)
-    log('HLT keys: ', newline=False)
-    pprint.pprint(hltkeys)
-    for run in runs_to_transfer:
-        runNumber = os.path.basename(run).replace('run', '')
-        if _first_run_with_new_cmssw_version <= int(runNumber):
-            appversion = _new_cmssw_version
-        else:
-            appversion = _old_cmssw_version
-        run = "/store/lustre/mergeMacro/run" + runNumber
-        # run = "/store/lustre/oldMergeMacro/run" + runNumber
+#_______________________________________________________________________________
+def parse_args():
+    parser = OptionParser(usage="usage: %prog [-h|--help] [-p|--path]")
+    parser.add_option("-p", "--path",
+                      action="store", dest="path",
+                      help="path to watch for files to be transferred")
+    ## Add an option to path were the files should be moved after being
+    ## injected in the transfer
+    options, args = parser.parse_args()
+    if len(args) != 0:
+        parser.error('You specified an invalid option - please use -h to '
+                     'review the allowed options')
+    if (options.path == None):
+        parser.error('Please provide the path to watch')
+    return options, args
+## parse_args()
+
+
+#_______________________________________________________________________________
+def iterate(path):
+    rundirs, hltkeys = get_rundirs_and_hltkeys(path)
+    for rundir in rundirs:
+        run_number = int(os.path.basename(rundir).replace('run', ''))
+        appversion = get_cmssw_version(run_number)
+        # run = "/store/lustre/mergeMacro/run" + run_number
+        # run = "/store/lustre/oldMergeMacro/run" + run_number
         #try:
         #    os.mkdir(run + "/transferred")
         #except OSError, e:
         #    continue
         
-        print "************ Run ", runNumber, " *******************"
+        print "************ Run ", run_number, " *******************"
 
 
-        jsns = glob.glob(run + '/*jsn')
+        jsns = glob.glob(os.path.join(rundir,'*jsn'))
         jsns.sort()
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
@@ -120,11 +140,11 @@ def watch_and_inject(path):
                             "--config"  , "/opt/injectworker/.db.conf",]
                     args_transfer = [_injectscript,
                             '--filename'   , fileName,
-                            "--path"       , run,
+                            "--path"       , rundir,
                             "--type"       , "streamer",
-                            "--runnumber"  , runNumber,
-                            "--lumisection", str(lumiSection),
-                            "--numevents"  , str(eventsNumber),
+                            "--runnumber"  , run_number,
+                            "--lumisection", lumiSection,
+                            "--numevents"  , eventsNumber,
                             "--appname"    , "CMSSW",
                             "--appversion" , appversion,
                             "--stream"     , streamName,
@@ -132,7 +152,7 @@ def watch_and_inject(path):
                             "--config"     , "/opt/injectworker/.db.conf",
                             "--destination", "Global",
                             "--filesize"   , str(fileSize),
-                            "--hltkey"     , hltkeys[runNumber]]
+                            "--hltkey"     , hltkeys[run_number]]
                     args_renotify = args_transfer[:] + ["--renotify"]
                     out, err = log_and_exec(args_check, print_output=True)
                     if 'File not found in database.' in out:
@@ -147,7 +167,42 @@ def watch_and_inject(path):
                     #else:
                     #    print "I've encountered some error:\n", out
 
-def log_and_exec(args, print_output=False):        
+def get_rundirs_and_hltkeys(path):
+    rundirs, hltkeys = [], {}
+    for rundir in glob.glob(os.path.join(path, 'run*')):
+        run_number = int(os.path.basename(rundir).replace('run', ''))
+        if run_number < _run_number_min or _run_number_max < run_number:
+            continue
+        rundirs.append(rundir)
+        if run_number not in hltkeys.keys():
+            args = [_hltkeysscript, '-r', str(run_number)]
+            out, err = log_and_exec(args)
+            if err:
+                hltkeys[run_number] = "UNKNOWN"
+            else:
+                hltkeys[run_number] = out.strip()
+    rundirs.sort()
+    log('Run directories to transfer: ', newline=False)
+    pprint.pprint(rundirs)
+    log('HLT keys: ', newline=False)
+    pprint.pprint(hltkeys)
+    return rundirs, hltkeys
+
+def get_cmssw_version(run_number):
+    current_cmssw_version = _old_cmssw_version
+    ## Sort the first_run -> new_cmssw_version map by the first_run
+    sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(), 
+                             key=lambda x: x[0])
+    for first_run, new_cmssw_version in sorted_rv_pairs:
+        if first_run <= run_number:
+            current_cmssw_version = new_cmssw_version
+        else:
+            break
+    return current_cmssw_version
+
+def log_and_exec(args, print_output=False):
+    ## Make sure all arguments are strings; cast integers.
+    args = map(str, args)
     log("I'll run:\n  %s" % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
@@ -165,31 +220,12 @@ def need_to_retransfer(out):
 def log(msg, newline=True):
     msg = "%s: %s" % (strftime(), msg)
     if newline:
-	print msg
+        print msg
     else:
-	print msg,
+        print msg,
  
 def strftime():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 if __name__ == '__main__':
-    parser = OptionParser(usage="usage: %prog [-h|--help] [-p|--path]")
-    parser.add_option("-p", "--path",
-                      action="store", dest="path",
-                      help="path to watch for files to be transferred")
-
-    options, args = parser.parse_args()
-
-    if len(args) != 0:
-        parser.error("You specified an invalid option - please use -h to review the allowed options")
-
-
-    if (options.path == None):
-        parser.error('Please provide the path to watch')
- 
-    for iteration in range(1000):
-        print '======================================'
-        print '============ ITERATION %d ============' % iteration
-        print '======================================'
-        watch_and_inject(os.path.join(options.path, 'run*'))
-        time.sleep(60)
+    main()
