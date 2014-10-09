@@ -36,14 +36,14 @@ import bookkeeper
 from optparse import OptionParser
 from subprocess import call
 
-_dry_run = True
+_dry_run = False
 _max_iterations = 1000
 _seconds_to_sleep = 60
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration']
-_run_number_min = 227350
+_run_number_min = 227399
 _run_number_max = 300000
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
@@ -59,8 +59,8 @@ _file_status_list_to_retransfer = [
     #'FILES_TRANS_INSERTED',
     ]
 
-_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
-# _db_config = '.db.rcms.stomgr_w.cfg.py' # production
+# _db_config = '.db.int2r.stomgr_w.cfg.py' # integration
+_db_config = '.db.rcms.stomgr_w.cfg.py' # production
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
@@ -122,6 +122,7 @@ def iterate(path):
     for rundir in rundirs:
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         run_number = int(os.path.basename(rundir).replace('run', ''))
+        bookkeeper._run_number = run_number
         appversion = get_cmssw_version(run_number)        
         print "************ Run ", run_number, " *******************"
         jsns = glob.glob(os.path.join(rundir, '*.jsn'))
@@ -249,7 +250,7 @@ def move_to_new_rundir(src, dst):
     try:
         shutil.move(src, full_dst)
     except IOError as error:
-        if error.errno == 2 and error.filename == dst:
+        if error.errno == 2 and error.filename == full_dst:
             ## Directory dst doesn't seem to exist. Let's create it.
             print "Failed because destination does not exist."
             print "Creating `%s'." % dst
