@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
 TODO:
@@ -20,6 +20,7 @@ __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
+import cx_Oracle
 import glob 
 import json
 import os
@@ -29,6 +30,8 @@ import shutil
 import subprocess
 import sys
 import time
+
+import bookkeeper
 
 from optparse import OptionParser
 from subprocess import call
@@ -56,6 +59,12 @@ _file_status_list_to_retransfer = [
     #'FILES_TRANS_INSERTED',
     ]
 
+_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
+# _db_config = '.db.rcms.stomgr_w.cfg.py' # production
+execfile(_db_config)
+_db_sid = db_sid
+_db_user = db_user
+_db_pwd = db_pwd
 
 #_______________________________________________________________________________
 def main():
@@ -94,6 +103,8 @@ def parse_args():
 def setup():
     global log_and_maybe_exec
     global maybe_move
+    bookkeeper._dry_run = _dry_run
+    bookkeeper.setup()
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
@@ -104,22 +115,15 @@ def setup():
 
 #_______________________________________________________________________________
 def iterate(path):
+    connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
+    cursor = connection.cursor()
     new_path = get_new_path(path)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path)
     for rundir in rundirs:
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         run_number = int(os.path.basename(rundir).replace('run', ''))
-        appversion = get_cmssw_version(run_number)
-        # run = "/store/lustre/mergeMacro/run" + run_number
-        # run = "/store/lustre/oldMergeMacro/run" + run_number
-        #try:
-        #    os.mkdir(run + "/transferred")
-        #except OSError, e:
-        #    continue
-        
+        appversion = get_cmssw_version(run_number)        
         print "************ Run ", run_number, " *******************"
-
-
         jsns = glob.glob(os.path.join(rundir, '*.jsn'))
         jsns.sort()
         log('Processing JSON files: ', newline=False)
@@ -145,13 +149,10 @@ def iterate(path):
                 maybe_move(jsn_file, new_rundir)
                 maybe_move(os.path.join(rundir, fileName), new_rundir)
                 #call the actual inject script
-                if eventsNumber != 0:
-
-
-                    #this is to check the status of the files
-                    args_check = [_injectscript, '--check'                   ,
-                            '--filename', fileName                    ,
-                            "--config"  , "/opt/injectworker/.db.conf",]
+                if eventsNumber == 0:
+                    number_of_files = 0
+                else:
+                    number_of_files = 1
                     args_transfer = [_injectscript,
                             '--filename'   , fileName,
                             "--path"       , new_rundir,
@@ -167,14 +168,12 @@ def iterate(path):
                             "--destination", "Global",
                             "--filesize"   , str(fileSize),
                             "--hltkey"     , hltkeys[run_number]]
-                    args_renotify = args_transfer[:] + ["--renotify"]
-                    out, err = log_and_exec(args_check, print_output=True)
-                    if 'File not found in database.' in out:
-                        print 'Ready to transfer', jsn_file
-                        log_and_maybe_exec(args_transfer, print_output=True)
-                    elif need_to_retransfer(out):
-                        print 'Ready to re-transfer', jsn_file
-                        log_and_maybe_exec(args_renotify, print_output=True)
+                    log_and_maybe_exec(args_transfer, print_output=True)
+                bookkeeper.fill_number_of_files(cursor, streamName,                                   
+                                                lumiSection, number_of_files)
+                connection.commit()                
+    connection.close()
+## iterate()
 
 
 #_______________________________________________________________________________
