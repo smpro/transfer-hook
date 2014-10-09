@@ -33,19 +33,20 @@ import time
 from optparse import OptionParser
 from subprocess import call
 
-_dry_run = False
+_dry_run = True
 _max_iterations = 1000
 _seconds_to_sleep = 60
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration']
-_run_number_min = 227163
+_run_number_min = 227350
 _run_number_max = 300000
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
     226911: 'CMSSW_7_1_10',
     227163: 'CMSSW_7_1_10_patch1',
+    227356: 'CMSSW_7_1_10_patch2',
     }
 
 _file_status_list_to_retransfer = [
@@ -92,16 +93,21 @@ def parse_args():
 #_______________________________________________________________________________
 def setup():
     global log_and_maybe_exec
+    global maybe_move
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
+        maybe_move = mock_move_to_new_rundir
     else:
         log_and_maybe_exec = log_and_exec
+        maybe_move = move_to_new_rundir
 ## setup()
 
 #_______________________________________________________________________________
 def iterate(path):
+    new_path = get_new_path(path)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path)
     for rundir in rundirs:
+        new_rundir = os.path.join(new_path, os.path.basename(rundir))
         run_number = int(os.path.basename(rundir).replace('run', ''))
         appversion = get_cmssw_version(run_number)
         # run = "/store/lustre/mergeMacro/run" + run_number
@@ -114,7 +120,7 @@ def iterate(path):
         print "************ Run ", run_number, " *******************"
 
 
-        jsns = glob.glob(os.path.join(rundir,'*jsn'))
+        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
         jsns.sort()
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
@@ -136,7 +142,8 @@ def iterate(path):
                 streamName = str(fileName.split('_')[2].split('stream')[1])
                 if streamName in _streams_to_ignore:
                     continue
-
+                maybe_move(jsn_file, new_rundir)
+                maybe_move(os.path.join(rundir, fileName), new_rundir)
                 #call the actual inject script
                 if eventsNumber != 0:
 
@@ -147,7 +154,7 @@ def iterate(path):
                             "--config"  , "/opt/injectworker/.db.conf",]
                     args_transfer = [_injectscript,
                             '--filename'   , fileName,
-                            "--path"       , rundir,
+                            "--path"       , new_rundir,
                             "--type"       , "streamer",
                             "--runnumber"  , run_number,
                             "--lumisection", lumiSection,
@@ -168,12 +175,20 @@ def iterate(path):
                     elif need_to_retransfer(out):
                         print 'Ready to re-transfer', jsn_file
                         log_and_maybe_exec(args_renotify, print_output=True)
-                    #if "File sucessfully submitted for transfer" in out:
-                        #shutil.move(jsn_file,run + "/transferred/" + os.path.basename(jsn_file))
-                        #shutil.move(run + fileName, run + "/transferred/" + fileName)
-                    #else:
-                    #    print "I've encountered some error:\n", out
 
+
+#_______________________________________________________________________________
+def get_new_path(path):
+    '''
+    Given the path to watch, returns the new path under which the files 
+    being transferred are moved.
+    '''
+    head, tail = os.path.split(path)
+    return os.path.join(head, 'transfer')
+## get_new_path()
+
+
+#_______________________________________________________________________________
 def get_rundirs_and_hltkeys(path):
     rundirs, hltkeys = [], {}
     for rundir in glob.glob(os.path.join(path, 'run*')):
@@ -194,7 +209,10 @@ def get_rundirs_and_hltkeys(path):
     log('HLT keys: ', newline=False)
     pprint.pprint(hltkeys)
     return rundirs, hltkeys
+## get_rundirs_and_hltkeys()
 
+
+#_______________________________________________________________________________
 def get_cmssw_version(run_number):
     current_cmssw_version = _old_cmssw_version
     ## Sort the first_run -> new_cmssw_version map by the first_run
@@ -206,7 +224,45 @@ def get_cmssw_version(run_number):
         else:
             break
     return current_cmssw_version
+## get_cmssw_version()
 
+
+#_______________________________________________________________________________
+def mock_move_to_new_rundir(src, dst):
+    '''
+    Prints a message about how it would move the file src to the directory dst
+    if this was for real.
+    '''
+    ## Append the filename to the destination directory
+    dst = os.path.join(dst, os.path.basename(src))
+    print "I would do: mv %s %s" % (src, dst)
+## mock_move_to_new_rundir()
+
+
+#_______________________________________________________________________________
+def move_to_new_rundir(src, dst):
+    '''
+    Moves the file src to the directory dst. Creates dst if it doesn't exist.
+    '''
+    ## Append the filename to the destination directory
+    full_dst = os.path.join(dst, os.path.basename(src))
+    print "I'll do: mv %s %s" % (src, full_dst)
+    try:
+        shutil.move(src, full_dst)
+    except IOError as error:
+        if error.errno == 2 and error.filename == dst:
+            ## Directory dst doesn't seem to exist. Let's create it.
+            print "Failed because destination does not exist."
+            print "Creating `%s'." % dst
+            os.mkdir(dst)
+            print "Retrying: mv %s %s" % (src, full_dst)
+            shutil.move(src, full_dst)
+        else:
+            raise error
+## move_to_new_rundir()
+
+
+#_______________________________________________________________________________
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
@@ -217,27 +273,42 @@ def log_and_exec(args, print_output=False):
         print out
         print err
     return out, err
+## log_and_exec()
 
+
+#_______________________________________________________________________________
 def log_and_do_not_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
     log("I would run:\n  %s" % ' '.join(args))
+## log_and_do_not_exec()
 
+
+#_______________________________________________________________________________
 def need_to_retransfer(out):
     for status in _file_status_list_to_retransfer:
         if status.lower() in out.lower():
             return True
     return False
+## need_to_retransfer()
 
+
+#_______________________________________________________________________________
 def log(msg, newline=True):
     msg = "%s: %s" % (strftime(), msg)
     if newline:
         print msg
     else:
         print msg,
- 
+## log()
+
+
+#_______________________________________________________________________________
 def strftime():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+## strftime()
 
+
+#_______________________________________________________________________________
 if __name__ == '__main__':
     main()
