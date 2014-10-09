@@ -1,0 +1,8 @@
+# Exclude the items below
+- .rsync-filter
+- .git
+- logs
+- *.log
+- runs_to_bk*.dat
+- *.pyc
+- .db*.py
