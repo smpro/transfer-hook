@@ -49,15 +49,15 @@ from collections import defaultdict
 #----------------
 #total      1400
 
-_dry_run = True
-_db_config = '.db.int2r.stomgr_w.cfg.py'
-# _db_config = '.db.rcms.stomgr_w.cfg.py'
+_dry_run = False
+# _db_config = '.db.int2r.stomgr_w.cfg.py'
+_db_config = '.db.rcms.stomgr_w.cfg.py'
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
 _input_dir = '/store/lustre/mergeMacro'
-_run_number = 226485
+_run_number = 225115
 ## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
                      'CalibrationDQM']
@@ -80,6 +80,7 @@ def main():
     ## last lumi stored in the last_lumi variable
     files_per_lumi = {}
     missing_lumi_map = {}
+    present_lumi_map = {}
     for stream, lumi_map in stream_lumi_map.items():
         if stream in _excluded_streams:
             print 'Skipping stream', stream
@@ -87,14 +88,14 @@ def main():
         files_per_lumi[stream] = get_files_per_lumi(lumi_map, last_lumi)
         present_lumis = lumi_map.keys()
         missing_lumi_map[stream] = get_missing_lumis(present_lumis, last_lumi)
+        present_lumi_map[stream] = present_lumis
         print 'Missing lumis for stream %s:' % stream
         pprint.pprint(missing_lumi_map[stream])
-    # report(stream_lumi_map, files_per_lumi)
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
-    #fill_streams(files_per_lumi, cursor)
-    #fill_runs(last_lumi, cursor)
-    fill_missing_lumis(missing_lumi_map, cursor)
+    fill_streams(files_per_lumi, cursor, lumis_to_skip=present_lumi_map)
+    fill_runs(last_lumi, cursor)
+    #fill_missing_lumis(missing_lumi_map, cursor)
     connection.commit()
     connection.close()
 ## main
@@ -240,9 +241,11 @@ def report(stream_lumi_map, files_per_lumi):
 
 
 #_______________________________________________________________________________
-def fill_streams(files_per_lumi, cursor):
+def fill_streams(files_per_lumi, cursor, lumis_to_skip=defaultdict(list)):
     for stream, records in files_per_lumi.items():
         for record in records:
+            if record['lumi'] in lumis_to_skip[stream]:
+                continue
             fill_number_of_files(cursor, stream, **record)
 ## fill_streams
 
@@ -254,6 +257,15 @@ def fill_missing_lumis(missing_lumi_map, cursor):
             fill_number_of_files(cursor, stream, lumi, number_of_files=0)
 ## fill_missing_lumis
 
+
+#_______________________________________________________________________________
+def filtered_lumis(lumis_to_keep, lumi_file_map):
+    filtered_map = {}
+    for lumi, fcount in lumi_file_map.items():
+        if lumi in lumis_to_keep:
+            filtered_map[lumi] = fcount
+    return filtered_map
+## filtered_lumis()
 
 #_______________________________________________________________________________
 def fill_number_of_files(cursor, stream, lumi, number_of_files):
@@ -268,7 +280,7 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
         instance    = 1,
         filecount   = number_of_files,
         ## dummy for now
-        ctime       = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')",
+        ctime       = "TO_DATE('2014-10-08 14:33:48', 'YYYY-MM-DD HH24:MI:SS')",
         eols        = 1,
         )
     insert(values_to_insert, target_table, cursor)
@@ -286,9 +298,9 @@ def fill_runs(last_lumi, cursor):
         n_lumisections   = last_lumi,
         status           = 0,
         ## dummy for now
-        start_time       = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')",
+        start_time       = "TO_DATE('2014-10-08 14:33:48', 'YYYY-MM-DD HH24:MI:SS')",
         ## dummy for now
-        end_time         = "TO_DATE('2014-09-22 18:22:07', 'YYYY-MM-DD HH24:MI:SS')", 
+        end_time         = "TO_DATE('2014-10-08 14:33:48', 'YYYY-MM-DD HH24:MI:SS')", 
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         )
