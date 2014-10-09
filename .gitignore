@@ -1,3 +1,5 @@
 .db*.py
 logs/
 .*.swp
+runs_to_bk*.dat
+*.pyc
