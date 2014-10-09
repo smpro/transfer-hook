@@ -9,15 +9,13 @@ TODO:
    * Only process each JSON file once. Move both the JSON and data to a new 
      location first. Then inject it in the transfer.
    * 
-CMSSW versions
-CMSSW_7_1_10_patch1 
 '''
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
 __credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
 
 __licence__    = 'Unknonw'
-__version__    = '0.2.1'
+__version__    = '0.2.2'
 __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
@@ -35,7 +33,7 @@ import time
 from optparse import OptionParser
 from subprocess import call
 
-_dry_run = True
+_dry_run = False
 _max_iterations = 1000
 _seconds_to_sleep = 60
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
@@ -54,7 +52,7 @@ _file_status_list_to_retransfer = [
     'FILES_TRANS_NEW',
     'FILES_TRANS_COPIED',
     #'FILES_TRANS_CHECKED',
-    'FILES_TRANS_INSERTED',
+    #'FILES_TRANS_INSERTED',
     ]
 
 
@@ -64,6 +62,7 @@ def main():
     Main entry point to execution.
     '''
     options, args = parse_args()
+    setup()
     for iteration in range(1, _max_iterations + 1):
         print '======================================'
         print '============ ITERATION %d ============' % iteration
@@ -90,6 +89,14 @@ def parse_args():
     return options, args
 ## parse_args()
 
+#_______________________________________________________________________________
+def setup():
+    global log_and_maybe_exec
+    if _dry_run:
+        log_and_maybe_exec = log_and_do_not_exec
+    else:
+        log_and_maybe_exec = log_and_exec
+## setup()
 
 #_______________________________________________________________________________
 def iterate(path):
@@ -157,10 +164,10 @@ def iterate(path):
                     out, err = log_and_exec(args_check, print_output=True)
                     if 'File not found in database.' in out:
                         print 'Ready to transfer', jsn_file
-                        log_and_exec(args_transfer, print_output=True)
+                        log_and_maybe_exec(args_transfer, print_output=True)
                     elif need_to_retransfer(out):
                         print 'Ready to re-transfer', jsn_file
-                        log_and_exec(args_renotify, print_output=True)
+                        log_and_maybe_exec(args_renotify, print_output=True)
                     #if "File sucessfully submitted for transfer" in out:
                         #shutil.move(jsn_file,run + "/transferred/" + os.path.basename(jsn_file))
                         #shutil.move(run + fileName, run + "/transferred/" + fileName)
@@ -210,6 +217,11 @@ def log_and_exec(args, print_output=False):
         print out
         print err
     return out, err
+
+def log_and_do_not_exec(args, print_output=False):
+    ## Make sure all arguments are strings; cast integers.
+    args = map(str, args)
+    log("I would run:\n  %s" % ' '.join(args))
 
 def need_to_retransfer(out):
     for status in _file_status_list_to_retransfer:
