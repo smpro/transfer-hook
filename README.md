@@ -35,10 +35,13 @@ errors.  This is done every 10 seconds by default:
     nohup ./digest-copyworker-log.sh >& progress.log &
 
 Edit `watchAndInject.py` to customize the settings like:
+
   * the range of run numbers to consider,
   * streams to exclude,
   * output path (differs for mini DAQ and Global data taking)
-etc. Then, launch the transfers:
+  * etc.
+
+Then, launch the transfers:
 
     nohup ./watchAndInject.py -p /store/lustre/mergeMacro >& transfer.log &
 
@@ -50,6 +53,8 @@ Inspect the progress of the transfer hook and of the transfer system:
 Get a summary of the transfer hook log file:
 
     ./digest-transfer-hook-log.sh transfer.log
+
+The output should look something like this:
 
 ```bash
 echo 'Transferred files'; echo 'Count Run';  grep injectFileIntoTransferSystem.pl transfer_minidaq.log |  grep -v -- --check |  awk '{print $9}' |  grep -E '[[:digit:]{6}]' |  sort |  uniq -c
@@ -86,6 +91,6 @@ _input_dir = '/store/lustre/transfer_minidaq'
 
 Run the bookkeeping:
 
-    ./bookkeeper.py $(cat runs_to_bk_1.dat ) >& bkeep_1.log &
+    nohup ./bookkeeper.py $(cat runs_to_bk_1.dat ) >& bkeep_1.log &
 
 Voila, that's it!
