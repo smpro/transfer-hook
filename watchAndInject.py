@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 '''
 TODO:
-   * Include lumi bookkeeping.
+   * Include lumi bookkeeping. (first prototype done 2014/10/09)
    * Add checksums
    * Move to using the log file as the transfer test instead inject*.pl
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
    * Only process each JSON file once. Move both the JSON and data to a new 
      location first. Then inject it in the transfer.
-   * 
 '''
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -37,19 +36,24 @@ from optparse import OptionParser
 from subprocess import call
 
 _dry_run = False
-_max_iterations = 1000
-_seconds_to_sleep = 60
+_max_iterations = 10000
+_seconds_to_sleep = 120
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
+_new_path_base = 'transfer'
+#_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
-                      'DQMCalibration']
-_run_number_min = 227399
+                      'DQMCalibration', 'Error']
+_run_number_min = 229452 
 _run_number_max = 300000
+
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
     226911: 'CMSSW_7_1_10',
     227163: 'CMSSW_7_1_10_patch1',
     227356: 'CMSSW_7_1_10_patch2',
+    228783: 'CMSSW_7_2_1',
+    229521: 'CMSSW_7_2_1_patch2',
     }
 
 _file_status_list_to_retransfer = [
@@ -149,7 +153,7 @@ def iterate(path):
                     continue
                 maybe_move(jsn_file, new_rundir)
                 maybe_move(os.path.join(rundir, fileName), new_rundir)
-                #call the actual inject script
+                ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
@@ -170,9 +174,9 @@ def iterate(path):
                             "--filesize"   , str(fileSize),
                             "--hltkey"     , hltkeys[run_number]]
                     log_and_maybe_exec(args_transfer, print_output=True)
-                bookkeeper.fill_number_of_files(cursor, streamName,                                   
+                bookkeeper.fill_number_of_files(cursor, streamName,
                                                 lumiSection, number_of_files)
-                connection.commit()                
+                connection.commit()
     connection.close()
 ## iterate()
 
@@ -184,15 +188,15 @@ def get_new_path(path):
     being transferred are moved.
     '''
     head, tail = os.path.split(path)
-    return os.path.join(head, 'transfer')
+    return os.path.join(head, _new_path_base)
 ## get_new_path()
 
 
 #_______________________________________________________________________________
 def get_rundirs_and_hltkeys(path):
     rundirs, hltkeys = [], {}
-    for rundir in glob.glob(os.path.join(path, 'run*')):
-        run_number = int(os.path.basename(rundir).replace('run', ''))
+    for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
+        run_number = get_run_number(rundir)
         if run_number < _run_number_min or _run_number_max < run_number:
             continue
         rundirs.append(rundir)
@@ -210,6 +214,13 @@ def get_rundirs_and_hltkeys(path):
     pprint.pprint(hltkeys)
     return rundirs, hltkeys
 ## get_rundirs_and_hltkeys()
+
+
+#_______________________________________________________________________________
+def get_run_number(rundir):
+    run_token = rundir.split('_')[0]
+    return int(os.path.basename(run_token).replace('run', ''))
+## get_run_number
 
 
 #_______________________________________________________________________________
