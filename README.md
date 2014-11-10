@@ -71,15 +71,48 @@ Count Run
 
 ## Bookkeeping Recipes
 
+## Bookkeeping Recipes
+
 Setup the environment:
 
     ssh srv-c2c07-16
-    ## Use your custom path here
-    cd daq/mwgr/transferTest
+    sudo su -
+    cd /opt/transferTests
 
-Get the list of runs to bookkeep:
+Get the list of all the runs to bookkeep:
 
-    rsync -avv /opt/transferTests/runs_to_bk_*.dat .
+    ./list-runs.sh > runs_to_bk_all.dat
+
+Edit `runs_to_bk_all.dat` and remove all runs that may still be ongoing or
+being transferred. Use your judgement.
+
+The output of the scripts `list-runs-and-times.sh` and
+`digest-transfer-hook-log.sh` may be helpful. You can see the list of runs
+with times of the last changes to the run folder like this:
+
+    ./list-runs-and-times.sh
+
+You can see the number of files that have been submitted to the transfer
+broken down by the run number like this:
+
+    ./digest-transfer-hook-log.sh transfer.log
+
+Here, `transfer.log` should be the name of the most recent log file containing
+the output of `watchAndInject.py`.
+
+The files `runs_to_bk_{1...${NBOOK}}.dat` contain the lists of run numbers that
+have already been bookkept, with $N giving the last one.  We do *not* want to
+repeat the bookkeeping for these.  Therefore, we will create a new file
+`runs_to_bk_${M}.dat`, with $M = $NBOOK + 1, containing only the runs, for which
+we need to run the bookkeeping.
+
+    ./create-list-of-runs-to-bookkeep.sh
+
+The output should look like this:
+
+```bash
+Created `runs_to_bk_2.dat'
+```
 
 Edit bookkeeper.py to customize the bookkeeper settings:
 
@@ -89,8 +122,15 @@ Edit bookkeeper.py to customize the bookkeeper settings:
 _input_dir = '/store/lustre/transfer_minidaq'
 ```
 
-Run the bookkeeping:
+Launch the bookkeeping:
 
-    nohup ./bookkeeper.py $(cat runs_to_bk_1.dat ) >& bkeep_1.log &
+    . launch-bookkeeping.sh
+
+The output should look like this:
+```bash
+Using `runs_to_bk_2.dat' for the run list.
+Logging output to `bkeep_2.log'.
+nohup ./bookkeeper.py $(cat runs_to_bk_2.dat) >& bkeep_2.log &
+```
 
 Voila, that's it!
