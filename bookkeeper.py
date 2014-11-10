@@ -50,20 +50,27 @@ from collections import defaultdict
 #total      1400
 
 _dry_run = False
-# _db_config = '.db.int2r.stomgr_w.cfg.py'
+#test db, will not be read by Tier0
+#_db_config = '.db.int2r.stomgr_w.cfg.py'
+
+#the real db, will be read and processed by Tier0
 _db_config = '.db.rcms.stomgr_w.cfg.py'
+
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
-_input_dir = '/store/lustre/mergeMacro'
-_run_number = 225115
+# _input_dir = '/store/lustre/mergeMacro'
+_input_dir = '/store/lustre/transfer'
+#_input_dir = '/store/lustre/transfer_minidaq'
+_run_number = 227420
 ## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
-                     'CalibrationDQM']
+                     'CalibrationDQM', 'Error']
 
 #_______________________________________________________________________________
 def main():
+    print 'Running', ' '.join(sys.argv), '...'
     setup()
     run_dir            = os.path.join(_input_dir, 'run%d' % _run_number)
     json_filenames     = get_json_filenames(run_dir)
@@ -87,15 +94,15 @@ def main():
             continue
         files_per_lumi[stream] = get_files_per_lumi(lumi_map, last_lumi)
         present_lumis = lumi_map.keys()
-        missing_lumi_map[stream] = get_missing_lumis(present_lumis, last_lumi)
         present_lumi_map[stream] = present_lumis
+        missing_lumi_map[stream] = get_missing_lumis(present_lumis, last_lumi)
         print 'Missing lumis for stream %s:' % stream
         pprint.pprint(missing_lumi_map[stream])
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
-    fill_streams(files_per_lumi, cursor, lumis_to_skip=present_lumi_map)
+    #fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
+    fill_missing_lumis(missing_lumi_map, cursor)
     fill_runs(last_lumi, cursor)
-    #fill_missing_lumis(missing_lumi_map, cursor)
     connection.commit()
     connection.close()
 ## main
@@ -105,6 +112,7 @@ def main():
 def setup():
     global execute_sql
     if _dry_run:
+        print 'INFO: Setting up a dry run.'
         execute_sql = lambda cursor, statement: None ## Does nothing
     else:
         execute_sql = lambda cursor, statement: cursor.execute(statement)
