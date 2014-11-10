@@ -1,9 +1,8 @@
 #!/bin/bash
 ##
 ## USAGE:
-##   $ ./digest-copyworker-log.sh &
+##   $ ./digest-copyworker-log.sh >& progress.log &
 ##
-PROGRESS_LOG=progress.log
 SECONDS_TO_SLEEP=10
 echo "Appending output to $PROGRESS_LOG every $SECONDS_TO_SLEEP seconds."
 while true; do
@@ -12,6 +11,6 @@ while true; do
     SCOUNT="$(grep succeeded $COPYWORKER_LOG | wc -l)"
     ECOUNT="$(grep uninitialized $COPYWORKER_LOG | wc -l)"
     MESSAGE="$HEADER $SCOUNT succeeded transfers and $ECOUNT 'uninitialized' errors."
-    echo $MESSAGE >> $PROGRESS_LOG
+    echo $MESSAGE 
     sleep $SECONDS_TO_SLEEP
 done
