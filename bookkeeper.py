@@ -66,7 +66,7 @@ _input_dir = '/store/lustre/transfer'
 _run_number = 227420
 ## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
-                     'CalibrationDQM', 'Error']
+                     'CalibrationDQM', 'Error', 'HLTRates', 'L1Rates']
 
 #_______________________________________________________________________________
 def main():
