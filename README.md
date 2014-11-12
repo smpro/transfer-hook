@@ -71,8 +71,6 @@ Count Run
 
 ## Bookkeeping Recipes
 
-## Bookkeeping Recipes
-
 Setup the environment:
 
     ssh srv-c2c07-16
@@ -81,7 +79,8 @@ Setup the environment:
 
 Get the list of all the runs to bookkeep:
 
-    ./list-runs.sh > runs_to_bk_all.dat
+    ./list-runs.sh > new_runs_to_bk.dat
+    cat new_runs_to_bk.dat runs_to_bk_*.dat | sort | uniq > runs_to_bk_all.dat
 
 Edit `runs_to_bk_all.dat` and remove all runs that may still be ongoing or
 being transferred. Use your judgement.
