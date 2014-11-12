@@ -43,8 +43,8 @@ _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _new_path_base = 'transfer'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
-                      'DQMCalibration', 'Error']
-_run_number_min = 229452 
+                      'DQMCalibration', 'Error', 'HLTRates', 'L1Rates']
+_run_number_min = 229714
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
@@ -54,6 +54,7 @@ _first_run_to_new_cmssw_version_map = {
     227356: 'CMSSW_7_1_10_patch2',
     228783: 'CMSSW_7_2_1',
     229521: 'CMSSW_7_2_1_patch2',
+    229710: 'CMSSW_7_2_1_patch4',
     }
 
 _file_status_list_to_retransfer = [
