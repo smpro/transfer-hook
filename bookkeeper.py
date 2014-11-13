@@ -38,22 +38,11 @@ import cx_Oracle
 
 from collections import defaultdict
 
-#run 225*   files
-#----------------
-#075        37
-#080        91
-#115        15
-#117        213
-#119        200
-#125        844
-#----------------
-#total      1400
-
 _dry_run = False
-#test db, will not be read by Tier0
+# Integration DB, will not be read by Tier0
 #_db_config = '.db.int2r.stomgr_w.cfg.py'
 
-#the real db, will be read and processed by Tier0
+# Production DB, will be read and processed by Tier0
 _db_config = '.db.rcms.stomgr_w.cfg.py'
 
 execfile(_db_config)
@@ -63,14 +52,13 @@ _db_pwd = db_pwd
 # _input_dir = '/store/lustre/mergeMacro'
 _input_dir = '/store/lustre/transfer'
 #_input_dir = '/store/lustre/transfer_minidaq'
-_run_number = 227420
+_run_number = 229781
 ## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',
                      'CalibrationDQM', 'Error', 'HLTRates', 'L1Rates']
 
 #_______________________________________________________________________________
 def main():
-    print 'Running', ' '.join(sys.argv), '...'
     setup()
     run_dir            = os.path.join(_input_dir, 'run%d' % _run_number)
     json_filenames     = get_json_filenames(run_dir)
@@ -333,6 +321,7 @@ def insert(values, table, cursor):
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
+    print 'Running', ' '.join(sys.argv), '...'
     if len(sys.argv) > 1:
         for run_number_as_str in sys.argv[1:]:
             _run_number = int(run_number_as_str)
