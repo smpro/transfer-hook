@@ -38,12 +38,12 @@ import cx_Oracle
 
 from collections import defaultdict
 
-_dry_run = False
+_dry_run = True
 # Integration DB, will not be read by Tier0
-#_db_config = '.db.int2r.stomgr_w.cfg.py'
+_db_config = '.db.int2r.stomgr_w.cfg.py'
 
 # Production DB, will be read and processed by Tier0
-_db_config = '.db.rcms.stomgr_w.cfg.py'
+#_db_config = '.db.rcms.stomgr_w.cfg.py'
 
 execfile(_db_config)
 _db_sid = db_sid
