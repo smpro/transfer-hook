@@ -49,7 +49,7 @@ class Config(object):
     '''
     def __init__(self, filename=None):
         self.filename = filename
-        self.input_path = '/store/lustre/transfer'
+        self.input_path = '/store/lustre/mergeMacro'
         self.logging_filename = None
         self.logging_level = logging.DEBUG
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
@@ -58,6 +58,7 @@ class Config(object):
         self.runs_last  = None
         if filename:
             self._parse_config_file()
+    ## __init__
 
     def _parse_config_file():
         parser = ConfigParser.ConfigParser()
@@ -66,7 +67,7 @@ class Config(object):
         self.logging_filename = parser.get('Logging', 'filename')
         self.logging_level = getattr(logging, parser.get('Logging', 'level'))
         self.logging_format = parser.get('Logging', 'format', True)
-    ## __init__
+    ## _parse_config_file
 ## Config
 
 
@@ -132,11 +133,12 @@ class Run(object):
     def process(self):
         self._get_eor_files()
     def _get_eor_files(self):
-        self.eor_files = []
+        files = []
         for filename in glob.glob(os.path.join(self.dir, '*MiniEoR*.jsn')):
             myfile = metafile.File(filename)
-            if myfile.file_type == metafile.Type.MiniEoR:
-                eor_files.append(metafile)
+            if myfile.file_type == metafile.FileType.MiniEoR:
+                files.append(metafile)
+        self.eor_files = files
 ## Run
 
 

@@ -39,5 +39,6 @@ class FileName(object):
 #_______________________________________________________________________________
 class File(FileName):
     def __init__(self, path):
+        FileName.__init__(self, path)
         pass
 ## File
