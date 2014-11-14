@@ -55,7 +55,7 @@ class Config(object):
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
         self.runs_first = 229824
-        self.runs_last  = None
+        self.runs_last  = 300000
         if filename:
             self._parse_config_file()
     ## __init__
@@ -99,7 +99,10 @@ def setup(cfg):
 def process(cfg):
     logging.info('Processing path %s ...' % cfg.input_path)
     for run in get_runs(cfg):
-        run.process()
+        if run.is_complete():
+            logging.info('Closing run %d ...' % run.number)
+        else:
+            logging.info('Run %d is incomplete.' % run.number)        
     logging.info('Finished processing path %s.' % cfg.input_path)
 ## process
 
@@ -130,15 +133,19 @@ class Run(object):
     def __init__(self, path):
         self.dir = path
         self.number = int(os.path.basename(path).replace('run', ''))
-    def process(self):
-        self._get_eor_files()
-    def _get_eor_files(self):
+        
+    def is_complete(self):
+        result = False
+        eor_files = self._get_minieor_files()
+        return result
+        
+    def _get_minieor_files(self):
         files = []
         for filename in glob.glob(os.path.join(self.dir, '*MiniEoR*.jsn')):
             myfile = metafile.File(filename)
-            if myfile.file_type == metafile.FileType.MiniEoR:
-                files.append(metafile)
-        self.eor_files = files
+            if myfile.type == metafile.Type.MiniEoR:
+                files.append(myfile)
+        return files
 ## Run
 
 
