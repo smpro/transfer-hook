@@ -35,6 +35,7 @@ __status__     = 'Development'
 
 
 import os
+import json
 import enum
 
 ## Enumerates different types of JSON meta files.
@@ -78,10 +79,11 @@ class Filename(object):
         tokens = root.split('_')
         if not len(tokens) == 4:
             self._raise_bad_filename("expect `*_*_*_*.jsn' form")
-        runtoken, lumitoken = tokens[:2]
-        self._parse_runnumber(runtoken)
-        self._parse_lumi(lumitoken)
-        self._parse_file_type(tokens[2])
+        run_token, lumi_token, type_token, hostname_token = tokens
+        self._parse_runnumber(run_token     )
+        self._parse_lumi     (lumi_token    )
+        self._parse_type     (type_token    )
+        self._parse_hostname (hostname_token)
 
     def _raise_bad_filename(self, msg=''):
         if msg:
@@ -104,7 +106,7 @@ class Filename(object):
         except ValueError:
             self._raise_bad_filename("expect `*_ls<M>_*_*.jsn' form")
             
-    def _parse_file_type(self, token):
+    def _parse_type(self, token):
         if 'stream' in token:
             self.type = Type.MacroMerger
             self._parse_stream(token)
@@ -115,6 +117,11 @@ class Filename(object):
             
     def _parse_stream(self, token):
         self.stream = token.replace('stream', '')
+        
+    def _parse_hostname(self, token):
+        if self.type == Type.MiniEoR or (self.type == Type.MacroMerger and 
+                                         token     != 'StorageManager'):
+            self.hostname = token
 ## Filename
 
 
@@ -122,9 +129,33 @@ class Filename(object):
 class File(Filename):
     def __init__(self, path):
         Filename.__init__(self, path)
-        pass
+        self._load()
+
+    def _load(self):
+        with open(self.path) as source:
+            self.data = json.load(source)
 ## File
 
+
+#_______________________________________________________________________________
+class MiniEoRFile(File):
+    def __init__(self, path):
+        File.__init__(self, path)
+        if self.type != Type.MiniEoR or self.ls != 0:
+            self._raise_bad_filename(
+                "expect `run<N>_ls0000_MiniEoR_<bu>.jsn' form!"
+                )
+        self._parse_data()
+        
+    def _parse_data(self):
+        for key in 'numberBoLSFiles eventsInputFU eventsTotalEoR'.split():
+            value = self.data[key]
+            setattr(self, key, value)
+            
+    def is_run_complete(self):
+        return (self.numberBoLSFiles == 0 and
+                self.eventsInputFU   == self.eventsTotalEoR)
+## MiniEoRFile
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
