@@ -55,6 +55,9 @@ USAGE:
 
     ... and it does. It seems that Python is well aware of the file test.lock,
     independent if it's locked or not.
+
+TODO:
+    * Open in 'r+w' mode.
 '''
 
 import fcntl
@@ -72,9 +75,9 @@ def main():
     lock_check_size_and_write()
 
 #_______________________________________________________________________________
-def check_if_exists_lock_and_write():
+def check_existence_lock_and_write():
     if os.path.exists(fname):
-        log.info('%s exists. Opening it for appending ...' % fname)
+        log.debug('%s exists. Opening it for appending ...' % fname)
         with open(fname, 'a') as fdesc:
             lock_and_write(fdesc, 'This is another line.')
     else:
