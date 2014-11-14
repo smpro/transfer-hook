@@ -66,10 +66,12 @@ fname = '/store/lustre/test/veverka/test.lock'
 log.basicConfig(level=log.DEBUG,
                 format='%(asctime)s: %(message)s')
 
+#_______________________________________________________________________________
 def main():
-    #check_if_exists_lock_and_write()
-    check_if_empty_lock_and_write()
+    #check_existence_lock_and_write()
+    lock_check_size_and_write()
 
+#_______________________________________________________________________________
 def check_if_exists_lock_and_write():
     if os.path.exists(fname):
         log.info('%s exists. Opening it for appending ...' % fname)
@@ -81,7 +83,8 @@ def check_if_exists_lock_and_write():
             lock_and_write(fdesc, 'This is the first line in the file.')
     log.info('Closed %s.' % fname)
 
-def check_if_empty_lock_and_write():
+#_______________________________________________________________________________
+def lock_check_size_and_write():
     log.info('Opening %s for appending ...' % fname)
     with open(fname, 'a') as fdesc:
         log.info('Locking %s ...' % fdesc.name)
@@ -95,12 +98,14 @@ def check_if_empty_lock_and_write():
             write(fdesc, 'This is another line.')
     log.info('Closed %s.' % fname)
 
+#_______________________________________________________________________________
 def lock_and_write(fdesc, msg):
     log.info('Locking %s ...' % fdesc.name)
     fcntl.flock(fdesc, fcntl.LOCK_EX)
     write(fdesc, msg)
     fcntl.flock(fdesc, fcntl.LOCK_UN)
 
+#_______________________________________________________________________________
 def write(fdesc, msg):
     log.info('Writing into %s ...' % fdesc.name)
     fdesc.write('{0}: {1}\n'.format(get_strftime_now(), msg))
@@ -108,9 +113,11 @@ def write(fdesc, msg):
     raw_input('Hit enter to conitnue ...\n')
 
 
+#_______________________________________________________________________________
 def get_strftime_now():
     now = datetime.datetime.now()
     return now.strftime("%H:%M:%S")
 
+#_______________________________________________________________________________
 if __name__ == '__main__':
     main()
