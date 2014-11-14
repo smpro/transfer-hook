@@ -7,6 +7,15 @@ Jan Veverka, 13 November 2014, veverka@mit.edu
 
 USAGE:
     ./eor.py eor.cfg
+
+TODO:
+    * Add protection against missing MiniEoR files; options include:
+        * Add the total sum over all BUs of the processed number of events 
+          from upstream in the MiniEoR file
+        * Obtain the list of BUs from somewhere and make sure we have
+          all the MiniEoR files.
+    * Suppress less important messages INFO -> DEBUG
+    * Factor out the Run class into a separate file
 '''
 
 __author__     = 'Jan Veverka'
@@ -49,13 +58,14 @@ class Config(object):
     '''
     def __init__(self, filename=None):
         self.filename = filename
-        self.general_dryrun = True
+        self.general_dryrun = False
         self.input_path = '/store/lustre/mergeMacro'
-        self.logging_filename = None
+        ## Set to None for logging to STDOUT
+        self.logging_filename = 'eor.log'
         self.logging_level = logging.DEBUG
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 229824
+        self.runs_first = 229713
         self.runs_last  = 300000
         if filename:
             self._parse_config_file()
