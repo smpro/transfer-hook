@@ -62,30 +62,51 @@ import os
 import logging as log
 import datetime
 
+fname = '/store/lustre/test/veverka/test.lock'
 log.basicConfig(level=log.DEBUG,
                 format='%(asctime)s: %(message)s')
 
 def main():
-    fname = '/store/lustre/test/veverka/test.lock'
+    #check_if_exists_lock_and_write()
+    check_if_empty_lock_and_write()
 
+def check_if_exists_lock_and_write():
     if os.path.exists(fname):
-        log.info('%s exists' % fname)
-        with open(fname, 'a') as myfile:
-            write_with_lock(myfile, 'This line is appended to an existing file.')
+        log.info('%s exists. Opening it for appending ...' % fname)
+        with open(fname, 'a') as fdesc:
+            lock_and_write(fdesc, 'This is another line.')
     else:
         log.info('%s does not exist. Creating it ...' % fname)
-        with open(fname, 'w') as myfile:
-            write_with_lock(myfile, 'This is the first line in the file.')
+        with open(fname, 'w') as fdesc:
+            lock_and_write(fdesc, 'This is the first line in the file.')
     log.info('Closed %s.' % fname)
 
-def write_with_lock(fd, msg):
-    log.info('Locking %s ...' % fd.name)
-    fcntl.flock(fd, fcntl.LOCK_EX)
-    log.info('Writing into %s ...' % fd.name)
-    fd.write('{0}: {1}\n'.format(get_strftime_now(), msg))
-    fd.flush()
+def check_if_empty_lock_and_write():
+    log.info('Opening %s for appending ...' % fname)
+    with open(fname, 'a') as fdesc:
+        log.info('Locking %s ...' % fdesc.name)
+        fcntl.flock(fdesc, fcntl.LOCK_EX)
+        log.info('Checking size of %s ...' % fdesc.name)
+        if os.path.getsize(fdesc.name) == 0:
+            log.info('%s is empty. Writing first line ...' % fdesc.name)
+            write(fdesc, 'This is the first line in the file.')
+        else:
+            log.info('%s is non-empty. Writing another line ...' % fdesc.name)
+            write(fdesc, 'This is another line.')
+    log.info('Closed %s.' % fname)
+
+def lock_and_write(fdesc, msg):
+    log.info('Locking %s ...' % fdesc.name)
+    fcntl.flock(fdesc, fcntl.LOCK_EX)
+    write(fdesc, msg)
+    fcntl.flock(fdesc, fcntl.LOCK_UN)
+
+def write(fdesc, msg):
+    log.info('Writing into %s ...' % fdesc.name)
+    fdesc.write('{0}: {1}\n'.format(get_strftime_now(), msg))
+    fdesc.flush()
     raw_input('Hit enter to conitnue ...\n')
-    fcntl.flock(fd, fcntl.LOCK_UN)
+
 
 def get_strftime_now():
     now = datetime.datetime.now()
