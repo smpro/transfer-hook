@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Detects the macromerger end-of-run and reacts to it by producing a corresponding
-JSON file.
+Detects the macromerger end-of-run and reacts to it by closing the given run.
 
 Jan Veverka, 13 November 2014, veverka@mit.edu
 
@@ -25,6 +24,7 @@ import logging
 import os
 import sys
 
+import bookkeeper
 import metafile
 
 
@@ -49,6 +49,7 @@ class Config(object):
     '''
     def __init__(self, filename=None):
         self.filename = filename
+        self.general_dryrun = True
         self.input_path = '/store/lustre/mergeMacro'
         self.logging_filename = None
         self.logging_level = logging.DEBUG
@@ -92,6 +93,7 @@ def setup(cfg):
     logging.basicConfig(filename = cfg.logging_filename,
                         level    = cfg.logging_level,
                         format   = cfg.logging_format)
+    bookkeeper._dry_run = cfg.general_dryrun
 ## setup
 
 
@@ -101,8 +103,10 @@ def process(cfg):
     for run in get_runs(cfg):
         if run.is_complete():
             logging.info('Closing run %d ...' % run.number)
+            bookkeeper._run_number = run.number
+            bookkeeper.main()
         else:
-            logging.info('Run %d is incomplete.' % run.number)        
+            logging.warning('Run %d is incomplete!' % run.number)
     logging.info('Finished processing path %s.' % cfg.input_path)
 ## process
 
@@ -134,18 +138,18 @@ class Run(object):
         self.dir = path
         self.number = int(os.path.basename(path).replace('run', ''))
         
-    def is_complete(self):
-        result = False
-        eor_files = self._get_minieor_files()
-        return result
+    def is_complete(self, bu_count=15):
+        eorfiles = self._get_minieor_files()
+        if len(eorfiles) != bu_count:
+            return False
+        for eorfile in eorfiles:
+            if not eorfile.is_run_complete():
+                return False
+        return True
         
     def _get_minieor_files(self):
-        files = []
-        for filename in glob.glob(os.path.join(self.dir, '*MiniEoR*.jsn')):
-            myfile = metafile.File(filename)
-            if myfile.type == metafile.Type.MiniEoR:
-                files.append(myfile)
-        return files
+        mask = os.path.join(self.dir, '*MiniEoR*.jsn')
+        return [metafile.MiniEoRFile(f) for f in glob.glob(mask)]
 ## Run
 
 
