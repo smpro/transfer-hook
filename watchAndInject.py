@@ -9,6 +9,7 @@ TODO:
    * Only process each JSON file once. Move both the JSON and data to a new 
      location first. Then inject it in the transfer.
 '''
+
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
 __credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
