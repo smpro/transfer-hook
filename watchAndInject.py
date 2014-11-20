@@ -44,8 +44,8 @@ _new_path_base = 'transfer'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration', 'Error', 'HLTRates', 'L1Rates']
-_run_number_min = 229714
-_run_number_max = 300000
+_run_number_min = 229847
+_run_number_max = 229855
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
@@ -63,6 +63,9 @@ _file_status_list_to_retransfer = [
     #'FILES_TRANS_CHECKED',
     #'FILES_TRANS_INSERTED',
     ]
+
+## Defualt is False, set this to True if you want to re-transfer.
+_renotify = False
 
 # _db_config = '.db.int2r.stomgr_w.cfg.py' # integration
 _db_config = '.db.rcms.stomgr_w.cfg.py' # production
@@ -173,7 +176,9 @@ def iterate(path):
                             "--config"     , "/opt/injectworker/.db.conf",
                             "--destination", "Global",
                             "--filesize"   , str(fileSize),
-                            "--hltkey"     , hltkeys[run_number]]
+                            "--hltkey"     , hltkeys[run_number],]
+                    if _renotify:
+                        args_transfer.append('--renotify')
                     log_and_maybe_exec(args_transfer, print_output=True)
                 bookkeeper.fill_number_of_files(cursor, streamName,
                                                 lumiSection, number_of_files)
@@ -258,6 +263,14 @@ def move_to_new_rundir(src, dst):
     '''
     ## Append the filename to the destination directory
     full_dst = os.path.join(dst, os.path.basename(src))
+
+    if os.path.exists(full_dst):
+        if os.path.samefile(src, full_dst):
+            print "No need to do: mv %s %s, it is the same file." % (src,
+                                                                     full_dst)
+            return
+        else:
+            raise RuntimeError, "Destination file `%s' exists!" % full_dst
     print "I'll do: mv %s %s" % (src, full_dst)
     try:
         shutil.move(src, full_dst)
