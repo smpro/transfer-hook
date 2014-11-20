@@ -72,7 +72,8 @@ log.basicConfig(level=log.DEBUG,
 #_______________________________________________________________________________
 def main():
     #check_existence_lock_and_write()
-    lock_check_size_and_write()
+    #lock_check_size_and_write()
+    create_lock_check_size_and_update()
 
 #_______________________________________________________________________________
 def check_existence_lock_and_write():
@@ -88,7 +89,7 @@ def check_existence_lock_and_write():
 
 #_______________________________________________________________________________
 def lock_check_size_and_write():
-    log.info('Opening %s for appending ...' % fname)
+    log.debug('Opening %s for appending ...' % fname)
     with open(fname, 'a') as fdesc:
         log.info('Locking %s ...' % fdesc.name)
         fcntl.flock(fdesc, fcntl.LOCK_EX)
@@ -102,6 +103,27 @@ def lock_check_size_and_write():
     log.info('Closed %s.' % fname)
 
 #_______________________________________________________________________________
+def create_lock_check_size_and_update():
+    log.debug('Making sure that %s exists ...' % fname)
+    ## open(fname, 'r+w') fails if fname doesn't exist
+    with open(fname, 'a') as fdesc:
+        pass
+    log.debug('Opening %s in "r+w" mode ...' % fname)
+    with open(fname, 'r+w') as fdesc:
+        log.info('Locking %s ...' % fdesc.name)
+        fcntl.flock(fdesc, fcntl.LOCK_EX)
+        log.info('Checking size of %s ...' % fdesc.name)
+        if os.path.getsize(fdesc.name) == 0:
+            log.info('%s is empty. Writing first line ...' % fdesc.name)
+            update(fdesc, 'This is the first line in the file.')
+        else:
+            log.info('%s is non-empty. Writing another line ...' % fdesc.name)
+            update(fdesc, 'This is another line.')
+    log.info('Closed %s.' % fname)
+        
+        
+
+#_______________________________________________________________________________
 def lock_and_write(fdesc, msg):
     log.info('Locking %s ...' % fdesc.name)
     fcntl.flock(fdesc, fcntl.LOCK_EX)
@@ -112,9 +134,17 @@ def lock_and_write(fdesc, msg):
 def write(fdesc, msg):
     log.info('Writing into %s ...' % fdesc.name)
     fdesc.write('{0}: {1}\n'.format(get_strftime_now(), msg))
-    fdesc.flush()
     raw_input('Hit enter to conitnue ...\n')
 
+
+#_______________________________________________________________________________
+def update(fdesc, msg):
+    log.debug('Updating %s ...' % fdesc.name)
+    contents = fdesc.read()
+    log.debug('File %s contains: %s' % (fdesc.name, contents))
+    contents += '%s: %s\n' % (get_strftime_now(), msg)
+    fdesc.write(contents)
+    raw_input('Hit enter to conitnue ...\n')
 
 #_______________________________________________________________________________
 def get_strftime_now():
