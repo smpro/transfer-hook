@@ -1,0 +1,3 @@
+Notes on the automation of the EoR bookkeeping
+
+run230294 has the new EOR format
