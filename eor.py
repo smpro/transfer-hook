@@ -29,6 +29,7 @@ __status__     = 'Development'
 
 import ConfigParser
 import glob
+import json
 import logging
 import os
 import sys
@@ -36,6 +37,7 @@ import sys
 import bookkeeper
 import metafile
 
+from merger.cmsDataFlowCleanUp import isCompleteRun
 
 #_______________________________________________________________________________
 def main():
@@ -58,15 +60,15 @@ class Config(object):
     '''
     def __init__(self, filename=None):
         self.filename = filename
-        self.general_dryrun = False
+        self.general_dryrun = True
         self.input_path = '/store/lustre/mergeMacro'
         ## Set to None for logging to STDOUT
         self.logging_filename = 'eor.log'
         self.logging_level = logging.DEBUG
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 229713
-        self.runs_last  = 300000
+        self.runs_first = 230195
+        self.runs_last  = 230290
         if filename:
             self._parse_config_file()
     ## __init__
@@ -111,7 +113,7 @@ def setup(cfg):
 def process(cfg):
     logging.info('Processing path %s ...' % cfg.input_path)
     for run in get_runs(cfg):
-        if run.is_complete():
+        if run.is_complete2():
             logging.info('Closing run %d ...' % run.number)
             bookkeeper._run_number = run.number
             bookkeeper.main()
@@ -147,7 +149,6 @@ class Run(object):
     def __init__(self, path):
         self.dir = path
         self.number = int(os.path.basename(path).replace('run', ''))
-        
     def is_complete(self, bu_count=15):
         eorfiles = self._get_minieor_files()
         if len(eorfiles) != bu_count:
@@ -156,7 +157,16 @@ class Run(object):
             if not eorfile.is_run_complete():
                 return False
         return True
-        
+    def is_complete2(self, debug=10, threshold=1.0, suffix='hook'):
+        isCompleteRun(debug = debug,
+                      theInputDataFolder = self.dir,
+                      completeMergingThreshold = threshold,
+                      outputEndName = suffix)
+        eor_fname = '_'.join([os.path.basename(self.dir), 'ls0000',
+                              'MacroEoR', suffix]) + '.jsn'
+        with open(os.path.join(self.dir, eor_fname)) as source:
+            data = json.load(source)
+        return data['isComplete']
     def _get_minieor_files(self):
         mask = os.path.join(self.dir, '*MiniEoR*.jsn')
         return [metafile.MiniEoRFile(f) for f in glob.glob(mask)]
