@@ -9,7 +9,6 @@ TODO:
    * Only process each JSON file once. Move both the JSON and data to a new 
      location first. Then inject it in the transfer.
 '''
-
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
 __credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
@@ -45,8 +44,8 @@ _new_path_base = 'transfer'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration', 'Error', 'HLTRates', 'L1Rates']
-_run_number_min = 229847
-_run_number_max = 229855
+_run_number_min = 229831
+_run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
