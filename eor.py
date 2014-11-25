@@ -14,7 +14,6 @@ TODO:
           from upstream in the MiniEoR file
         * Obtain the list of BUs from somewhere and make sure we have
           all the MiniEoR files.
-    * Suppress less important messages INFO -> DEBUG
     * Factor out the Run class into a separate file
 '''
 
@@ -39,6 +38,8 @@ import metafile
 
 from merger.cmsDataFlowCleanUp import isCompleteRun
 
+logger = logging.getLogger(__name__)
+
 #_______________________________________________________________________________
 def main():
     '''
@@ -46,9 +47,9 @@ def main():
     '''
     cfg = get_config()
     setup(cfg)
-    logging.info('Start processing ...')
+    logger.info('Start processing ...')
     process(cfg)
-    logging.info('Exiting with great success!')
+    logger.info('Exiting with great success!')
 ## main
 
 
@@ -61,19 +62,19 @@ class Config(object):
     def __init__(self, filename=None):
         self.filename = filename
         self.general_dryrun = True
-        self.input_path = '/store/lustre/mergeMacro'
+        self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
         self.logging_filename = 'eor.log'
-        self.logging_level = logging.DEBUG
+        self.logging_level = logging.INFO
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
         self.runs_first = 230195
-        self.runs_last  = 230290
+        self.runs_last  = 230201
         if filename:
             self._parse_config_file()
     ## __init__
 
-    def _parse_config_file():
+    def _parse_config_file(self):
         parser = ConfigParser.ConfigParser()
         parser.read(self.filename)
         self.input_path = parser.get('Input', 'path')
@@ -91,7 +92,7 @@ def get_config():
     elif len(sys.argv) == 2:
         return Config(sys.argv[1])
     else:
-        logging.error("Invalid args: %s" % str(sys.argv))
+        logger.critical("Invalid args: %s" % str(sys.argv))
         print_usage()
         sys.exit(1)
 ## get_config
@@ -102,6 +103,10 @@ def setup(cfg):
     '''
     Sets up the logging configuration.  Plan to apply configuration.
     '''
+    ## Hack to undo logging config from the merger
+    logger.root.handlers = []
+    logger.disabled = 0
+    ## Now reconfigure the logging
     logging.basicConfig(filename = cfg.logging_filename,
                         level    = cfg.logging_level,
                         format   = cfg.logging_format)
@@ -111,15 +116,16 @@ def setup(cfg):
 
 #_______________________________________________________________________________
 def process(cfg):
-    logging.info('Processing path %s ...' % cfg.input_path)
+    logger.info('Processing path %s ...' % cfg.input_path)
     for run in get_runs(cfg):
         if run.is_complete2():
-            logging.info('Closing run %d ...' % run.number)
+            logger.info('Closing run %d ...' % run.number)
             bookkeeper._run_number = run.number
             bookkeeper.main()
+            run.close()
         else:
-            logging.warning('Run %d is incomplete!' % run.number)
-    logging.info('Finished processing path %s.' % cfg.input_path)
+            logger.warning('Run %d is incomplete!' % run.number)
+    logger.info('Finished processing path %s.' % cfg.input_path)
 ## process
 
 
@@ -129,26 +135,38 @@ def get_runs(cfg):
     dirnames = glob.glob(os.path.join(cfg.input_path, 'run*'))
     dirnames.sort()
     for dirname in dirnames:
-        logging.info("Inspecting `%s' ..." % dirname)
+        logger.debug("Inspecting `%s' ..." % dirname)
         try:
             run = Run(dirname)
             if cfg.runs_first and run.number < cfg.runs_first:
+                logger.debug('Skipping run %d < %d because it is outside '
+                              'of the range.' % (run.number, cfg.runs_first))
                 continue
             if cfg.runs_last and run.number > cfg.runs_last:
+                logger.debug('Skipping run %d > %d because it is outside '
+                              'of the range.' % (run.number, cfg.runs_first))
                 continue
-            logging.info('Adding run %d to the processing.' % run.number)
+            if run.is_closed():
+                logger.debug('Skipping run %d because it is already closed.' %
+                              run.number)
+                continue
+            logger.debug('Adding run %d to the processing.' % run.number)
             runs.append(run)
         except ValueError:
-            logging.info("Skipping `%s'." % dirname)
+            logger.debug("Skipping `%s'." % dirname)
     return runs
 # get_runs
 
 
 #_______________________________________________________________________________
 class Run(object):
-    def __init__(self, path):
-        self.dir = path
-        self.number = int(os.path.basename(path).replace('run', ''))
+    def __init__(self, path, suffix='hook'):
+        self.path = path
+        self.suffix = suffix
+        self.name = os.path.basename(self.path)
+        self.number = int(self.name.replace('run', ''))
+        eorname = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
+        self.eorpath = os.path.join(self.path, eorname + '.jsn')
     def is_complete(self, bu_count=15):
         eorfiles = self._get_minieor_files()
         if len(eorfiles) != bu_count:
@@ -157,19 +175,35 @@ class Run(object):
             if not eorfile.is_run_complete():
                 return False
         return True
-    def is_complete2(self, debug=10, threshold=1.0, suffix='hook'):
+    def is_complete2(self, debug=10, threshold=1.0):
         isCompleteRun(debug = debug,
-                      theInputDataFolder = self.dir,
+                      theInputDataFolder = self.path,
                       completeMergingThreshold = threshold,
-                      outputEndName = suffix)
-        eor_fname = '_'.join([os.path.basename(self.dir), 'ls0000',
-                              'MacroEoR', suffix]) + '.jsn'
-        with open(os.path.join(self.dir, eor_fname)) as source:
+                      outputEndName = self.suffix)
+        name = '_'.join([self.name, 'ls0000', 'MacroEoR', self.suffix])
+        with open(os.path.join(self.path, name + '.jsn')) as source:
             data = json.load(source)
         return data['isComplete']
     def _get_minieor_files(self):
-        mask = os.path.join(self.dir, '*MiniEoR*.jsn')
+        mask = os.path.join(self.path, '*MiniEoR*.jsn')
         return [metafile.MiniEoRFile(f) for f in glob.glob(mask)]
+    def is_open(self):
+        '''
+        A run is open when it is not closed.
+        '''
+        return not is_closed(self)
+    def is_closed(self):
+        '''
+        A run is closed if the TransferEoR JSON exists.
+        '''
+        return os.path.exists(self.eorpath)
+    def close(self):
+        '''
+        Creates the TransferEoR file
+        '''
+        logger.info("Creating `%s' ..." % self.eorpath)
+        with file(self.eorpath, 'a') as destination:
+            pass
 ## Run
 
 
