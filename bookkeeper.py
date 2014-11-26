@@ -9,12 +9,12 @@ missing files to fill in gaps of consecutive luminosity sections.
 Jan Veverka, 3 September 2014 - 6 October 2014, veverka@mit.edu
 
 TODO:
-  * Check the meaning of CMS_STOMGR.runs.status from the twiki 
-    (done 2014/09/08)
-  * Understand the Tier0-usage query (done 2014/09/08)
-  * Use the *_len shortcut variables for the string lengths in single json 
-    parsing (done 2014/10/03)
-  * Use SQL variable binding 
+  * Use the logging module for logging
+  * Notify Tier0 about the open runs, insert -> modify
+  * Puppet-ize
+  * pip-ify
+  * Turn the main functions into a class
+  * Use SQL variable binding
   * Use SQL prepared statements
 '''
 
@@ -38,12 +38,12 @@ import cx_Oracle
 
 from collections import defaultdict
 
-_dry_run = True
+_dry_run = False
 # Integration DB, will not be read by Tier0
-_db_config = '.db.int2r.stomgr_w.cfg.py'
+#_db_config = '.db.int2r.stomgr_w.cfg.py'
 
 # Production DB, will be read and processed by Tier0
-#_db_config = '.db.rcms.stomgr_w.cfg.py'
+_db_config = '.db.rcms.stomgr_w.cfg.py'
 
 execfile(_db_config)
 _db_sid = db_sid
@@ -88,8 +88,8 @@ def main():
         pprint.pprint(missing_lumi_map[stream])
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
-    fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
-    #fill_missing_lumis(missing_lumi_map, cursor)
+    #fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
+    fill_missing_lumis(missing_lumi_map, cursor)
     fill_runs(last_lumi, cursor)
     connection.commit()
     connection.close()
