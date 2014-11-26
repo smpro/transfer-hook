@@ -4,9 +4,9 @@ import os
 import pprint
 from merger.cmsDataFlowCleanUp import isCompleteRun
 
-#run_dir = '/store/lustre/mergeMacro_TEST/run220013'
+run_dir = '/store/lustre/mergeMacro_TEST/run220013'
 #run_dir = '/store/lustre/mergeMacro/run230294'
-run_dir = '/store/lustre/mergeMacro/run230221'
+#run_dir = '/store/lustre/mergeMacro/run230221'
 suffix = 'foo'
 
 complete = isCompleteRun(debug = 10,
