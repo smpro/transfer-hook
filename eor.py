@@ -35,13 +35,15 @@ import glob
 import json
 import logging
 import os
+import pprint
+import socket
 import sys
 import time
 
 import bookkeeper
 import metafile
 
-from merger.cmsDataFlowCleanUp import isCompleteRun
+from macroeor import is_run_complete
 
 logger = logging.getLogger(__name__)
 
@@ -171,13 +173,15 @@ def get_runs(cfg):
 
 #_______________________________________________________________________________
 class Run(object):
-    def __init__(self, path, suffix='hook'):
+    def __init__(self, path, suffix=socket.gethostname()):
         self.path = path
         self.suffix = suffix
         self.name = os.path.basename(self.path)
         self.number = int(self.name.replace('run', ''))
         eorname = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
+        eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', '*'])
         self.eorpath = os.path.join(self.path, eorname + '.jsn')
+        self.eorglob = os.path.join(self.path, eormask + '.jsn')
     def is_complete(self, bu_count=15):
         eorfiles = self._get_minieor_files()
         if len(eorfiles) != bu_count:
@@ -187,10 +191,10 @@ class Run(object):
                 return False
         return True
     def is_complete2(self, debug=10, threshold=1.0):
-        isCompleteRun(debug = debug,
-                      theInputDataFolder = self.path,
-                      completeMergingThreshold = threshold,
-                      outputEndName = self.suffix)
+        is_run_complete(debug = debug,
+                        theInputDataFolder = self.path,
+                        completeMergingThreshold = threshold,
+                        outputEndName = self.suffix)
         name = '_'.join([self.name, 'ls0000', 'MacroEoR', self.suffix])
         with open(os.path.join(self.path, name + '.jsn')) as source:
             data = json.load(source)
@@ -207,7 +211,14 @@ class Run(object):
         '''
         A run is closed if the TransferEoR JSON exists.
         '''
-        return os.path.exists(self.eorpath)
+        eorglob = glob.glob(self.eorglob)
+        if eorglob:
+            logger.debug(
+                'Found TransferEoR file(s): %s' % pprint.pformat(eorglob)
+                )
+        else:
+            logger.debug('Found no TransferEoR files.')
+        return bool(eorglob)
     def close(self):
         '''
         Creates the TransferEoR file

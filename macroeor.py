@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import json
+import logging
+import os
+import shutil
+
+log = logging.getLogger(__name__)
 
 """
 Function to define if a run is complete
@@ -89,7 +95,10 @@ def is_run_complete(debug, theInputDataFolder, completeMergingThreshold, outputE
    # Analyzing bad area
    theInputDataBadFolder = theInputDataFolder + "/bad"
    # reading the list of files in the given folder
-   afterBad = dict ([(f, None) for f in os.listdir (theInputDataBadFolder)])
+   if os.path.exists(theInputDataBadFolder):
+       afterBad = dict ([(f, None) for f in os.listdir (theInputDataBadFolder)])
+   else:
+       afterBad = {}
    afterStringBad = [f for f in afterBad]
 
    eventsBadDict = dict()
