@@ -67,12 +67,13 @@ def is_run_complete(
         settingsLS = ""
         if(os.path.getsize(inputEoRJsonFile) > 0):
             try:
-               time.sleep (0.1)
+               time.sleep(0.1)
                settingsLS_textI = open(inputEoRJsonFile, "r").read()
                settingsLS = json.loads(settingsLS_textI)
             except ValueError, e:
-               log.warning("Looks like the file {0} is not available (2nd try)...".format(inputEoRJsonFile))
-               time.sleep (1.0)
+               log.warning(
+                   "Looks like the file {0} is not available (2nd try)...".format(inputEoRJsonFile))
+               time.sleep(1.0)
                settingsLS_textI = open(inputEoRJsonFile, "r").read()
                settingsLS = json.loads(settingsLS_textI)
 
