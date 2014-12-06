@@ -17,8 +17,8 @@ execfile('.db_integration_config.py')
 # Supply this method with a directory to find the json files and a run number.
 # It will loop over these files to find the .ini files then take a look at the .jsndata files.
 # This information will be summed in two dicts across PIDs, where the dicts are indexed by lumisection.
-# If PIDs are summed over, then the sum doesn't matter and we just get 1 file.
-# Afterwards, the two dicts are inserted into the DB.
+# If PIDs are already summed over to make these files, then the sum here doesn't matter and we just see the 1 file.
+# Nonetheless, the two dicts are inserted into the DB.
 #
 # For the HLT rates, each lumisection has several path IDs which get their own row for that LS.
 # We get these path IDs by looking up the path names provided in the .ini file in a mapping
@@ -29,8 +29,27 @@ execfile('.db_integration_config.py')
 
 
 def monitorRates(json_dir,run_number):
-	cxn_db_to_write=cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
-	cxn_db_to_read=cx_Oracle.connect(read_db_login,read_db_pwd,read_db_sid)
+	# Establish DB connections
+	try:
+		cxn_db_to_write=cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
+	except cx_Oracle.DatabaseError as e:
+		error, = e.args
+		if error.code == 1017:
+			print 'Bad credentials for database for writing rates'
+			return false
+		else:
+			print('Error connecting to database for writing: %s'.format(e))
+			return false
+	try:
+		cxn_db_to_read=cx_Oracle.connect(read_db_login,read_db_pwd,read_db_sid)
+	except cx_Oracle.DatabaseError as e:
+		if error.code == 1017:
+			print 'Bad credentials for database for writing rates'
+			return false
+		else:
+			print('Error connecting to database for writing: %s'.format(e))
+			return false
+
 	# Get all ini files in the directory with rates corresponding to specified run number
 	filenames=[f for f in os.listdir(json_dir) if f.startswith('run'+str(run_number)) and f.endswith('.ini')]
 	for filename in filenames:
@@ -103,8 +122,6 @@ def monitorRates(json_dir,run_number):
 				L1_rates[ls]['L1_DECISION'] 	= [ x+y for x,y in zip(L1_rates[ls]['L1_DECISION'],rates['data'][1]) ]
 				L1_rates[ls]['L1_TECHNICAL'] 	= [ x+y for x,y in zip(L1_rates[ls]['L1_TECHNICAL'],rates['data'][2]) ]
 
-		#print file_raw+' is a '+file_ext+' file'i
-
 	# Retrieve the mapping between HLT path index, HLT path name, HLT path ID
 	pathname_query="""
 		select B.SEQUENCENB, A.NAME, A.PATHID 
@@ -138,7 +155,7 @@ def monitorRates(json_dir,run_number):
 				return false
 
 			query="""
-				INSERT INTO CMS_DAQ_TEST_RUNINFO.HLT_TEST_TRIGGERPATHS (
+				INSERT INTO {0} (
 					RUNNUMBER, LSNUMBER, PATHID, L1PASS, PSPASS, PACCEPT, PEXCEPT, PREJECT
 				) VALUES (
 					{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}
@@ -155,7 +172,6 @@ def monitorRates(json_dir,run_number):
             	HLT_rates[ls][pathname]['PEXCEPT'],
             	HLT_rates[ls][pathname]['PREJECT']
 			)
-			#print query
 			write_cursor.execute(query)
 			cxn_db_to_write.commit()
 
@@ -177,23 +193,8 @@ def monitorRates(json_dir,run_number):
 			technical_varray_name+'('+','.join(map(str,L1_rates[ls]['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
 			L1_rates[ls]['EVENTCOUNT']
 		)
-		#print query
 		write_cursor.execute(query)
 		cxn_db_to_write.commit()
-		
-		
-	#write_cursor.execute('SELECT * FROM '+HLT_db)
-	#print 'fetching all from TRIGGERPATHS:'
-	#print write_cursor.fetchall()
-	#write_cursor.execute('SELECT * FROM '+L1_db)
-	#print 'fetching all from L1:'
-	#print write_cursor.fetchall()
-	#write_cursor.execute('SELECT COUNT(*) FROM '+HLT_db)
-	#print 'fetching count from TRIGGERPATHS:'
-	#print write_cursor.fetchall()
-	#
-	#outputTestTables()
-	
 	
 def makeWriteCxn():
 	return cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
@@ -207,14 +208,14 @@ def makeReadCursor():
 	return cxn_db_to_read.cursor()
 
 def getMyTables():
-	cursor=makeWriteCxn.cursor()
+	cursor=makeWriteCxn().cursor()
 	query = "SELECT owner, table_name FROM all_tables WHERE owner='CMS_DAQ_TEST_RUNINFO'"
 	cursor.execute(query)
 	for res in cursor:
 		print res
 
 def makeTestTables():
-	cursor=makeWriteCxn.cursor()
+	cursor=makeWriteCxn().cursor()
 	q_varray1="create or replace type L1_DECISION_VARRAY is VARRAY(128) of NUMBER(11)"
 	q_varray2="create or replace type L1_TECHNICAL_VARRAY is VARRAY(64) of NUMBER(11)"
 	q_table1="""create table HLT_TEST_TRIGGERPATHS
@@ -246,7 +247,7 @@ def makeTestTables():
 	cursor.execute(q_table2);
 
 def dropTestTables():
-	cursor=makeWriteCxn.cursor()
+	cursor=makeWriteCxn().cursor()
 	cursor.execute("drop table HLT_TEST_TRIGGERPATHS")
 	cursor.execute("drop table HLT_TEST_L1_SCALARS")
 
