@@ -5,7 +5,7 @@ TODO:
    * Include lumi bookkeeping. (first prototype done 2014/10/09)
    * Notify Tier0 about the open runs, insert runs with open status flag
    * Add checksums
-   * Automate the CMSSW version retrieval
+   * Automate the CMSSW version retrieval (done 2014/12/08)
    * Use the logging module for logging
    * Turn this into a deamon service
    * Puppet-ize
@@ -141,6 +141,7 @@ def iterate(path):
             #continue
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         bookkeeper._run_number = run_number
+        bookkeeper.open_run()
         appversion = runinfo.get_cmssw_version(run_number)
         #hlt_key = hltkeys[run_number]
         hlt_key = runinfo.get_hlt_key(run_number)

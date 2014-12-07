@@ -101,7 +101,8 @@ def main():
     cursor = connection.cursor()
     #fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
     fill_missing_lumis(missing_lumi_map, cursor)
-    fill_runs(last_lumi, cursor)
+    #fill_runs(last_lumi, cursor)
+    close_run(last_lumi, cursor)
     connection.commit()
     connection.close()
     logger.info('Closed run %d.' %  _run_number)
@@ -316,14 +317,67 @@ def fill_runs(last_lumi, cursor):
 
 
 #______________________________________________________________________________
+def close_run(last_lumi, cursor):
+    target_table = 'cms_stomgr.runs'
+    values_to_set = dict(
+        n_lumisections   = last_lumi,
+        status           = 0,
+        ## dummy for now
+        end_time         = ("TO_DATE('2014-10-08 14:33:48', " +
+                               "'YYYY-MM-DD HH24:MI:SS')"),
+        max_lumisection  = last_lumi,
+        last_consecutive = last_lumi,
+        )
+    update_run(values_to_set, target_table, cursor)
+## close_run
+
+
+#______________________________________________________________________________
+def open_run(cursor):
+    target_table = 'cms_stomgr.runs'
+    values_to_insert = dict(
+        runnumber        = _run_number,
+        instance         = 1,
+        hostname         = "'%s'" % socket.gethostname(),
+        n_instances      = 1,
+        n_lumisections   = 0,
+        status           = 1,
+        ## dummy for now
+        start_time       = ("TO_DATE('2014-10-08 14:33:48', " +
+                               "'YYYY-MM-DD HH24:MI:SS')"),
+        ## dummy for now
+        end_time         = ("TO_DATE('2014-10-08 14:33:48', " +
+                               "'YYYY-MM-DD HH24:MI:SS')"),
+        max_lumisection  = 0,
+        last_consecutive = 0,
+        )
+    insert(values_to_insert, target_table, cursor)
+## open_run
+
+
+#______________________________________________________________________________
 def insert(values, table, cursor):
     columns = values.keys()
     columns_in_curly_brackets = ['{%s}' % c for c in columns]
     line_to_format = '    (%s)' % ', '.join(columns_in_curly_brackets)
-    lines = ['insert into %(table)s' % locals(),
-             '    (%s)' % ', '.join(columns)      ,
+    lines = ['insert into %(table)s' % locals()  ,
+             '    (%s)' % ', '.join(columns)     ,
              'values'                            ,
              line_to_format.format(**values)     ]
+    for line in lines + [';']:
+        logger.debug('SQL> ' + line)
+    statement = '\n'.join(lines)
+    execute_sql(cursor, statement)
+## insert
+
+
+#______________________________________________________________________________
+def update_run(values, table, cursor):
+    columns = values.keys()
+    expression_to_format = ', '.join(['%s={%s}' % (c, c) for c in colums])
+    lines = ['update %(table)s' % locals()                 ,
+             'set ' + expression_to_format.format(**values),
+             'where runnumber = %d' % _run_number          ]
     for line in lines + [';']:
         logger.debug('SQL> ' + line)
     statement = '\n'.join(lines)
