@@ -72,17 +72,17 @@ class Config(object):
     '''
     def __init__(self, filename=None):
         self.filename = filename
-        self.general_dryrun = False
-        self.max_iterations = 10000
-        self.seconds_to_sleep = 120
+        self.general_dryrun = True
+        self.max_iterations = 10
+        self.seconds_to_sleep = 2
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
         self.logging_filename = 'eor.log'
-        self.logging_level = logging.INFO
+        self.logging_level = logging.DEBUG
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 230511
-        self.runs_last  = 300000
+        self.runs_first = 229781
+        self.runs_last  = 229781
         if filename:
             self._parse_config_file()
     ## __init__
