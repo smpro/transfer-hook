@@ -7,16 +7,15 @@ import shutil
 
 log = logging.getLogger(__name__)
 
-"""
-Function to define if a run is complete
-"""
-
 
 def is_run_complete(
         debug,
         theInputDataFolder,
         completeMergingThreshold,
         outputEndName):
+    """
+    Defines if a run is complete.
+    """
 
     if(outputEndName == ""):
         outputEndName = socket.gethostname()
@@ -67,73 +66,82 @@ def is_run_complete(
         settingsLS = ""
         if(os.path.getsize(inputEoRJsonFile) > 0):
             try:
-               time.sleep (0.1)
-               settingsLS_textI = open(inputEoRJsonFile, "r").read()
-               settingsLS = json.loads(settingsLS_textI)
-            except ValueError, e:
-               log.warning("Looks like the file {0} is not available (2nd try)...".format(inputEoRJsonFile))
-               time.sleep (1.0)
-               settingsLS_textI = open(inputEoRJsonFile, "r").read()
-               settingsLS = json.loads(settingsLS_textI)
+                settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                settingsLS = json.loads(settingsLS_textI)
+            except ValueError as e:
+                log.warning("Looks like the file {0} ".format(inputEoRJsonFile)
+                            + "is not available, I'll try again...")
+                try:
+                    time.sleep(0.1)
+                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                    settingsLS = json.loads(settingsLS_textI)
+                except ValueError as e:
+                    log.warning(
+                        "Looks like the file {0} ".format(inputEoRJsonFile)
+                        "is not available (2nd try)..."
+                    )
+                    time.sleep(1.0)
+                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                    settingsLS = json.loads(settingsLS_textI)
 
-      if ("MiniEoR" in afterStringSM[nb]):
-         numberMiniEoRFiles += 1
-         eventsInputBUs      = eventsInputBUs  + int(settingsLS["eventsInputBU"])
-	 eventsInputFUs      = eventsInputFUs  + int(settingsLS["eventsInputFU"])
-	 numberBoLSFiles     = numberBoLSFiles + int(settingsLS["numberBoLSFiles"])
-	 if(eventsTotalRun < int(settingsLS["eventsTotalRun"])):
-            eventsTotalRun = int(settingsLS["eventsTotalRun"])
+        if ("MiniEoR" in afterStringSM[nb]):
+            numberMiniEoRFiles += 1
+            eventsInputBUs = eventsInputBUs + int(settingsLS["eventsInputBU"])
+            eventsInputFUs = eventsInputFUs + int(settingsLS["eventsInputFU"])
+            numberBoLSFiles = numberBoLSFiles + \
+                int(settingsLS["numberBoLSFiles"])
+            if(eventsTotalRun < int(settingsLS["eventsTotalRun"])):
+                eventsTotalRun = int(settingsLS["eventsTotalRun"])
 
-      else:
-         eventsInput = int(settingsLS["data"][0])
-         # 0: run, 1: ls, 2: stream
-         fileNameString = afterStringSM[nb].split('_')
-         key = (fileNameString[2])
-         if key in eventsIDict.keys():
+        else:
+            eventsInput = int(settingsLS["data"][0])
+            # 0: run, 1: ls, 2: stream
+            fileNameString = afterStringSM[nb].split('_')
+            key = (fileNameString[2])
+            if key in eventsIDict.keys():
 
-	    eventsInput = eventsIDict[key][0] + eventsInput
-	    eventsIDict[key].remove(eventsIDict[key][0])
-	    eventsIDict.update({key:[eventsInput]})
+                eventsInput = eventsIDict[key][0] + eventsInput
+                eventsIDict[key].remove(eventsIDict[key][0])
+                eventsIDict.update({key: [eventsInput]})
 
-	 else:
-	    eventsIDict.update({key:[eventsInput]})	    
+            else:
+                eventsIDict.update({key: [eventsInput]})
 
+    # Analyzing bad area
+    theInputDataBadFolder = theInputDataFolder + "/bad"
+    # reading the list of files in the given folder
+    if os.path.exists(theInputDataBadFolder):
+        afterBad = dict([(f, None) for f in os.listdir(theInputDataBadFolder)])
+    else:
+        afterBad = {}
+    afterStringBad = [f for f in afterBad]
 
-   # Analyzing bad area
-   theInputDataBadFolder = theInputDataFolder + "/bad"
-   # reading the list of files in the given folder
-   if os.path.exists(theInputDataBadFolder):
-       afterBad = dict ([(f, None) for f in os.listdir (theInputDataBadFolder)])
-   else:
-       afterBad = {}
-   afterStringBad = [f for f in afterBad]
+    eventsBadDict = dict()
 
-   eventsBadDict = dict()
+    for nb in range(0, len(afterStringBad)):
+        if not afterStringBad[nb].endswith(".jsn"):
+            continue
 
-   for nb in range(0, len(afterStringBad)):
-      if not afterStringBad[nb].endswith(".jsn"): continue
-
-      inputBadJsonFile = os.path.join(theInputDataBadFolder, afterStringBad[nb])
-      settingsLS = ""
-      if(os.path.getsize(inputBadJsonFile) > 0):
-         try:
-            settingsLS_textI = open(inputBadJsonFile, "r").read()
-            settingsLS = json.loads(settingsLS_textI)
-         except ValueError, e:
-            log.warning("Looks like the file {0} is not available, I'll try again...".format(inputBadJsonFile))
+        inputBadJsonFile = os.path.join(
+            theInputDataBadFolder,
+            afterStringBad[nb])
+        settingsLS = ""
+        if(os.path.getsize(inputBadJsonFile) > 0):
             try:
                 settingsLS_textI = open(inputBadJsonFile, "r").read()
                 settingsLS = json.loads(settingsLS_textI)
             except ValueError as e:
-                log.warning("Looks like the file {0} is not available, I'll try again...".format(
-                    inputBadJsonFile))
+                log.warning("Looks like the file {0} ".format(inputBadJsonFile)
+                            + "is not available, I'll try again...")
                 try:
                     time.sleep(0.1)
                     settingsLS_textI = open(inputBadJsonFile, "r").read()
                     settingsLS = json.loads(settingsLS_textI)
                 except ValueError as e:
                     log.warning(
-                        "Looks like the file {0} is not available (2nd try)...".format(inputBadJsonFile))
+                        "Looks like the file {0} ".format(inputBadJsonFile)
+                        + "is not available (2nd try)..."
+                    )
                     time.sleep(1.0)
                     settingsLS_textI = open(inputBadJsonFile, "r").read()
                     settingsLS = json.loads(settingsLS_textI)
@@ -165,9 +173,11 @@ def is_run_complete(
             isComplete = False
 
     if(float(debug) >= 10):
-        print "run/events/completion: ", theInputDataFolder, eventsInputBUs, eventsInputFUs, numberBoLSFiles, isComplete
+        print "run/events/completion: ", theInputDataFolder, eventsInputBUs,
+        print eventsInputFUs, numberBoLSFiles, isComplete
     if(float(debug) >= 10 and 'streamA' in iniIDict.keys()):
-        print "numberMiniEoRFiles/streamAfile: ", numberMiniEoRFiles, len(iniIDict["streamA"])
+        print "numberMiniEoRFiles/streamAfile: ", numberMiniEoRFiles,
+        print len(iniIDict["streamA"])
 
     EoRFileNameMacroOutput = theInputDataFolder + "/" + \
         theRunNumber + "_ls0000_MacroEoR_" + outputEndName + ".jsn_TEMP"
