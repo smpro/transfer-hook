@@ -78,7 +78,7 @@ def is_run_complete(
                 except ValueError as e:
                     log.warning(
                         "Looks like the file {0} ".format(inputEoRJsonFile)
-                        "is not available (2nd try)..."
+                        + "is not available (2nd try)..."
                     )
                     time.sleep(1.0)
                     settingsLS_textI = open(inputEoRJsonFile, "r").read()
