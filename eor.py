@@ -116,10 +116,7 @@ def setup(cfg):
     '''
     Sets up the logging configuration.  Plan to apply configuration.
     '''
-    ## Hack to undo logging config from the merger
-    logger.root.handlers = []
-    logger.disabled = 0
-    ## Now reconfigure the logging
+    ## Configure the logging
     logging.basicConfig(filename = cfg.logging_filename,
                         level    = cfg.logging_level,
                         format   = cfg.logging_format)
