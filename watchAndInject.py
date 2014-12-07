@@ -37,6 +37,7 @@ import sys
 import time
 
 import bookkeeper
+import runinfo
 
 from optparse import OptionParser
 from subprocess import call
@@ -119,6 +120,7 @@ def setup():
     global maybe_move
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
+    runinfo.setup()
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
@@ -134,10 +136,14 @@ def iterate(path):
     new_path = get_new_path(path)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path)
     for rundir in rundirs:
-        new_rundir = os.path.join(new_path, os.path.basename(rundir))
         run_number = int(os.path.basename(rundir).replace('run', ''))
+        #if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
+            #continue
+        new_rundir = os.path.join(new_path, os.path.basename(rundir))
         bookkeeper._run_number = run_number
-        appversion = get_cmssw_version(run_number)        
+        appversion = runinfo.get_cmssw_version(run_number)
+        #hlt_key = hltkeys[run_number]
+        hlt_key = runinfo.get_hlt_key(run_number)
         print "************ Run ", run_number, " *******************"
         jsns = glob.glob(os.path.join(rundir, '*.jsn'))
         jsns.sort()
@@ -182,7 +188,7 @@ def iterate(path):
                             "--config"     , "/opt/injectworker/.db.conf",
                             "--destination", "Global",
                             "--filesize"   , str(fileSize),
-                            "--hltkey"     , hltkeys[run_number],]
+                            "--hltkey"     , hlt_key,]
                     if _renotify:
                         args_transfer.append('--renotify')
                     log_and_maybe_exec(args_transfer, print_output=True)
@@ -206,19 +212,15 @@ def get_new_path(path):
 
 #_______________________________________________________________________________
 def get_rundirs_and_hltkeys(path):
-    rundirs, hltkeys = [], {}
+    rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
         run_number = get_run_number(rundir)
         if run_number < _run_number_min or _run_number_max < run_number:
             continue
         rundirs.append(rundir)
-        if run_number not in hltkeys.keys():
-            args = [_hltkeysscript, '-r', str(run_number)]
-            out, err = log_and_exec(args)
-            if err:
-                hltkeys[run_number] = "UNKNOWN"
-            else:
-                hltkeys[run_number] = out.strip()
+        runs.append(run)
+    results = runinfo.get_hlt_keys(runs)
+    hltkeys = dict(zip(runs, results))
     rundirs.sort()
     log('Run directories to transfer: ', newline=False)
     pprint.pprint(rundirs)
