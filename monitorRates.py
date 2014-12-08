@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# Last modified by Dylan G. Hsu on 2014-12-05
+# Last modified by Dylan G. Hsu on 2014-12-08
 
 import os,sys,socket
 import shutil
@@ -12,13 +12,8 @@ import json
 execfile('.db_integration_config.py')
 #execfile('.db_production_config.py')
 
-# json_dir='/nfshome0/hltpro/jsonMonTest/exampleJsons/fixedPseudoStream'
-
-# Supply this method with a directory to find the json files and a run number.
-# It will loop over these files to find the .ini files then take a look at the .jsndata files.
-# This information will be summed in two dicts across PIDs, where the dicts are indexed by lumisection.
-# If PIDs are already summed over to make these files, then the sum here doesn't matter and we just see the 1 file.
-# Nonetheless, the two dicts are inserted into the DB.
+# Supply this method with a FULL PATH to a .jsndata file to read it and put the HLT or L1 rates inside into the database.
+# The jsndata needs the .ini descriptor files to be there or this will fail
 #
 # For the HLT rates, each lumisection has several path IDs which get their own row for that LS.
 # We get these path IDs by looking up the path names provided in the .ini file in a mapping
@@ -27,8 +22,24 @@ execfile('.db_integration_config.py')
 # However in this row are two Varrays containing 128 and 64 bits respectively, for the trigger rates, accomplishing in
 # 1 row what the HLT rates table does with many rows.
 
+def monitorRates(jsndata_file):
+	# This takes the full path of a .jsndata file as parameter
+	# Any other call of this function is inappropriate and will just not work!
+	# e.g. jsndata_file='/store/lustre/mergeMiniDAQMacro/run230852/run230852_ls0110_streamHLTRates_mrg-c2f13-37-01.jsndata'
 
-def monitorRates(json_dir,run_number):
+	json_dir=os.path.dirname(jsndata_file)
+	jsndata_filename=os.path.basename(jsndata_file)
+	file_raw, file_ext = os.path.splitext(jsndata_filename)
+	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji!
+	run_number=raw_pieces[0][3:] # 123456
+	ls=raw_pieces[1] # ls1234
+	stream=raw_pieces[2][6:] # HLTRates | L1Rates
+	extra=raw_pieces[3]
+
+	if stream != "HLTRates" and stream != "L1Rates":
+		print 'Unrecognized rate stream: '+raw_pieces[2]
+		return False
+	
 	# Establish DB connections
 	try:
 		cxn_db_to_write=cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
@@ -36,123 +47,89 @@ def monitorRates(json_dir,run_number):
 		error, = e.args
 		if error.code == 1017:
 			print 'Bad credentials for database for writing rates'
-			return false
+			return False
 		else:
 			print('Error connecting to database for writing: %s'.format(e))
-			return false
-	try:
-		cxn_db_to_read=cx_Oracle.connect(read_db_login,read_db_pwd,read_db_sid)
-	except cx_Oracle.DatabaseError as e:
-		if error.code == 1017:
-			print 'Bad credentials for database for writing rates'
-			return false
-		else:
-			print('Error connecting to database for writing: %s'.format(e))
-			return false
-
-	# Get all ini files in the directory with rates corresponding to specified run number
-	filenames=[f for f in os.listdir(json_dir) if f.startswith('run'+str(run_number)) and f.endswith('.ini')]
-	for filename in filenames:
-		file_raw, file_ext = os.path.splitext(filename)
-		raw_pieces=file_raw.split( '_' ) # this is not an emoji!
-		ls=raw_pieces[1]
-		stream=raw_pieces[2][6:]
-		#pid=raw_pieces[3][3:]
-		# Put the name indices into variables
-		if stream=='HLTRates':
-			HLT_names=json.loads(open(json_dir+'/'+filename).read())
-		elif stream=='L1Rates':
-			L1_names=json.loads(open(json_dir+'/'+filename).read())
-
-	# Define dicts for the HLT rates and L1 rates
-	HLT_rates={}
-	L1_rates={}
-	
-	# Get all jsndata files in the directory with rates corresponding to specified run number
-	filenames=[f for f in os.listdir(json_dir) if f.startswith('run'+str(run_number)) and f.endswith('.jsndata')]
-	for filename in filenames:
-		file_raw, file_ext = os.path.splitext(filename)
-		raw_pieces=file_raw.split( '_' ) # this is not an emoji!
-		ls=raw_pieces[1]
-		stream=raw_pieces[2][6:]
-		#pid=raw_pieces[3][3:]
-
-		rates=json.loads(open(json_dir+'/'+filename).read())
-
-		if stream=='HLTRates':
-			# We made dict for HLT rates which will contain one key for each lumi section
-			# If the key isn't created, we make it and put in the rates for the particular pid of that file
-			# If it already exists, we add the rates for this pid to the other ones
-			# This sums over all PIDs for the given lumi section
-			if ls not in HLT_rates:
-				HLT_rates[ls]={}
-				i=0
-				for pathname in HLT_names['Path-Names']:
-					HLT_rates[ls][pathname]={}
-					HLT_rates[ls][pathname]['L1PASS'] 	= rates['data'][2][i]
-					HLT_rates[ls][pathname]['PSPASS'] 	= rates['data'][3][i]
-					HLT_rates[ls][pathname]['PACCEPT'] 	= rates['data'][4][i]
-					HLT_rates[ls][pathname]['PREJECT'] 	= rates['data'][5][i]
-					HLT_rates[ls][pathname]['PEXCEPT'] 	= rates['data'][6][i]
-					i+=1
-			else:
-				i=0
-				for pathname in HLT_names['Path-Names']:
-					HLT_rates[ls][pathname]['L1PASS'] 	+= rates['data'][2][i]
-					HLT_rates[ls][pathname]['PSPASS'] 	+= rates['data'][3][i]
-					HLT_rates[ls][pathname]['PACCEPT'] 	+= rates['data'][4][i]
-					HLT_rates[ls][pathname]['PREJECT'] 	+= rates['data'][5][i]
-					HLT_rates[ls][pathname]['PEXCEPT'] 	+= rates['data'][6][i]
-					i+=1
-
-		elif stream=='L1Rates':
-			# We now follow similar method for L1 rates as done for HLT rates above
-			# The data is different
-			if ls not in L1_rates:
-				L1_rates[ls]={}
-				L1_rates[ls]['EVENTCOUNT'] 		= rates['data'][0][0]
-				L1_rates[ls]['L1_DECISION'] 	= rates['data'][1]
-				L1_rates[ls]['L1_TECHNICAL'] 	= rates['data'][2]
-				L1_rates[ls]['mod_datetime']	= str(datetime.datetime.fromtimestamp(os.path.getmtime(json_dir+'/'+filename)))
-				# I only record the file modification time of the first L1 jsndata file discovered for this lumi section
-				# This is probably an issue but nobody knows the answer
-			else:
-				# new total += the increment
-				L1_rates[ls]['EVENTCOUNT'] 		+= rates['data'][0][0]
-				L1_rates[ls]['L1_DECISION'] 	= [ x+y for x,y in zip(L1_rates[ls]['L1_DECISION'],rates['data'][1]) ]
-				L1_rates[ls]['L1_TECHNICAL'] 	= [ x+y for x,y in zip(L1_rates[ls]['L1_TECHNICAL'],rates['data'][2]) ]
-
-	# Retrieve the mapping between HLT path index, HLT path name, HLT path ID
-	pathname_query="""
-		select B.SEQUENCENB, A.NAME, A.PATHID 
-			from CMS_HLT.PATHS A, CMS_HLT.CONFIGURATIONPATHASSOC B, CMS_WBM.RUNSUMMARY C
-			where
-				A.PATHID = B.PATHID
-				and B.CONFIGID = C.HLTKEY
-				and C.RUNNUMBER = {0}
-		order by B.SEQUENCENB
-	"""
-	read_cursor=cxn_db_to_read.cursor()
+			return False
 	write_cursor=cxn_db_to_write.cursor()
 
-	read_cursor.execute(pathname_query.format(str(run_number)))
-	pathname_mapping=read_cursor.fetchall()
-	if len(pathname_mapping) < 1:
-		print "Could not get pathname-pathID mapping!"
-		return false
-	for ls in HLT_rates:
+	# We only need the trigger tables for the HLT rates:
+	if stream=="HLTRates":
+		try:
+			cxn_db_to_read=cx_Oracle.connect(read_db_login,read_db_pwd,read_db_sid)
+		except cx_Oracle.DatabaseError as e:
+			if error.code == 1017:
+				print 'Bad credentials for database for reading trigger tables'
+				return False
+			else:
+				print('Error connecting to database for reading: %s'.format(e))
+				return False
 
-		for pathname in HLT_rates[ls]:
+		# Retrieve the mapping between HLT path index, HLT path name, HLT path ID
+		pathname_query="""
+			select B.SEQUENCENB, A.NAME, A.PATHID 
+				from CMS_HLT.PATHS A, CMS_HLT.CONFIGURATIONPATHASSOC B, CMS_WBM.RUNSUMMARY C
+				where
+					A.PATHID = B.PATHID
+					and B.CONFIGID = C.HLTKEY
+					and C.RUNNUMBER = {0}
+			order by B.SEQUENCENB
+		"""
+		read_cursor=cxn_db_to_read.cursor()
+		read_cursor.execute(pathname_query.format(str(run_number)))
+		pathname_mapping=read_cursor.fetchall()
+		if len(pathname_mapping) < 1:
+			print "Could not get pathname-pathID mapping for HLT rates!"
+			return False
+
+	# Open the jsndata file
+	# If it doesn't exist, this function will crash
+
+	try:
+		rates_json=open(jsndata_file).read()
+	except (OSError, IOError) as e:
+		print 'Error finding or opening jsndata file: "'+jsndata_file+'"'
+		return False
+	rates=json.loads(rates_json)
+
+	# Get the ini in the directory with rates corresponding to specified run number, lumi section, and HLT|L1
+	# The correspondence might look like:
+	# run230852_ls0110_streamL1Rates_mrg-c2f13-37-01.jsndata =>
+	# run230852_ls0000_streamL1Rates_mrg-c2f13-37-01.ini
+	# If the INI file is not there, this function will crash
+
+	ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_'+raw_pieces[3]+'.ini'
+	if stream=='HLTRates':
+		try:
+			HLT_json=open(json_dir+'/'+ini_filename).read()
+		except (OSError, IOError) as e:
+			print 'Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"'
+		HLT_names=json.loads(HLT_json)
+		HLT_rates={}
+		i=0
+		# Get the rates for each trigger path
+		for pathname in HLT_names['Path-Names']:
+			HLT_rates[pathname]={}
+			HLT_rates[pathname]['L1PASS'] 	= rates['data'][2][i]
+			HLT_rates[pathname]['PSPASS'] 	= rates['data'][3][i]
+			HLT_rates[pathname]['PACCEPT'] 	= rates['data'][4][i]
+			HLT_rates[pathname]['PREJECT'] 	= rates['data'][5][i]
+			HLT_rates[pathname]['PEXCEPT'] 	= rates['data'][6][i]
+			i+=1
+
+		# Put the rates in the DB
+		# This is kept separate from the above part because we might want to do something smarter with the path mapping later
+		for pathname in HLT_rates:
 			path_id=-1
 			# Loop over tuples in the mapping to find the path id for this particular path name
-			# This is klugey but it's less memory intensive than using a dict
+			# This is klugey, but it's less memory intensive than using a dict
 			for tuple in pathname_mapping:
 				if pathname==tuple[1]:
 					path_id=tuple[2]
 
 			if path_id == -1:
 				'Pathname "'+pathname+'" missing from pathname-pathID mapping!'
-				return false
+				return False
 
 			query="""
 				INSERT INTO {0} (
@@ -166,17 +143,30 @@ def monitorRates(json_dir,run_number):
 				run_number,
 				int(ls[2:]),
 				path_id,
-				HLT_rates[ls][pathname]['L1PASS'], 
-            	HLT_rates[ls][pathname]['PSPASS'],
-            	HLT_rates[ls][pathname]['PACCEPT'],
-            	HLT_rates[ls][pathname]['PEXCEPT'],
-            	HLT_rates[ls][pathname]['PREJECT']
+				HLT_rates[pathname]['L1PASS'], 
+            	HLT_rates[pathname]['PSPASS'],
+            	HLT_rates[pathname]['PACCEPT'],
+            	HLT_rates[pathname]['PEXCEPT'],
+            	HLT_rates[pathname]['PREJECT']
 			)
 			write_cursor.execute(query)
 			cxn_db_to_write.commit()
-
-	for ls in L1_rates:
+		return True
+	
+	elif stream=='L1Rates':
+		try:
+			L1_json=open(json_dir+'/'+ini_filename).read()
+		except (OSError, IOError) as e:
+			print 'Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"'
+		L1_names=json.loads(L1_json)
+		L1_rates={}
+		L1_rates['EVENTCOUNT'] 		= rates['data'][0][0]
+		L1_rates['L1_DECISION'] 	= rates['data'][1]
+		L1_rates['L1_TECHNICAL'] 	= rates['data'][2]
+		L1_rates['mod_datetime']	= str(datetime.datetime.fromtimestamp(os.path.getmtime(jsndata_file)))
+		# Here we record the file modification time of the jsndata file for book keeping purposes
 		
+		# Insert L1 rates into the database
 		query="""
 			INSERT INTO {0} (
 				RUNNUMBER, LSNUMBER, MODIFICATIONTIME, DECISION_ARRAY, TECHNICAL_ARRAY, EVENTCOUNT
@@ -188,14 +178,15 @@ def monitorRates(json_dir,run_number):
 			L1_db,
 			run_number,
 			int(ls[2:]),
-			"TO_TIMESTAMP('"+L1_rates[ls]['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-			decision_varray_name+'('+','.join(map(str,L1_rates[ls]['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-			technical_varray_name+'('+','.join(map(str,L1_rates[ls]['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
-			L1_rates[ls]['EVENTCOUNT']
+			"TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+			decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
+			technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
+			L1_rates['EVENTCOUNT']
 		)
 		write_cursor.execute(query)
 		cxn_db_to_write.commit()
-	
+		return True
+
 def makeWriteCxn():
 	return cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
 def makeReadCxn():
