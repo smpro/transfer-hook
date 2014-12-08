@@ -62,6 +62,7 @@ _first_run_to_new_cmssw_version_map = {
     228783: 'CMSSW_7_2_1',
     229521: 'CMSSW_7_2_1_patch2',
     229710: 'CMSSW_7_2_1_patch4',
+    229831: 'CMSSW_7_2_3',
     }
 
 _file_status_list_to_retransfer = [
@@ -137,15 +138,24 @@ def iterate(path):
     rundirs, hltkeys = get_rundirs_and_hltkeys(path)
     for rundir in rundirs:
         run_number = int(os.path.basename(rundir).replace('run', ''))
+        print "************ Run ", run_number, " *******************"
         #if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
             #continue
-        new_rundir = os.path.join(new_path, os.path.basename(rundir))
         bookkeeper._run_number = run_number
-        bookkeeper.open_run()
+        new_rundir = os.path.join(new_path, os.path.basename(rundir))
+        if not os.path.exists(new_rundir):
+            print "Making `%s' ..." % new_rundir
+            os.mkdir(new_rundir)
+            print "Start bookkeeping for this run ..."
+            try:
+                bookkeeper.open_run(cursor)
+            except cx_Oracle.IntegrityError:
+                print 'WARNING: Bookkeeping for run %d already open!' % run_number
         appversion = runinfo.get_cmssw_version(run_number)
+        if appversion == 'UNKNOWN':
+            appversion = get_cmssw_version(run_number)
         #hlt_key = hltkeys[run_number]
         hlt_key = runinfo.get_hlt_key(run_number)
-        print "************ Run ", run_number, " *******************"
         jsns = glob.glob(os.path.join(rundir, '*.jsn'))
         jsns.sort()
         log('Processing JSON files: ', newline=False)
@@ -219,8 +229,8 @@ def get_rundirs_and_hltkeys(path):
         if run_number < _run_number_min or _run_number_max < run_number:
             continue
         rundirs.append(rundir)
-        runs.append(run)
-    results = runinfo.get_hlt_keys(runs)
+        runs.append(run_number)
+    results = runinfo.get_hlt_key(runs)
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
     log('Run directories to transfer: ', newline=False)
@@ -242,7 +252,7 @@ def get_run_number(rundir):
 def get_cmssw_version(run_number):
     current_cmssw_version = _old_cmssw_version
     ## Sort the first_run -> new_cmssw_version map by the first_run
-    sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(), 
+    sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
                              key=lambda x: x[0])
     for first_run, new_cmssw_version in sorted_rv_pairs:
         if first_run <= run_number:

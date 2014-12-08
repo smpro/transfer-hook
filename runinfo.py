@@ -1,3 +1,4 @@
+#!/bin/env python
 # -*- coding: utf-8 -*-
 import logging
 import sys
@@ -25,7 +26,8 @@ def main():
     setup()
     run_numbers.extend(sys.argv[1:])
     run_numbers.sort()
-    results = get_hlt_key(run_numbers)
+    # results = get_hlt_key(run_numbers)
+    results = get_cmssw_version(run_numbers)
     for run_number, result in zip(run_numbers, results):
         print run_number, result
     logger.info('End')
@@ -59,8 +61,26 @@ def get_hlt_key(run_numbers):
 
 
 #______________________________________________________________________________
-def get_parameter(name, run_numbers):
+def get_parameter(name, run_number):
     cursor = connection.cursor()
+    prepare_cursor(cursor, name)
+    return execute_query(cursor, run_number)
+## get_parameter
+
+
+#______________________________________________________________________________
+def get_parameters(name, run_numbers):
+    cursor = connection.cursor()
+    prepare_cursor(cursor, name)
+    results = []
+    for run_number in run_numbers:
+        result.append(execute_query(cursor, run_number))
+    return results
+## get_parameter
+
+
+#______________________________________________________________________________
+def prepare_cursor(cursor, name):
     query = """
         SELECT STRING_VALUE
         FROM CMS_RUNINFO.RUNSESSION_PARAMETER
@@ -69,15 +89,7 @@ def get_parameter(name, run_numbers):
         """ % name
     logger.debug("Using SQL query: `%s'" % query)
     cursor.prepare(query)
-    result = []
-    try:
-        for run_number in run_numbers:
-            result.append(execute_query(cursor, run_number))            
-    except TypeError:
-        run_number = run_numbers
-        result = execute_query(cursor, run_number)
-    return result
-## get_parameter
+## prepare
 
 
 #______________________________________________________________________________

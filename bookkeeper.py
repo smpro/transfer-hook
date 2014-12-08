@@ -44,7 +44,7 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-_dry_run = True
+_dry_run = False
 # Integration DB, will not be read by Tier0
 #_db_config = '.db.int2r.stomgr_w.cfg.py'
 
@@ -374,7 +374,7 @@ def insert(values, table, cursor):
 #______________________________________________________________________________
 def update_run(values, table, cursor):
     columns = values.keys()
-    expression_to_format = ', '.join(['%s={%s}' % (c, c) for c in colums])
+    expression_to_format = ', '.join(['%s={%s}' % (c, c) for c in columns])
     lines = ['update %(table)s' % locals()                 ,
              'set ' + expression_to_format.format(**values),
              'where runnumber = %d' % _run_number          ]
@@ -387,7 +387,7 @@ def update_run(values, table, cursor):
 
 #______________________________________________________________________________
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.WARNING,
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s in %(module)s: %(message)s')
     logger.info("Running `%s' ..." % ' '.join(sys.argv))
     if len(sys.argv) > 1:
