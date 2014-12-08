@@ -151,6 +151,7 @@ def monitorRates(jsndata_file):
 			)
 			write_cursor.execute(query)
 			cxn_db_to_write.commit()
+		return True
 	
 	elif stream=='L1Rates':
 		try:
@@ -184,6 +185,7 @@ def monitorRates(jsndata_file):
 		)
 		write_cursor.execute(query)
 		cxn_db_to_write.commit()
+		return True
 
 def makeWriteCxn():
 	return cx_Oracle.connect(write_db_login,write_db_pwd,write_db_sid)
