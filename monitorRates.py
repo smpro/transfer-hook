@@ -9,8 +9,8 @@ import cx_Oracle
 import json
 
 # Loag Config file
-execfile('.db_integration_config.py')
-#execfile('.db_production_config.py')
+#execfile('.db_integration_config.py')
+execfile('.db_production_config.py')
 
 # Supply this method with a FULL PATH to a .jsndata file to read it and put the HLT or L1 rates inside into the database.
 # The jsndata needs the .ini descriptor files to be there or this will fail

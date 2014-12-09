@@ -38,6 +38,7 @@ import time
 
 import bookkeeper
 import runinfo
+import monitorRates
 
 from optparse import OptionParser
 from subprocess import call
@@ -48,10 +49,12 @@ _seconds_to_sleep = 120
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _new_path_base = 'transfer'
+_scratch_base = 'scratch'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
-                      'DQMCalibration', 'Error', 'HLTRates', 'L1Rates']
-_run_number_min = 229831
+                      'DQMCalibration', 'Error', 'HLTRates']
+_streams_with_scalers = ['L1Rates']                      
+_run_number_min = 231031
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
@@ -134,7 +137,8 @@ def setup():
 def iterate(path):
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
-    new_path = get_new_path(path)
+    new_path = get_new_path(path, _new_path_base)
+    scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path)
     for rundir in rundirs:
         run_number = int(os.path.basename(rundir).replace('run', ''))
@@ -143,6 +147,7 @@ def iterate(path):
             #continue
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
+        scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))        
         if not os.path.exists(new_rundir):
             print "Making `%s' ..." % new_rundir
             os.mkdir(new_rundir)
@@ -151,6 +156,9 @@ def iterate(path):
                 bookkeeper.open_run(cursor)
             except cx_Oracle.IntegrityError:
                 print 'WARNING: Bookkeeping for run %d already open!' % run_number
+        if not os.path.exists(scratch_rundir):
+            print "Making `%s' ..." % scratch_rundir
+            os.mkdir(scratch_rundir)
         appversion = runinfo.get_cmssw_version(run_number)
         if appversion == 'UNKNOWN':
             appversion = get_cmssw_version(run_number)
@@ -177,6 +185,11 @@ def iterate(path):
                 #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
                 if streamName in _streams_to_ignore:
+                    continue
+                elif streamName in _streams_with_scalers:
+                    monitor_rates(jsn_file)
+                    maybe_move(jsn_file, scratch_rundir)
+                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
                     continue
                 maybe_move(jsn_file, new_rundir)
                 maybe_move(os.path.join(rundir, fileName), new_rundir)
@@ -218,13 +231,13 @@ def iterate(path):
 
 
 #_______________________________________________________________________________
-def get_new_path(path):
+def get_new_path(path, new_base=_new_path_base):
     '''
     Given the path to watch, returns the new path under which the files 
     being transferred are moved.
     '''
     head, tail = os.path.split(path)
-    return os.path.join(head, _new_path_base)
+    return os.path.join(head, new_base)
 ## get_new_path()
 
 
@@ -270,6 +283,18 @@ def get_cmssw_version(run_number):
 ## get_cmssw_version()
 
 
+#_______________________________________________________________________________
+def monitor_rates(jsn_file):
+    fname = jsn_file + 'data'
+    basename = os.path.basename(fname)
+    try:
+        print 'Inserting %s in WBM ...' % basename
+        monitorRates.monitorRates(fname)
+    except cx_Oracle.IntegrityError:
+        print 'WARNING: DB record for %s already present!' %  basename
+## monitor_rates
+
+        
 #_______________________________________________________________________________
 def mock_move_to_new_rundir(src, dst):
     '''
