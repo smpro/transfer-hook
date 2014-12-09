@@ -203,9 +203,16 @@ def iterate(path):
                     if _renotify:
                         args_transfer.append('--renotify')
                     log_and_maybe_exec(args_transfer, print_output=True)
-                bookkeeper.fill_number_of_files(cursor, streamName,
-                                                lumiSection, number_of_files)
-                connection.commit()
+                try:
+                    bookkeeper.fill_number_of_files(cursor, streamName,
+                                                    lumiSection, number_of_files)
+                    connection.commit()
+                except cx_Oracle.IntegrityError:
+                    print ('WARNING: Failed to insert bookkeeping for ' +
+                           'run {0}, stream {1}, ls {2}: #files = {3}').format(
+                               run_number, streamName, lumiSection,
+                               number_of_files
+                           )
     connection.close()
 ## iterate()
 
