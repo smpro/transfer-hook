@@ -28,6 +28,7 @@ __status__     = 'Development'
 import cx_Oracle
 import glob 
 import json
+import logging
 import os
 import pprint
 import shlex
@@ -42,6 +43,8 @@ import monitorRates
 
 from optparse import OptionParser
 from subprocess import call
+
+logger = logging.getLogger(__name__)
 
 _dry_run = False
 _max_iterations = 10000
