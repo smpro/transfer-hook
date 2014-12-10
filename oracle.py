@@ -21,12 +21,12 @@ def main():
 #______________________________________________________________________________
 def dump_queries(cursor):
     # dump_runs2(cursor)
-    # dump_runs(cursor)
+    dump_runs(cursor)
     # dump_streams2(cursor)
     # dump_closed_lumis_and_filecount(cursor)
-    dump_closed_runs(cursor, 231018)
-    dump_closed_runs(cursor, 231024)
-    dump_closed_runs(cursor, 231027)
+    # dump_closed_runs(cursor, 231018)
+    # dump_closed_runs(cursor, 231024)
+    # dump_closed_runs(cursor, 231027)
 ## dump_queries
 
 
@@ -51,11 +51,13 @@ def dump_runs2(cursor):
 
 #______________________________________________________________________________
 def dump_runs(cursor):
-    query = 'select RUNNUMBER, HOSTNAME, N_LUMISECTIONS from cms_stomgr.runs where runnumber > 226485'
+    query = 'select RUNNUMBER, STATUS, N_LUMISECTIONS from cms_stomgr.runs where runnumber >= 230984'
     print query
+    print '%6s   %6s   %6s' % ('run', 'status', 'lumis')
+    print '------------------------------------'
     cursor.execute(query)
     for result in cursor:
-        print 'run, hostname, lumis:', result
+        print '%6d   %6d   %6d' % result
 ## dump_runs 
 
 
