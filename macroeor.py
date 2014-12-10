@@ -161,16 +161,21 @@ def is_run_complete(
 
     # Analyzing the information
     isComplete = True
-    for streamName in eventsIDict:
-        if "DQM" in streamName:
-            continue
-        if "streamError" in streamName:
-            continue
-        sumEvents = eventsIDict[streamName][0]
-        if streamName in eventsBadDict:
-            sumEvents = sumEvents + eventsBadDict[streamName][0]
-        if(sumEvents < eventsInputBUs * completeMergingThreshold):
-            isComplete = False
+    # Need at least one MiniEoRFile to be completed
+    if numberMiniEoRFiles > 0:
+        for streamName in eventsIDict:
+            if "DQM" in streamName:
+                continue
+            if "streamError" in streamName:
+                continue
+            sumEvents = eventsIDict[streamName][0]
+            if streamName in eventsBadDict:
+                sumEvents = sumEvents + eventsBadDict[streamName][0]
+            if(sumEvents < eventsTotalRun * completeMergingThreshold):
+                isComplete = False
+
+    else:
+        isComplete = False
 
     if(float(debug) >= 10):
         print "run/events/completion: ", theInputDataFolder, eventsInputBUs,
@@ -194,6 +199,7 @@ def is_run_complete(
                 'eventsStreamBadInput': eventsBadDict,
                 'numberBoLSFiles': numberBoLSFiles,
                 'eventsTotalRun': eventsTotalRun,
+                'numberMiniEoRFiles': numberMiniEoRFiles,
                 'isComplete': isComplete}))
     theEoRFileMacroOutput.close()
 
