@@ -4,7 +4,8 @@ import cx_Oracle
 ## defines db_sid, db_user and db_pwd
 # execfile('.db.conf.py')
 ## defines db_sid, db_user and db_pwd
-execfile('.db.int2r.stomgr_tier0_r.cfg.py')
+#execfile('.db.int2r.stomgr_tier0_r.cfg.py')
+execfile('.db.rcms.stomgr_w.cfg.py')
 print db_user, db_sid
 
 #______________________________________________________________________________
@@ -20,10 +21,12 @@ def main():
 #______________________________________________________________________________
 def dump_queries(cursor):
     # dump_runs2(cursor)
-    dump_runs(cursor)
+    # dump_runs(cursor)
     # dump_streams2(cursor)
     # dump_closed_lumis_and_filecount(cursor)
-    # dump_closed_runs(cursor)
+    dump_closed_runs(cursor, 231018)
+    dump_closed_runs(cursor, 231024)
+    dump_closed_runs(cursor, 231027)
 ## dump_queries
 
 
@@ -57,14 +60,14 @@ def dump_runs(cursor):
 
 
 #______________________________________________________________________________
-def dump_closed_runs(cursor):
+def dump_closed_runs(cursor, runnumber):
     query = """SELECT a.runnumber, MAX(a.n_lumisections)
                FROM CMS_STOMGR.runs a
-               WHERE a.runnumber = 225115
+               WHERE a.runnumber = %d
                  AND a.status = 0
                GROUP BY a.runnumber
                HAVING COUNT(*) = MAX(a.n_instances)
-               """
+               """ % runnumber
     cursor.execute(query)
     for result in cursor:
         print 'run, lumis:', result
