@@ -259,7 +259,13 @@ def fill_streams(files_per_lumi, cursor, lumis_to_skip=defaultdict(list)):
 def fill_missing_lumis(missing_lumi_map, cursor):
     for stream, missing_lumis in missing_lumi_map.items():
         for lumi in missing_lumis:
-            fill_number_of_files(cursor, stream, lumi, number_of_files=0)
+            try:
+                fill_number_of_files(cursor, stream, lumi, number_of_files=0)
+            except cx_Oracle.IntegrityError:
+                logger.warning(
+                    ('Failed to insert lumi {0} of run {1}, ' +
+                     'stream {2}.').format(lumi, _run_number, stream)
+                )
 ## fill_missing_lumis
 
 
@@ -318,6 +324,17 @@ def fill_runs(last_lumi, cursor):
 
 #______________________________________________________________________________
 def close_run(last_lumi, cursor):
+    try:
+        # This should fail
+        fill_runs(last_lumi, cursor)
+        logger.warning('Run %d was not opened!' % _run_number)
+    except cx_Oracle.IntegrityError:
+        update_run(last_lumi, cursor)
+## close_run)
+
+
+#______________________________________________________________________________
+def update_run(last_lumi, cursor):
     target_table = 'cms_stomgr.runs'
     values_to_set = dict(
         n_lumisections   = last_lumi,
@@ -328,7 +345,7 @@ def close_run(last_lumi, cursor):
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         )
-    update_run(values_to_set, target_table, cursor)
+    update(values_to_set, target_table, cursor)
 ## close_run
 
 
@@ -372,7 +389,7 @@ def insert(values, table, cursor):
 
 
 #______________________________________________________________________________
-def update_run(values, table, cursor):
+def update(values, table, cursor):
     columns = values.keys()
     expression_to_format = ', '.join(['%s={%s}' % (c, c) for c in columns])
     lines = ['update %(table)s' % locals()                 ,
