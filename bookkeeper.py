@@ -7,7 +7,8 @@ and inserts these in the database.  Supports also insertion of data only
 for lumis with missing files to fill in gaps of consecutive luminosity
 sections.
 
-Jan Veverka, 3 September 2014 - 6 October 2014, veverka@mit.edu
+Jan Veverka, 3 September 2014, veverka@mit.edu
+Last update: 11 December 2014
 
 TODO:
   * Use the logging module for logging
@@ -18,6 +19,8 @@ TODO:
   * Use SQL variable binding
   * Use SQL prepared statements
   * Use actual time stamps
+  * Avoid logging a warning for zero missing lumis
+  * Load db config in a separate method
 '''
 
 __author__     = 'Jan Veverka'
@@ -92,11 +95,16 @@ def main():
             continue
         files_per_lumi[stream] = get_files_per_lumi(lumi_map, last_lumi)
         present_lumis = lumi_map.keys()
+        missing_lumis = get_missing_lumis(present_lumis, last_lumi)
+        if missing_lumis:
+            logger.warning(
+                'Missing lumis for run %d, stream %s: ' % (
+                    _run_number, stream
+                ) + str(missing_lumis)
+            )
         present_lumi_map[stream] = present_lumis
-        missing_lumi_map[stream] = get_missing_lumis(present_lumis, last_lumi)
-        logger.warning('Missing lumis for run %d, stream %s: ' % (_run_number,
-                                                                  stream) +
-                       pprint.pformat(missing_lumi_map[stream]))
+        missing_lumi_map[stream] = missing_lumis
+    logger.debug('Connecting to %s as %s' % (_db_sid, _db_user))
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
     #fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
@@ -324,12 +332,17 @@ def fill_runs(last_lumi, cursor):
 
 #______________________________________________________________________________
 def close_run(last_lumi, cursor):
+    logger.debug('Doing bookkeeping for run %d ... ' % _run_number)
     try:
         # This should fail
+        logger.debug('Trying to insert a record into runs ...')
         fill_runs(last_lumi, cursor)
+        logger.debug('Insterted a record into runs.')
         logger.warning('Run %d was not opened!' % _run_number)
     except cx_Oracle.IntegrityError:
+        logger.debug('Trying to update the record in runs ...')
         update_run(last_lumi, cursor)
+        logger.debug('Updated the record in runs.')
 ## close_run)
 
 
