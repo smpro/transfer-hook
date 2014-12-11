@@ -9,8 +9,8 @@ import cx_Oracle
 import json
 
 # Loag Config file
-#execfile('.db_integration_config.py')
-execfile('.db_production_config.py')
+execfile('.db_integration_config.py')
+#execfile('.db_production_config.py')
 
 # Supply this method with a FULL PATH to a .jsndata file to read it and put the HLT or L1 rates inside into the database.
 # The jsndata needs the .ini descriptor files to be there or this will fail
@@ -163,7 +163,7 @@ def monitorRates(jsndata_file):
 		L1_rates['EVENTCOUNT'] 		= rates['data'][0][0]
 		L1_rates['L1_DECISION'] 	= rates['data'][1]
 		L1_rates['L1_TECHNICAL'] 	= rates['data'][2]
-		L1_rates['mod_datetime']	= str(datetime.datetime.fromtimestamp(os.path.getmtime(jsndata_file)))
+		L1_rates['mod_datetime']	= str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
 		# Here we record the file modification time of the jsndata file for book keeping purposes
 		
 		# Insert L1 rates into the database
