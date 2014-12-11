@@ -14,6 +14,7 @@ TODO:
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
    * Only process each JSON file once. Move both the JSON and data to a new
      location first. Then inject it in the transfer.
+   * Move MiniEoR and bad files in the transfer area
 '''
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -40,6 +41,7 @@ import time
 import bookkeeper
 import runinfo
 import monitorRates
+import metafile
 
 from optparse import OptionParser
 from subprocess import call
@@ -47,18 +49,19 @@ from subprocess import call
 logger = logging.getLogger(__name__)
 
 _dry_run = False
-_max_iterations = 10000
-_seconds_to_sleep = 120
+_max_iterations = 1
+_seconds_to_sleep = 0
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _new_path_base = 'transfer'
 _scratch_base = 'scratch'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
-                      'DQMCalibration', 'Error', 'HLTRates']
-_streams_with_scalers = ['L1Rates']                      
-_run_number_min = 231031
-_run_number_max = 300000
+                      'DQMCalibration', 'Error']
+_streams_with_scalers = ['L1Rates']
+_streams_to_postpone = ['HLTRates']
+_run_number_min = 231017
+_run_number_max = 231017
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
@@ -125,6 +128,8 @@ def parse_args():
 def setup():
     global log_and_maybe_exec
     global maybe_move
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(levelname)s in %(module)s: %(message)s')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
     runinfo.setup()
@@ -150,18 +155,20 @@ def iterate(path):
             #continue
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
-        scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))        
+        scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
         if not os.path.exists(new_rundir):
-            print "Making `%s' ..." % new_rundir
-            os.mkdir(new_rundir)
-            print "Start bookkeeping for this run ..."
+            mkdir(new_rundir)
+            mkdir(os.path.join(new_rundir, 'bad'))
+            logger.debug("Start bookkeeping for run %d ..." % run_number)
             try:
                 bookkeeper.open_run(cursor)
             except cx_Oracle.IntegrityError:
-                print 'WARNING: Bookkeeping for run %d already open!' % run_number
+                lagger.warning(
+                    'Bookkeeping for run %d already open!' % run_number
+                )
         if not os.path.exists(scratch_rundir):
-            print "Making `%s' ..." % scratch_rundir
-            os.mkdir(scratch_rundir)
+            mkdir(scratch_rundir)
+            mkdir(os.path.join(scratch_rundir, 'bad'))
         appversion = runinfo.get_cmssw_version(run_number)
         if appversion == 'UNKNOWN':
             appversion = get_cmssw_version(run_number)
@@ -175,8 +182,10 @@ def iterate(path):
             if ("streamError" not in jsn_file and
                 'BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
-                'EoR' not in jsn_file and
                 'index' not in jsn_file):
+                if 'EoR' in jsn_file:
+                    maybe_move(jsn_file, new_rundir)
+                    continue
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
                 if len(settings['data']) < 5:
@@ -187,7 +196,11 @@ def iterate(path):
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
+                if streamName in _streams_to_postpone:
+                    continue
                 if streamName in _streams_to_ignore:
+                    maybe_move(jsn_file, scratch_rundir)
+                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
                     continue
                 elif streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
@@ -229,6 +242,18 @@ def iterate(path):
                                run_number, streamName, lumiSection,
                                number_of_files
                            )
+        ## Move the bad area to new run dir so that we can check for run
+        ## completeness
+        new_rundir_bad = os.path.join(new_rundir, 'bad')
+        for fname in glob.glob(os.path.join(rundir, 'bad', '*.jsn')):
+            try:
+                jsn = metafile.File(fname)
+                if jsn.type == metafile.Type.MacroMerger:
+                    dat_path = jsn.path.replace('.jsn', '.dat')
+                    maybe_move(jsn.path, new_rundir_bad)
+                    maybe_move(dat_path, new_rundir_bad)
+            except ValueError:
+                logger.warning("Illegal filename `%s'!" % fname)
     connection.close()
 ## iterate()
 
@@ -242,6 +267,13 @@ def get_new_path(path, new_base=_new_path_base):
     head, tail = os.path.split(path)
     return os.path.join(head, new_base)
 ## get_new_path()
+
+
+#_______________________________________________________________________________
+def mkdir(path):
+    logger.debug("Making `%s' ..." % path)
+    os.mkdir(path)
+## mkdir()
 
 
 #_______________________________________________________________________________
