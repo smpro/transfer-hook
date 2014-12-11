@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# Last modified by Dylan G. Hsu on 2014-12-08
+# Last modified by Dylan G. Hsu on 2014-12-11 :: dylan.hsu@cern.ch
 
 import os,sys,socket
 import shutil
@@ -9,8 +9,8 @@ import cx_Oracle
 import json
 
 # Loag Config file
-#execfile('.db_integration_config.py')
-execfile('.db_production_config.py')
+execfile('.db_integration_config.py')
+#execfile('.db_production_config.py')
 
 # Supply this method with a FULL PATH to a .jsndata file to read it and put the HLT or L1 rates inside into the database.
 # The jsndata needs the .ini descriptor files to be there or this will fail
@@ -108,6 +108,8 @@ def monitorRates(jsndata_file):
 		HLT_rates={}
 		i=0
 		# Get the rates for each trigger path
+		HLT_LS_info={}
+		HLT_LS_info['PROC']=0 # number of events processed
 		for pathname in HLT_names['Path-Names']:
 			HLT_rates[pathname]={}
 			HLT_rates[pathname]['L1PASS'] 	= rates['data'][2][i]
@@ -115,8 +117,43 @@ def monitorRates(jsndata_file):
 			HLT_rates[pathname]['PACCEPT'] 	= rates['data'][4][i]
 			HLT_rates[pathname]['PREJECT'] 	= rates['data'][5][i]
 			HLT_rates[pathname]['PEXCEPT'] 	= rates['data'][6][i]
+			if HLT_LS_info['PROC']==0:
+				HLT_LS_info['PROC']=rates['data'][0][0]
 			i+=1
 
+		# Before we put the rates in the DB, we will need see if the LS is indexed in the DB
+		# If it isn't, we create a row in the table of LS
+		# Currently most of the fields are set to 0 because I am grossly misinformed
+		query="SELECT RUNNUMBER FROM "+HLT_LS_db+" WHERE LSNUMBER="+ls[2:]+" AND RUNNUMBER="+run_number
+		write_cursor.execute(query)
+		if len(write_cursor.fetchall()) < 1:
+			# No existing row. we must now try to insert:
+			# print "This LS is not already in the DB" #debug	
+			query="""
+				INSERT INTO {0} (
+					RUNNUMBER, LSNUMBER, MODIFICATIONTIME, PSINDEX, PSINDMATCH, PROC, ACC, ENTRIESRCV, ENTRIESEXP, EFFREP, EXPREP,  MODDIFF
+				) VALUES (
+					{1},       {2},      {3},              {4},     {5},        {6},  {7}, {8},        {9},        {10},   {11},    {12}
+				)
+			"""
+			query=query.format(
+				HLT_LS_db,
+				run_number,
+				ls[2:],
+				"TO_TIMESTAMP('"+str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
+				0,
+				0,
+				HLT_LS_info['PROC'],
+				0,
+				0,
+				0,
+				0,
+				0,
+				0
+			)
+			write_cursor.execute(query)
+			# print "Successfully inserted that LS"
+				
 		# Put the rates in the DB
 		# This is kept separate from the above part because we might want to do something smarter with the path mapping later
 		for pathname in HLT_rates:
@@ -139,7 +176,7 @@ def monitorRates(jsndata_file):
 				)
 			"""
 			query=query.format(
-				HLT_db,
+				HLT_rates_db,
 				run_number,
 				int(ls[2:]),
 				path_id,
@@ -163,7 +200,7 @@ def monitorRates(jsndata_file):
 		L1_rates['EVENTCOUNT'] 		= rates['data'][0][0]
 		L1_rates['L1_DECISION'] 	= rates['data'][1]
 		L1_rates['L1_TECHNICAL'] 	= rates['data'][2]
-		L1_rates['mod_datetime']	= str(datetime.datetime.fromtimestamp(os.path.getmtime(jsndata_file)))
+		L1_rates['mod_datetime']	= str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
 		# Here we record the file modification time of the jsndata file for book keeping purposes
 		
 		# Insert L1 rates into the database
@@ -209,7 +246,24 @@ def makeTestTables():
 	cursor=makeWriteCxn().cursor()
 	q_varray1="create or replace type L1_DECISION_VARRAY is VARRAY(128) of NUMBER(11)"
 	q_varray2="create or replace type L1_TECHNICAL_VARRAY is VARRAY(64) of NUMBER(11)"
-	q_table1="""create table HLT_TEST_TRIGGERPATHS
+	q_table1="""create table HLT_TEST_LUMISECTIONS_V3
+		(
+			RUNNUMBER            NUMBER(11)    NOT NULL, 
+			LSNUMBER             NUMBER(11)    NOT NULL, 
+			MODIFICATIONTIME     TIMESTAMP(6)  NOT NULL, 
+			PSINDEX              NUMBER(11)    NOT NULL, 
+			PSINDMATCH           NUMBER(1)     NOT NULL, 
+			PROC                 NUMBER(11)    NOT NULL, 
+			ACC                  NUMBER(11)    NOT NULL, 
+			ENTRIESRCV           NUMBER(11)    NOT NULL, 
+			ENTRIESEXP           NUMBER(11)    NOT NULL, 
+			EFFREP               NUMBER(11)    NOT NULL, 
+			EXPREP               NUMBER(11)    NOT NULL, 
+			MODDIFF              NUMBER(11)    NOT NULL,
+			PRIMARY KEY (LSNUMBER, RUNNUMBER)
+		)
+	"""
+	q_table2="""create table HLT_TEST_TRIGGERPATHS
 		(
 			RUNNUMBER      NUMBER(11)  NOT NULL, 
 			LSNUMBER       NUMBER(11)  NOT NULL,
@@ -218,10 +272,13 @@ def makeTestTables():
 			PSPASS         NUMBER(20)  NOT NULL,
 			PACCEPT        NUMBER(20)  NOT NULL,
 			PEXCEPT        NUMBER(20)  NOT NULL,
-			PREJECT        NUMBER(20)  NOT NULL
+			PREJECT        NUMBER(20)  NOT NULL,
+			primary key (LSNUMBER, RUNNUMBER, PATHID),
+			foreign key (RUNNUMBER, LSNUMBER)    references
+			HLT_TEST_LUMISECTIONS_V3 (RUNNUMBER, LSNUMBER)
 		)
 	"""
-	q_table2="""create table HLT_TEST_L1_SCALARS
+	q_table3="""create table HLT_TEST_L1_SCALARS
 		(
 			RUNNUMBER                                 NUMBER								NOT NULL, 
 			LSNUMBER                                  NUMBER                                NOT NULL,
@@ -236,15 +293,26 @@ def makeTestTables():
 	cursor.execute(q_varray2);
 	cursor.execute(q_table1)
 	cursor.execute(q_table2);
+	cursor.execute(q_table3);
 
 def dropTestTables():
 	cursor=makeWriteCxn().cursor()
-	cursor.execute("drop table HLT_TEST_TRIGGERPATHS")
-	cursor.execute("drop table HLT_TEST_L1_SCALARS")
+	cursor.execute("declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'HLT_TEST_TRIGGERPATHS'; if existing_tables > 0 then execute immediate 'drop table HLT_TEST_TRIGGERPATHS'; end if; end;")
+	cursor.execute("declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'HLT_TEST_LUMISECTIONS_V3'; if existing_tables > 0 then execute immediate 'drop table HLT_TEST_LUMISECTIONS_V3'; end if; end;")
+	cursor.execute("declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'HLT_TEST_L1_SCALARS'; if existing_tables > 0 then execute immediate 'drop table HLT_TEST_L1_SCALARS'; end if; end;")
 
 def outputTestTables():
 	cursor=makeWriteCxn().cursor()
-	cursor.execute('select * from '+HLT_db)
+	print "######################################################################################################################"
+	print HLT_LS_db
+	cursor.execute('select * from '+HLT_LS_db)
 	print cursor.fetchall()
+	print "######################################################################################################################"
+	print HLT_rates_db
+	cursor.execute('select * from '+HLT_rates_db)
+	print cursor.fetchall()
+	print "######################################################################################################################"
+	print L1_db
 	cursor.execute("select * from "+L1_db)
 	print cursor.fetchall()
+	print "######################################################################################################################"
