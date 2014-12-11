@@ -5,6 +5,7 @@ import cx_Oracle
 # execfile('.db.conf.py')
 ## defines db_sid, db_user and db_pwd
 #execfile('.db.int2r.stomgr_tier0_r.cfg.py')
+#execfile('.db.int2r.stomgr_w.cfg.py')
 execfile('.db.rcms.stomgr_w.cfg.py')
 print db_user, db_sid
 
