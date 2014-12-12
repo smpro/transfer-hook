@@ -184,7 +184,7 @@ def iterate(path):
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
                 if 'EoR' in jsn_file:
-                    maybe_move(jsn_file, new_rundir)
+                    maybe_move(jsn_file, new_rundir, force_overwrite=True)
                     continue
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
@@ -343,7 +343,7 @@ def mock_move_to_new_rundir(src, dst):
 
 
 #_______________________________________________________________________________
-def move_to_new_rundir(src, dst):
+def move_to_new_rundir(src, dst, force_overwrite=False):
     '''
     Moves the file src to the directory dst. Creates dst if it doesn't exist.
     '''
@@ -358,6 +358,8 @@ def move_to_new_rundir(src, dst):
             print "No need to do: mv %s %s, it is the same file." % (src,
                                                                      full_dst)
             return
+        elif force_overwrite:
+            logger.info("Overwriting `%s'" % full_dst)
         else:
             raise RuntimeError, "Destination file `%s' exists!" % full_dst
     print "I'll do: mv %s %s" % (src, full_dst)
