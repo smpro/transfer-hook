@@ -74,14 +74,14 @@ class Config(object):
         self.filename = filename
         self.general_dryrun = False
         self.max_iterations = 10000
-        self.seconds_to_sleep = 60
+        self.seconds_to_sleep = 20
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
         self.logging_filename = 'eor.log'
         self.logging_level = logging.INFO
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 229831
+        self.runs_first = 230984
         self.runs_last  = 300000
         if filename:
             self._parse_config_file()
@@ -121,6 +121,11 @@ def setup(cfg):
                         level    = cfg.logging_level,
                         format   = cfg.logging_format)
     bookkeeper._dry_run = cfg.general_dryrun
+    ## Integration DB, will not be read by Tier0
+    #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
+    ## Production DB, will be read by Tier0
+    bookkeeper._db_config = '.db.rcms.stomgr_w.cfg.py'
+    bookkeeper.setup()
 ## setup
 
 
@@ -177,6 +182,7 @@ class Run(object):
         self.number = int(self.name.replace('run', ''))
         eorname = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
         eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', '*'])
+        #eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
         self.eorpath = os.path.join(self.path, eorname + '.jsn')
         self.eorglob = os.path.join(self.path, eormask + '.jsn')
     def is_complete(self, bu_count=15):
