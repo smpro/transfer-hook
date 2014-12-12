@@ -61,8 +61,11 @@ def is_run_complete(
             continue
         if "MacroEoR" in afterStringSM[nb]:
             continue
+        if "TransferEoR" in afterStringSM[nb]:
+            continue
 
         inputEoRJsonFile = os.path.join(theInputDataFolder, afterStringSM[nb])
+        log.debug("Inspecting `%s'" % inputEoRJsonFile)
         settingsLS = ""
         if(os.path.getsize(inputEoRJsonFile) > 0):
             try:
