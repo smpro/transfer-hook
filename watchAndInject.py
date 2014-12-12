@@ -49,8 +49,8 @@ from subprocess import call
 logger = logging.getLogger(__name__)
 
 _dry_run = False
-_max_iterations = 1
-_seconds_to_sleep = 0
+_max_iterations = 10000
+_seconds_to_sleep = 20
 _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _new_path_base = 'transfer'
@@ -58,10 +58,10 @@ _scratch_base = 'scratch'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
                       'DQMCalibration', 'Error']
-_streams_with_scalers = ['L1Rates']
-_streams_to_postpone = ['HLTRates']
-_run_number_min = 231017
-_run_number_max = 231017
+_streams_with_scalers = ['L1Rates', 'HLTRates']
+_streams_to_postpone = []
+_run_number_min = 231316
+_run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
 _first_run_to_new_cmssw_version_map = {
@@ -285,7 +285,7 @@ def get_rundirs_and_hltkeys(path):
             continue
         rundirs.append(rundir)
         runs.append(run_number)
-    results = runinfo.get_hlt_key(runs)
+    results = runinfo.get_hlt_keys(runs)
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
     log('Run directories to transfer: ', newline=False)
@@ -350,6 +350,9 @@ def move_to_new_rundir(src, dst):
     ## Append the filename to the destination directory
     full_dst = os.path.join(dst, os.path.basename(src))
 
+    if not os.path.exists(src):
+        logger.error("Source file `%s' doesn't exits!" % src)
+        return
     if os.path.exists(full_dst):
         if os.path.samefile(src, full_dst):
             print "No need to do: mv %s %s, it is the same file." % (src,

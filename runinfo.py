@@ -22,12 +22,14 @@ _phrase = phrase
 
 #______________________________________________________________________________
 def main():
+    global run_numbers
     logging.basicConfig(level = _logging_level)
     setup()
     run_numbers.extend(sys.argv[1:])
+    run_numbers = map(int, run_numbers)
     run_numbers.sort()
     # results = get_hlt_key(run_numbers)
-    results = get_cmssw_version(run_numbers)
+    results = get_cmssw_versions(run_numbers)
     for run_number, result in zip(run_numbers, results):
         print run_number, result
     logger.info('End')
@@ -43,21 +45,39 @@ def setup():
 
     
 #______________________________________________________________________________
-def get_cmssw_version(run_numbers):
-    return get_parameter('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_numbers)
+def get_cmssw_version(run_number):
+    return get_parameter('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_number)
 ## get_cmssw_version
 
 
 #______________________________________________________________________________
-def get_run_key(run_numbers):
-    return get_parameter('CMS.DAQ:DAQ_RUN_KEY', run_numbers)
+def get_run_key(run_number):
+    return get_parameter('CMS.DAQ:DAQ_RUN_KEY', run_number)
 ## get_run_key
 
 
 #______________________________________________________________________________
-def get_hlt_key(run_numbers):
-    return get_parameter('CMS.LVL0:HLT_KEY_DESCRIPTION', run_numbers)
+def get_hlt_key(run_number):
+    return get_parameter('CMS.LVL0:HLT_KEY_DESCRIPTION', run_number)
 ## get_hlt_key
+
+
+#______________________________________________________________________________
+def get_cmssw_versions(run_numbers):
+    return get_parameters('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_numbers)
+## get_cmssw_versions
+
+
+#______________________________________________________________________________
+def get_run_keys(run_numbers):
+    return get_parameters('CMS.DAQ:DAQ_RUN_KEY', run_numbers)
+## get_run_keys
+
+
+#______________________________________________________________________________
+def get_hlt_keys(run_numbers):
+    return get_parameters('CMS.LVL0:HLT_KEY_DESCRIPTION', run_numbers)
+## get_hlt_keys
 
 
 #______________________________________________________________________________
@@ -74,7 +94,7 @@ def get_parameters(name, run_numbers):
     prepare_cursor(cursor, name)
     results = []
     for run_number in run_numbers:
-        result.append(execute_query(cursor, run_number))
+        results.append(execute_query(cursor, run_number))
     return results
 ## get_parameter
 
