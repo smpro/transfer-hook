@@ -34,6 +34,7 @@ __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
 import glob
+import imp
 import json
 import logging
 import os
@@ -54,10 +55,6 @@ _dry_run = False
 # Production DB, will be read and processed by Tier0
 _db_config = '.db.rcms.stomgr_w.cfg.py'
 
-execfile(_db_config)
-_db_sid = db_sid
-_db_user = db_user
-_db_pwd = db_pwd
 # _input_dir = '/store/lustre/mergeMacro'
 _input_dir = '/store/lustre/transfer'
 #_input_dir = '/store/lustre/transfer_minidaq'
@@ -120,11 +117,16 @@ def main():
 #______________________________________________________________________________
 def setup():
     global execute_sql
+    global _db_sid, _db_user, _db_pwd
     if _dry_run:
         logger.info('Setting up a dry run.')
         execute_sql = lambda cursor, statement: None ## Does nothing
     else:
         execute_sql = lambda cursor, statement: cursor.execute(statement)
+    db_config = imp.load_source('db_config', _db_config)
+    _db_sid = db_config.db_sid
+    _db_user = db_config.db_user
+    _db_pwd = db_config.db_pwd
 ## setup
 
 
