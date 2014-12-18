@@ -5,29 +5,23 @@ import sys
 
 import cx_Oracle
 
+import config
+
 logger = logging.getLogger(__name__)
 
 _logging_level = logging.WARNING
-_db_config = '.db.omds.runinfo_r.cfg.py'
+_db_config_file = '.db.omds.runinfo_r.cfg.py'
 
 run_numbers = [
     229221,
     ]
 
-execfile(_db_config)
-_sid    = sid
-_reader = reader
-_phrase = phrase
-
-
 #______________________________________________________________________________
 def main():
     global run_numbers
-    logging.basicConfig(level = _logging_level)
     setup()
-    run_numbers.extend(sys.argv[1:])
-    run_numbers = map(int, run_numbers)
-    run_numbers.sort()
+    #dump_runs_with_new_cmssw_tag_name()
+    #dump_cmssw_versions()
     # results = get_hlt_key(run_numbers)
     results = get_cmssw_versions(run_numbers)
     for run_number, result in zip(run_numbers, results):
@@ -39,14 +33,23 @@ def main():
 
 #______________________________________________________________________________
 def setup():
+    global run_numbers
     global connection
-    connection = cx_Oracle.connect(_reader, _phrase, _sid)
+    logging.basicConfig(level = _logging_level)
+    run_numbers.extend(sys.argv[1:])
+    run_numbers = map(int, run_numbers)
+    run_numbers.sort()
+    cfg = config.load(_db_config_file)
+    connection = cx_Oracle.connect(cfg.reader, cfg.phrase, cfg.sid)
 ## setup
 
-    
+
+#______________________________________________________________________________
+
 #______________________________________________________________________________
 def get_cmssw_version(run_number):
-    return get_parameter('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_number)
+    #return get_parameter('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_number)
+    return get_parameter('CMS.DAQ:CMSSW_VERSION', run_number)
 ## get_cmssw_version
 
 
@@ -64,7 +67,8 @@ def get_hlt_key(run_number):
 
 #______________________________________________________________________________
 def get_cmssw_versions(run_numbers):
-    return get_parameters('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_numbers)
+    #return get_parameters('CMS.DAQ:DAQ_CMSSW_VERSION_T', run_numbers)
+    return get_parameters('CMS.DAQ:CMSSW_VERSION', run_numbers)
 ## get_cmssw_versions
 
 
@@ -109,6 +113,21 @@ def prepare_cursor(cursor, name):
         """ % name
     logger.debug("Using SQL query: `%s'" % query)
     cursor.prepare(query)
+## prepare
+
+
+#______________________________________________________________________________
+def dump_runs_with_new_cmssw_tag_name(cursor):
+    query = """
+        SELECT RUNNUMBER
+        FROM CMS_RUNINFO.RUNSESSION_PARAMETER
+        WHERE NAME='CMS.DAQ:CMSSW_VERSION'
+        """ % name
+    logger.debug("Using SQL query: `%s'" % query)
+    cursor.execute(query)
+    results = []
+    for result in cursor:
+        print result
 ## prepare
 
 
