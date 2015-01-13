@@ -203,7 +203,11 @@ def is_run_complete(
                 'numberBoLSFiles': numberBoLSFiles,
                 'eventsTotalRun': eventsTotalRun,
                 'numberMiniEoRFiles': numberMiniEoRFiles,
-                'isComplete': isComplete}))
+                'isComplete': isComplete
+            },
+            sort_keys=True, indent=4
+        )
+    )
     theEoRFileMacroOutput.close()
 
     shutil.move(EoRFileNameMacroOutput, EoRFileNameMacroOutputStable)
