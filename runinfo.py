@@ -5,7 +5,7 @@ import sys
 
 import cx_Oracle
 
-import config
+import transfer.hook.config as config
 
 logger = logging.getLogger(__name__)
 
