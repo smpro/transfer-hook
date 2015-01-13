@@ -11,7 +11,11 @@ class Config(object):
     '''
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
-            self.key = value
+            setattr(self, key, value)
+    def load(self, pathname):
+        self.__dict__.update(load(pathname).__dict__)
+## Config
+
 
 #______________________________________________________________________________
 def load(pathname):
@@ -21,7 +25,7 @@ def load(pathname):
     config = Config()
     execfile(os.path.expanduser(pathname), {}, config.__dict__)
     return config
-
+# load
 
 if __name__ == '__main__':
     cfg = load('.db.int2r.stomgr_w.cfg.py')
