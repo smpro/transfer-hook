@@ -1,4 +1,26 @@
 # -*- coding: utf-8 -*-
+'''
+Basic test of the transfer.hook.runinfo module.
+Jan Veverka, 12 January 2015, veverka@mit.edu
+
+USAGE:
+    $ python runinfo_test.py
+
+Expected output:
+Run 229221
+  appversion: CMSSW_7_2_1
+  HLT key: /cdaq/special/LS1/ECR/v1/HLT/V4
+  run key: UNKNOWN
+Run 232062
+  appversion: CMSSW_7_2_3
+  HLT key: /cdaq/special/LS1/MWGR9/HLT/V11
+  run key: UNKNOWN
+Runs 229221 and 232062
+  appversions: ['CMSSW_7_2_1', 'CMSSW_7_2_3']
+  HLT keys: ['/cdaq/special/LS1/ECR/v1/HLT/V4', '/cdaq/special/LS1/MWGR9/HLT/V11']
+  run keys: ['UNKNOWN', 'UNKNOWN']
+
+'''
 import os
 import logging
 import transfer.hook.runinfo as runinfo
