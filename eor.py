@@ -73,15 +73,15 @@ class Config(object):
     def __init__(self, filename=None):
         self.filename = filename
         self.general_dryrun = False
-        self.max_iterations = 10000
-        self.seconds_to_sleep = 20
+        self.max_iterations = 1
+        self.seconds_to_sleep = 0
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
-        self.logging_filename = 'eor.log'
+        self.logging_filename = 'eor_bfix2.log'
         self.logging_level = logging.INFO
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 230984
+        self.runs_first = 231283
         self.runs_last  = 300000
         if filename:
             self._parse_config_file()
@@ -152,7 +152,7 @@ def get_runs(cfg):
     for dirname in dirnames:
         logger.debug("Inspecting `%s' ..." % dirname)
         try:
-            run = Run(dirname)
+            run = Run(dirname, 'bfix2')
             if cfg.runs_first and run.number < cfg.runs_first:
                 logger.debug('Skipping run %d < %d because it is outside '
                               'of the range.' % (run.number, cfg.runs_first))
@@ -181,8 +181,8 @@ class Run(object):
         self.name = os.path.basename(self.path)
         self.number = int(self.name.replace('run', ''))
         eorname = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
-        eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', '*'])
-        #eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
+        #eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', '*'])
+        eormask = '_'.join([self.name, 'ls0000', 'TransferEoR', suffix])
         self.eorpath = os.path.join(self.path, eorname + '.jsn')
         self.eorglob = os.path.join(self.path, eormask + '.jsn')
     def is_complete(self, bu_count=15):
