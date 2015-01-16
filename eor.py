@@ -74,14 +74,15 @@ class Config(object):
         self.filename = filename
         self.general_dryrun = False
         self.max_iterations = 1
-        self.seconds_to_sleep = 0
+        self.seconds_to_sleep = 20
+        self.json_suffix = 'test'
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
-        self.logging_filename = 'eor_bfix2.log'
+        self.logging_filename = 'eor_minigr_test.log'
         self.logging_level = logging.INFO
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 231283
+        self.runs_first = 232062
         self.runs_last  = 300000
         if filename:
             self._parse_config_file()
@@ -126,6 +127,8 @@ def setup(cfg):
     ## Production DB, will be read by Tier0
     bookkeeper._db_config = '.db.rcms.stomgr_w.cfg.py'
     bookkeeper.setup()
+    if not cfg.json_suffix:
+        cfg.json_suffix = socket.gethostname()
 ## setup
 
 
@@ -152,7 +155,7 @@ def get_runs(cfg):
     for dirname in dirnames:
         logger.debug("Inspecting `%s' ..." % dirname)
         try:
-            run = Run(dirname, 'bfix2')
+            run = Run(dirname, cfg.json_suffix)
             if cfg.runs_first and run.number < cfg.runs_first:
                 logger.debug('Skipping run %d < %d because it is outside '
                               'of the range.' % (run.number, cfg.runs_first))
