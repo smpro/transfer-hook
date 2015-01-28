@@ -1,5 +1,8 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
+## TODO: 
+##    * Factor out command-line processing out of RunInfo into
+##      a separate class (RunInfo.main())
 import logging
 import sys
 
@@ -49,13 +52,25 @@ class RunInfo(object):
         self.connection = cx_Oracle.connect(db.reader, db.phrase, db.sid)
         self.cursor = self.connection.cursor()
     def main(self):
-        #dump_runs_with_new_cmssw_tag_name(connection.cursor())
-        #dump_cmssw_versions()
-        #results = get_hlt_key(run_numbers)
+        self.dump_cmssw_versions()
+        self.dump_hlt_keys()
+        self.dump_run_keys()
+        self.connection.close()
+    def dump_cmssw_versions(self):
+        print 'Run    CMSSW version'
         results = self.get_cmssw_versions(self.run_numbers)
         for run_number, result in zip(self.run_numbers, results):
             print run_number, result
-        self.connection.close()
+    def dump_hlt_keys(self):
+        print 'Run    HLT key'
+        results = self.get_hlt_keys(self.run_numbers)
+        for run_number, result in zip(self.run_numbers, results):
+            print run_number, result
+    def dump_run_keys(self):
+        print 'Run    Run key'
+        results = self.get_run_keys(self.run_numbers)
+        for run_number, result in zip(self.run_numbers, results):
+            print run_number, result
     def get_cmssw_version(self, run_number):
         if run_number < _first_run_with_new_cmssw_version_name_tag:
             tag_name = 'CMS.DAQ:DAQ_CMSSW_VERSION_T'
@@ -65,7 +80,7 @@ class RunInfo(object):
     def get_hlt_key(self, run_number):
         return self.get_parameter('CMS.LVL0:HLT_KEY_DESCRIPTION', run_number)
     def get_run_key(self, run_number):
-        return self.get_parameter('CMS.DAQ:DAQ_RUN_KEY', run_number)
+        return self.get_parameter('CMS.DAQ:RUN_KEY', run_number)
     def get_cmssw_versions(self, run_numbers):
         old, new = [], []
         for r in run_numbers:
@@ -80,7 +95,7 @@ class RunInfo(object):
     def get_hlt_keys(self, run_numbers):
         return self.get_parameters('CMS.LVL0:HLT_KEY_DESCRIPTION', run_numbers)
     def get_run_keys(self, run_numbers):
-        return self.get_parameters('CMS.DAQ:DAQ_RUN_KEY', run_numbers)
+        return self.get_parameters('CMS.DAQ:RUN_KEY', run_numbers)
     def get_parameter(self, name, run_number):
         self._prepare_cursor(name)
         return self._execute_query(run_number)
