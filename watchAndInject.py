@@ -131,7 +131,7 @@ def setup():
     global log_and_maybe_exec
     global maybe_move
     global runinfo
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format='%(levelname)s in %(module)s: %(message)s')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
