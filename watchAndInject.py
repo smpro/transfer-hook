@@ -135,7 +135,7 @@ def setup():
                         format='%(levelname)s in %(module)s: %(message)s')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py')))
+    runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py'))
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
