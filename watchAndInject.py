@@ -38,13 +38,15 @@ import subprocess
 import sys
 import time
 
-import bookkeeper
-import runinfo
-import monitorRates
-import metafile
+import transfer.hook.bookkeeper as bookkeeper
+import transfer.hook.monitorRates as monitorRates
+import transfer.hook.metafile as metafile
 
 from optparse import OptionParser
 from subprocess import call
+
+from transfer.hook.runinfo import RunInfo
+from transfer.hook.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM',
                       'DQMCalibration', 'Error']
 _streams_with_scalers = ['L1Rates', 'HLTRates']
 _streams_to_postpone = []
-_run_number_min = 231316
+_run_number_min = 231816
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
@@ -128,11 +130,12 @@ def parse_args():
 def setup():
     global log_and_maybe_exec
     global maybe_move
+    global runinfo
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s in %(module)s: %(message)s')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo.setup()
+    runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py')))
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
@@ -151,11 +154,18 @@ def iterate(path):
     for rundir in rundirs:
         run_number = int(os.path.basename(rundir).replace('run', ''))
         print "************ Run ", run_number, " *******************"
-        #if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
-            #continue
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
+        if not os.path.exists(scratch_rundir):
+            mkdir(scratch_rundir)
+            mkdir(os.path.join(scratch_rundir, 'bad'))
+        if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
+            for fname in glob.glob(os.path.join(rundir, '*.*')):
+                maybe_move(fname, scratch_rundir)
+            for fname in glob.glob(os.path.join(rundir, 'bad', '*.*')):
+                maybe_move(fname, os.path.join(scratch_rundir, 'bad'))
+            continue
         if not os.path.exists(new_rundir):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
@@ -166,9 +176,6 @@ def iterate(path):
                 lagger.warning(
                     'Bookkeeping for run %d already open!' % run_number
                 )
-        if not os.path.exists(scratch_rundir):
-            mkdir(scratch_rundir)
-            mkdir(os.path.join(scratch_rundir, 'bad'))
         appversion = runinfo.get_cmssw_version(run_number)
         if appversion == 'UNKNOWN':
             appversion = get_cmssw_version(run_number)
