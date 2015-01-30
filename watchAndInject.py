@@ -15,6 +15,10 @@ TODO:
    * Only process each JSON file once. Move both the JSON and data to a new
      location first. Then inject it in the transfer.
    * Move MiniEoR and bad files in the transfer area
+   * Make sure to move the MiniEoR files after the meta data files to
+     prevent closing the run with wrongly low lumi count. The EOR
+     needs all the meta data files to do the bookkeeping right.
+     see https://hypernews.cern.ch/HyperNews/CMS/get/smops/804.html
 '''
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -132,7 +136,8 @@ def setup():
     global maybe_move
     global runinfo
     logging.basicConfig(level=logging.INFO,
-                        format='%(levelname)s in %(module)s: %(message)s')
+                        format='%(levelname)s in %(module)s: %(message)s',
+                        filename='wai.log')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
     runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py'))
