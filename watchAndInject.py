@@ -167,9 +167,10 @@ def iterate(path):
             mkdir(os.path.join(scratch_rundir, 'bad'))
         if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
             for fname in glob.glob(os.path.join(rundir, '*.*')):
-                maybe_move(fname, scratch_rundir)
+                maybe_move(fname, scratch_rundir, force_overwrite=True)
             for fname in glob.glob(os.path.join(rundir, 'bad', '*.*')):
-                maybe_move(fname, os.path.join(scratch_rundir, 'bad'))
+                maybe_move(fname, os.path.join(scratch_rundir, 'bad'),
+                           force_overwrite=True)
             continue
         if not os.path.exists(new_rundir):
             mkdir(new_rundir)
