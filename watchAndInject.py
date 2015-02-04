@@ -20,15 +20,6 @@ TODO:
      needs all the meta data files to do the bookkeeping right.
      see https://hypernews.cern.ch/HyperNews/CMS/get/smops/804.html
 '''
-__author__     = 'Lavinia Darlea, Jan Veverka'
-__copyright__  = 'Unknown'
-__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
-
-__licence__    = 'Unknonw'
-__version__    = '0.2.2'
-__maintainer__ = 'Jan Veverka'
-__email__      = 'veverka@mit.edu'
-__status__     = 'Development'
 
 import cx_Oracle
 import glob 
@@ -51,6 +42,17 @@ from subprocess import call
 
 from transfer.hook.runinfo import RunInfo
 from transfer.hook.config import Config
+
+__author__     = 'Lavinia Darlea, Jan Veverka'
+__copyright__  = 'Unknown'
+__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
+
+__licence__    = 'Unknonw'
+__version__    = '0.2.2'
+__maintainer__ = 'Jan Veverka'
+__email__      = 'veverka@mit.edu'
+__status__     = 'Development'
+
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +142,7 @@ def setup():
                         filename='wai.log')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py'))
+    runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
