@@ -36,6 +36,7 @@ import time
 import transfer.hook.bookkeeper as bookkeeper
 import transfer.hook.monitorRates as monitorRates
 import transfer.hook.metafile as metafile
+import transfer.hook.eor as eor
 
 from optparse import OptionParser
 from subprocess import call
@@ -68,7 +69,7 @@ _streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM',
                       'DQMCalibration', 'Error']
 _streams_with_scalers = ['L1Rates', 'HLTRates']
 _streams_to_postpone = []
-_run_number_min = 231816
+_run_number_min = 233749 # Begin of CRUZET Feb 2015
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
@@ -157,24 +158,19 @@ def iterate(path):
     cursor = connection.cursor()
     new_path = get_new_path(path, _new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
-    rundirs, hltkeys = get_rundirs_and_hltkeys(path)
+    rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
         run_number = int(os.path.basename(rundir).replace('run', ''))
         print "************ Run ", run_number, " *******************"
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
+        run_key = runinfo.get_run_key(run_number)
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
-        if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
-            for fname in glob.glob(os.path.join(rundir, '*.*')):
-                maybe_move(fname, scratch_rundir, force_overwrite=True)
-            for fname in glob.glob(os.path.join(rundir, 'bad', '*.*')):
-                maybe_move(fname, os.path.join(scratch_rundir, 'bad'),
-                           force_overwrite=True)
-            continue
-        if not os.path.exists(new_rundir):
+        if (not os.path.exists(new_rundir) and
+            not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.debug("Start bookkeeping for run %d ..." % run_number)
@@ -194,8 +190,7 @@ def iterate(path):
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
         for jsn_file in jsns:
-            if ("streamError" not in jsn_file and
-                'BoLS' not in jsn_file and
+            if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
                 if 'EoR' in jsn_file:
@@ -204,6 +199,8 @@ def iterate(path):
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
                 if len(settings['data']) < 5:
+                    logger.warning("Failed to parse `%s'!" % jsn_file)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
                 eventsNumber = int(settings['data'][1])
                 fileName = str(settings['data'][3])
@@ -211,19 +208,18 @@ def iterate(path):
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
+                dat_file = os.path.join(rundir, fileName)
+                if streamName in _streams_with_scalers:
+                    monitor_rates(jsn_file)
                 if streamName in _streams_to_postpone:
                     continue
-                if streamName in _streams_to_ignore:
+                if (run_key == 'TIER0_TRANSFER_OFF' or
+                    streamName in _streams_with_scalers + _streams_to_ignore):
                     maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
-                    continue
-                elif streamName in _streams_with_scalers:
-                    monitor_rates(jsn_file)
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
                     continue
                 maybe_move(jsn_file, new_rundir)
-                maybe_move(os.path.join(rundir, fileName), new_rundir)
+                maybe_move(dat_file, new_rundir)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
@@ -292,18 +288,21 @@ def mkdir(path):
 
 
 #_______________________________________________________________________________
-def get_rundirs_and_hltkeys(path):
+def get_rundirs_and_hltkeys(path, new_path):
     rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
         run_number = get_run_number(rundir)
         if run_number < _run_number_min or _run_number_max < run_number:
+            continue
+        new_rundir = os.path.join(new_path, rundir)
+        if eor.Run(new_rundir).is_closed():
             continue
         rundirs.append(rundir)
         runs.append(run_number)
     results = runinfo.get_hlt_keys(runs)
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
-    log('Run directories to transfer: ', newline=False)
+    log('Run directories to inspect: ', newline=False)
     pprint.pprint(rundirs)
     log('HLT keys: ', newline=False)
     pprint.pprint(hltkeys)
