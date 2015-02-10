@@ -7,8 +7,10 @@ import shutil
 import time,datetime
 import cx_Oracle
 import json
+import logging
 
-# Loag Config file
+logger = logging.getLogger(__name__)
+# Load Config file
 #execfile('.db_integration_config.py')
 execfile('.db_production_config.py')
 
@@ -37,7 +39,7 @@ def monitorRates(jsndata_file):
 	extra=raw_pieces[3]
 
 	if stream != "HLTRates" and stream != "L1Rates":
-		print 'Unrecognized rate stream: '+raw_pieces[2]
+		logger.error('Unrecognized rate stream: '+raw_pieces[2])
 		return False
 	
 	# Establish DB connections
@@ -46,10 +48,10 @@ def monitorRates(jsndata_file):
 	except cx_Oracle.DatabaseError as e:
 		error, = e.args
 		if error.code == 1017:
-			print 'Bad credentials for database for writing rates'
+			logger.error('Bad credentials for database for writing rates')
 			return False
 		else:
-			print('Error connecting to database for writing: %s'.format(e))
+			logger.error('Error connecting to database for writing: %s'.format(e))
 			return False
 	write_cursor=cxn_db_to_write.cursor()
 
@@ -59,10 +61,10 @@ def monitorRates(jsndata_file):
 			cxn_db_to_read=cx_Oracle.connect(read_db_login,read_db_pwd,read_db_sid)
 		except cx_Oracle.DatabaseError as e:
 			if error.code == 1017:
-				print 'Bad credentials for database for reading trigger tables'
+				logger.error('Bad credentials for database for reading trigger tables')
 				return False
 			else:
-				print('Error connecting to database for reading: %s'.format(e))
+				logger.error('Error connecting to database for reading: %s'.format(e))
 				return False
 
 		# Retrieve the mapping between HLT path index, HLT path name, HLT path ID
@@ -79,7 +81,7 @@ def monitorRates(jsndata_file):
 		read_cursor.execute(pathname_query.format(str(run_number)))
 		pathname_mapping=read_cursor.fetchall()
 		if len(pathname_mapping) < 1:
-			print "Could not get pathname-pathID mapping for HLT rates!"
+			logger.error("Could not get pathname-pathID mapping for HLT rates!")
 			return False
 
 	# Open the jsndata file
@@ -88,7 +90,7 @@ def monitorRates(jsndata_file):
 	try:
 		rates_json=open(jsndata_file).read()
 	except (OSError, IOError) as e:
-		print 'Error finding or opening jsndata file: "'+jsndata_file+'"'
+		logger.error('Error finding or opening jsndata file: "'+jsndata_file+'"')
 		return False
 	rates=json.loads(rates_json)
 
@@ -103,7 +105,9 @@ def monitorRates(jsndata_file):
 		try:
 			HLT_json=open(json_dir+'/'+ini_filename).read()
 		except (OSError, IOError) as e:
-			print 'Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"'
+			logger.error('Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"')
+                        logger.exception(e)
+                        return False
 		HLT_names=json.loads(HLT_json)
 		HLT_rates={}
 		i=0
@@ -194,7 +198,9 @@ def monitorRates(jsndata_file):
 		try:
 			L1_json=open(json_dir+'/'+ini_filename).read()
 		except (OSError, IOError) as e:
-			print 'Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"'
+			logger.error('Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"')
+                        logger.exception(e)
+                        return False
 		L1_names=json.loads(L1_json)
 		L1_rates={}
 		L1_rates['EVENTCOUNT'] 		= rates['data'][0][0]
