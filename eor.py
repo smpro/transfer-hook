@@ -54,7 +54,11 @@ def main():
     '''
     cfg = get_config()
     setup(cfg)
-    logger.info('Start processing ...')
+    logger.info(
+        "Start closing runs between %d and %d in `%s' ..." % (
+            cfg.runs_first, cfg.runs_last, cfg.input_path
+        )
+    )
     for iteration in range(1, cfg.max_iterations + 1):
         logger.info('=== ITERATION %d ===' % iteration)
         iterate(cfg)
@@ -82,7 +86,7 @@ class Config(object):
         self.logging_level = logging.INFO
         self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
                                r'%(message)s')
-        self.runs_first = 231816
+        self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
         if filename:
             self._parse_config_file()
@@ -134,7 +138,7 @@ def setup(cfg):
 
 #_______________________________________________________________________________
 def iterate(cfg):
-    logger.info('Processing path %s ...' % cfg.input_path)
+    logger.info("Inspecting path `%s' ..." % cfg.input_path)
     for run in get_runs(cfg):
         if run.is_complete2():
             logger.info('Closing run %d ...' % run.number)
@@ -143,7 +147,7 @@ def iterate(cfg):
             run.close()
         else:
             logger.warning('Run %d is incomplete!' % run.number)
-    logger.info('Finished processing path %s.' % cfg.input_path)
+    logger.info("Finished inspecting path `%s'." % cfg.input_path)
 ## iterate
 
 
