@@ -176,7 +176,9 @@ def is_run_complete(
                 sumEvents = sumEvents + eventsBadDict[streamName][0]
             if(sumEvents < eventsTotalRun * completeMergingThreshold):
                 isComplete = False
-
+            elif(sumEvents > eventsTotalRun):
+                isComplete = False
+                log.warning("sumEvents > eventsTotalRun!: {0} > {1}".format(sumEvents,eventsTotalRun))
     else:
         isComplete = False
 
