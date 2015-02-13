@@ -100,12 +100,13 @@ def monitorRates(jsndata_file):
 	# run230852_ls0000_streamL1Rates_mrg-c2f13-37-01.ini
 	# If the INI file is not there, this function will crash
 
-	ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_'+raw_pieces[3]+'.ini'
+	ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_StorageManager.ini'
+        ini_path = os.path.join(json_dir, 'open', ini_filename)
 	if stream=='HLTRates':
 		try:
-			HLT_json=open(json_dir+'/'+ini_filename).read()
+			HLT_json=open(ini_path).read()
 		except (OSError, IOError) as e:
-			logger.error('Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"')
+			logger.error("Error finding or opening ini file: `%s'" % ini_path)
                         logger.exception(e)
                         return False
 		HLT_names=json.loads(HLT_json)
@@ -196,9 +197,9 @@ def monitorRates(jsndata_file):
 	
 	elif stream=='L1Rates':
 		try:
-			L1_json=open(json_dir+'/'+ini_filename).read()
+			L1_json=open(ini_path).read()
 		except (OSError, IOError) as e:
-			logger.error('Error finding or opening ini file: "'+json_dir+'/'+ini_filename+'"')
+			logger.error("Error finding or opening ini file: `%s'" % ini_path)
                         logger.exception(e)
                         return False
 		L1_names=json.loads(L1_json)
