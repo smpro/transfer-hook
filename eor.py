@@ -79,6 +79,7 @@ class Config(object):
         self.general_dryrun = False
         self.max_iterations = 10000
         self.seconds_to_sleep = 20
+        self.seconds_to_delay_run_closure = 120
         self.json_suffix = None
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
@@ -141,6 +142,12 @@ def iterate(cfg):
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     for run in get_runs(cfg):
         if run.is_complete2():
+            logger.info(
+                'Sleeping %ds before closing run %d ...' % (
+                    cfg.seconds_to_delay_run_closure, run.number
+                )
+            )
+            time.sleep(cfg.seconds_to_delay_run_closure)
             logger.info('Closing run %d ...' % run.number)
             bookkeeper._run_number = run.number
             bookkeeper.main()
