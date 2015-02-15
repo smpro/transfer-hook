@@ -17,6 +17,9 @@ def is_run_complete(
     Defines if a run is complete.
     """
 
+    theMergeMiniFolder  = "/store/lustre/mergeBU"
+    theMergeMacroFolder = "/store/lustre/mergeMacro"
+
     if(outputEndName == ""):
         outputEndName = socket.gethostname()
 
@@ -188,6 +191,24 @@ def is_run_complete(
     if(float(debug) >= 10 and 'streamA' in iniIDict.keys()):
         print "numberMiniEoRFiles/streamAfile: ", numberMiniEoRFiles,
         print len(iniIDict["streamA"])
+
+    # Deleting input folders, make sure you know what you are doing
+    # It will not delete anything for now, just testing
+    if isComplete == True and theRunNumber != "" and eventsTotalRun > 0:
+        theMergeMiniRunFolder  = os.path.join(theMergeMiniFolder,  theRunNumber)
+        theMergeMacroRunFolder = os.path.join(theMergeMacroFolder, theRunNumber)
+        if os.path.exists(theMergeMiniRunFolder)
+            try:
+                #shutil.rmtree(theMergeMiniRunFolder)
+	        print "Removing folder {0}".format(theMergeMiniRunFolder)
+            except Exception,e:
+                print "Failed removing {0} - {1}".format(theMergeMiniRunFolder,e)
+        if os.path.exists(theMergeMacroRunFolder)
+            try:
+                #shutil.rmtree(theMergeMacroRunFolder)
+	        print "Removing folder {0}".format(theMergeMacroRunFolder)
+            except Exception,e:
+                print "Failed removing {0} - {1}".format(theMergeMacroRunFolder,e)
 
     EoRFileNameMacroOutput = theInputDataFolder + "/" + \
         theRunNumber + "_ls0000_MacroEoR_" + outputEndName + ".jsn_TEMP"
