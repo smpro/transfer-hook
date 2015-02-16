@@ -160,8 +160,12 @@ def iterate(path):
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
+        logger.debug("Inspecting `%s' ..." % rundir)
+        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
+        if not jsns:
+            continue
         run_number = int(os.path.basename(rundir).replace('run', ''))
-        print "************ Run ", run_number, " *******************"
+        logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
@@ -185,7 +189,6 @@ def iterate(path):
             appversion = get_cmssw_version(run_number)
         #hlt_key = hltkeys[run_number]
         hlt_key = runinfo.get_hlt_key(run_number)
-        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
         jsns.sort()
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
@@ -396,7 +399,7 @@ def move_to_new_rundir(src, dst, force_overwrite=False):
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
-    log("I'll run:\n  %s" % ' '.join(args))
+    logger.log("I'll run:  `%s'" % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if print_output:
