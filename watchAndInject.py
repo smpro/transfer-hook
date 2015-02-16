@@ -32,6 +32,8 @@ import shutil
 import subprocess
 import sys
 import time
+import multiprocessing
+from multiprocessing.pool import ThreadPool
 
 import transfer.hook.bookkeeper as bookkeeper
 import transfer.hook.monitorRates as monitorRates
@@ -64,9 +66,13 @@ _hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
 _injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
 _new_path_base = 'transfer'
 _scratch_base = 'scratch'
+_dqm_base = "/dqmburam"
+_ecal_base = "/store/calibarea"
 #_new_path_base = 'transfer_minidaq'
-_streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
+_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 
                       'DQMCalibration', 'Error']
+_streams_to_dqm = ['DQMHistograms', 'DQM']
+_streams_to_ecal = ['EcalCalibration']
 _streams_with_scalers = ['L1Rates', 'HLTRates']
 _streams_to_postpone = []
 _run_number_min = 233749 # Begin of CRUZET Feb 2015
@@ -170,6 +176,10 @@ def iterate(path):
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
         run_key = runinfo.get_run_key(run_number)
+        dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir)) + "/open"
+        dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)) 
+        ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir)) + "/open"
+        ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)) 
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
@@ -192,6 +202,7 @@ def iterate(path):
         jsns.sort()
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
+	thePool = ThreadPool(50)
         for jsn_file in jsns:
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
@@ -216,8 +227,17 @@ def iterate(path):
                     monitor_rates(jsn_file)
                 if streamName in _streams_to_postpone:
                     continue
+                if streamName in _streams_to_dqm:
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    dqm_pool.apply_async(move_files, args)
+                    continue
+                if streamName in _streams_to_ecal:
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    ecal_pool.apply_async(move_files, args)
+                    continue
                 if (run_key == 'TIER0_TRANSFER_OFF' or
-                    streamName in _streams_with_scalers + _streams_to_ignore):
+                    streamName in (_streams_with_scalers +
+                                   _streams_to_ignore)):
                     maybe_move(jsn_file, scratch_rundir)
                     maybe_move(dat_file, scratch_rundir)
                     continue
@@ -256,6 +276,10 @@ def iterate(path):
                                run_number, streamName, lumiSection,
                                number_of_files
                            )
+
+        thePool.close()
+        thePool.join()
+
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
         new_rundir_bad = os.path.join(new_rundir, 'bad')
@@ -393,6 +417,16 @@ def move_to_new_rundir(src, dst, force_overwrite=False):
         else:
             raise error
 ## move_to_new_rundir()
+
+#_______________________________________________________________________________
+def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
+    # first move to open area
+    maybe_move(datFile, final_rundir_open)
+    maybe_move(jsnFile, final_rundir_open)
+    # then move to the final area
+    maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)), final_rundir)
+    maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)), final_rundir)
+## move_files()
 
 
 #_______________________________________________________________________________
