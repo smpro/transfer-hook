@@ -51,7 +51,7 @@ __copyright__  = 'Unknown'
 __credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
 
 __licence__    = 'Unknonw'
-__version__    = '0.2.2'
+__version__    = '0.2.3'
 __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
@@ -62,12 +62,12 @@ logger = logging.getLogger(__name__)
 _dry_run = False
 _max_iterations = 10000
 _seconds_to_sleep = 20
-_hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
-_injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
+_hltkeysscript = '/opt/transferTests/hltKeyFromRunInfo.pl'
+_injectscript = '/opt/transferTests/injectFileIntoTransferSystem.pl'
 _new_path_base = 'transfer'
 _scratch_base = 'scratch'
-_dqm_base = "/dqmburam"
-_ecal_base = "/store/calibarea"
+_dqm_base = '/dqmburam'  ## Not mounted yet
+_ecal_base = '/store/calibarea/global'
 #_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
 _streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
@@ -227,7 +227,7 @@ def iterate(path):
                     monitor_rates(jsn_file)
                 if streamName in _streams_to_postpone:
                     continue
-                if streamName in _streams_to_dqm:
+                if streamName in []: #_streams_to_dqm: ## waiting for /dqmburam
                     args =  [os.path.join(rundir, fileName), jsn_file,
                              dqm_rundir_open, dqm_rundir]
                     dqm_pool.apply_async(move_files, args)
@@ -239,7 +239,8 @@ def iterate(path):
                     continue
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
-                                   _streams_to_ignore)):
+                                   _streams_to_ignore +
+                                   _streams_to_dqm)):
                     maybe_move(jsn_file, scratch_rundir)
                     maybe_move(dat_file, scratch_rundir)
                     continue
