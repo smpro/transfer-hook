@@ -143,9 +143,11 @@ def setup():
     global log_and_maybe_exec
     global maybe_move
     global runinfo
-    logging.basicConfig(level=logging.INFO,
-                        format='%(levelname)s in %(module)s: %(message)s',
-                        filename='wai.log')
+    logging.basicConfig(
+        level=logging.INFO,
+        format=r'%(asctime)s %(name)s %(levelname)s: %(message)s',
+        filename='wai.log'
+    )
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
     runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
@@ -174,11 +176,11 @@ def iterate(path):
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
+        dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir) + "/open"
+        dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)
+        ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir) + "/open"
+        ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)
         run_key = runinfo.get_run_key(run_number)
-        dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir)) + "/open"
-        dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)) 
-        ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir)) + "/open"
-        ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)) 
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
@@ -442,7 +444,7 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
-    logger.log("I'll run:  `%s'" % ' '.join(args))
+    logger.info("I'll run:  `%s'" % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if print_output:
