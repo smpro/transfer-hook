@@ -69,9 +69,8 @@ _scratch_base = 'scratch'
 _dqm_base = "/dqmburam"
 _ecal_base = "/store/calibarea"
 #_new_path_base = 'transfer_minidaq'
-_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 
-                      'DQMCalibration', 'Error']
-_streams_to_dqm = ['DQMHistograms', 'DQM']
+_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
+_streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
 _streams_to_ecal = ['EcalCalibration']
 _streams_with_scalers = ['L1Rates', 'HLTRates']
 _streams_to_postpone = []
@@ -202,7 +201,8 @@ def iterate(path):
         jsns.sort()
         log('Processing JSON files: ', newline=False)
         pprint.pprint(jsns)
-	thePool = ThreadPool(50)
+        ecal_pool = ThreadPool(10)
+        dqm_pool = ThreadPool(10)
         for jsn_file in jsns:
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
@@ -228,11 +228,13 @@ def iterate(path):
                 if streamName in _streams_to_postpone:
                     continue
                 if streamName in _streams_to_dqm:
-                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    args =  [os.path.join(rundir, fileName), jsn_file,
+                             dqm_rundir_open, dqm_rundir]
                     dqm_pool.apply_async(move_files, args)
                     continue
                 if streamName in _streams_to_ecal:
-                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    args = [os.path.join(rundir, fileName), jsn_file,
+                            ecal_rundir_open, ecal_rundir]
                     ecal_pool.apply_async(move_files, args)
                     continue
                 if (run_key == 'TIER0_TRANSFER_OFF' or
@@ -277,8 +279,12 @@ def iterate(path):
                                number_of_files
                            )
 
-        thePool.close()
-        thePool.join()
+        logger.info('Closing ECAL and DQM thransfer thread pools.')
+        ecal_pool.close()
+        dqm_pool.close()
+        logger.info('Joining ECAL and DQM thransfer thread pools.')
+        ecal_pool.join()
+        dqm_pool.join()
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
@@ -424,8 +430,10 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
     maybe_move(datFile, final_rundir_open)
     maybe_move(jsnFile, final_rundir_open)
     # then move to the final area
-    maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)), final_rundir)
-    maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)), final_rundir)
+    maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)),
+               final_rundir)
+    maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
+               final_rundir)
 ## move_files()
 
 
