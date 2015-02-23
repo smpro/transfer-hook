@@ -90,7 +90,8 @@ def is_run_complete(
                     settingsLS_textI = open(inputEoRJsonFile, "r").read()
                     settingsLS = json.loads(settingsLS_textI)
 
-        if ("MiniEoR" in afterStringSM[nb]):
+        if ("MiniEoR" in afterStringSM[nb] and
+	    int(settingsLS["eventsTotalRun"] > 0):
             numberMiniEoRFiles += 1
             eventsInputBUs = eventsInputBUs + int(settingsLS["eventsInputBU"])
             eventsInputFUs = eventsInputFUs + int(settingsLS["eventsInputFU"])
