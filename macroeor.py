@@ -197,13 +197,13 @@ def is_run_complete(
     if isComplete == True and theRunNumber != "" and eventsTotalRun > 0:
         theMergeMiniRunFolder  = os.path.join(theMergeMiniFolder,  theRunNumber)
         theMergeMacroRunFolder = os.path.join(theMergeMacroFolder, theRunNumber)
-        if os.path.exists(theMergeMiniRunFolder)
+        if os.path.exists(theMergeMiniRunFolder):
             try:
                 #shutil.rmtree(theMergeMiniRunFolder)
 	        print "Removing folder {0}".format(theMergeMiniRunFolder)
             except Exception,e:
                 print "Failed removing {0} - {1}".format(theMergeMiniRunFolder,e)
-        if os.path.exists(theMergeMacroRunFolder)
+        if os.path.exists(theMergeMacroRunFolder):
             try:
                 #shutil.rmtree(theMergeMacroRunFolder)
 	        print "Removing folder {0}".format(theMergeMacroRunFolder)
