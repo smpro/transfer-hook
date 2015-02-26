@@ -45,13 +45,14 @@ def dump_queries(cursor):
     #dump_runs(cursor)
     # dump_open_runs(cursor)
     # dump_streams2(cursor)
-    dump_closed_lumis_and_filecount(cursor,
-                                    stream='A', runnumber=231309)
-    dump_closed_lumis_and_filecount(cursor,
-                                    stream='NanoDST', runnumber=231309)
-    #dump_closed_lumis_and_filecount(cursor,
-                                    #stream='Calibration', runnumber=231198)
-    dump_closed_runs(cursor, 231309)
+    # dump_closed_lumis_and_filecount(cursor,
+    #                                stream='A', runnumber=231309)
+    # dump_closed_lumis_and_filecount(cursor,
+    #                                stream='NanoDST', runnumber=231309)
+    dump_closed_lumis_and_filecount(
+        cursor, stream='TrackerCalibration', runnumber=235691
+    )
+    #dump_closed_runs(cursor, 235487)
     # dump_closed_runs(cursor, 231024)
     # dump_closed_runs(cursor, 231027)
 ## dump_queries
