@@ -20,17 +20,9 @@ TODO:
      needs all the meta data files to do the bookkeeping right.
      see https://hypernews.cern.ch/HyperNews/CMS/get/smops/804.html
 '''
-__author__     = 'Lavinia Darlea, Jan Veverka'
-__copyright__  = 'Unknown'
-__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
-
-__licence__    = 'Unknonw'
-__version__    = '0.2.2'
-__maintainer__ = 'Jan Veverka'
-__email__      = 'veverka@mit.edu'
-__status__     = 'Development'
 
 import cx_Oracle
+import errno
 import glob 
 import json
 import logging
@@ -41,10 +33,13 @@ import shutil
 import subprocess
 import sys
 import time
+import multiprocessing
+from multiprocessing.pool import ThreadPool
 
 import transfer.hook.bookkeeper as bookkeeper
 import transfer.hook.monitorRates as monitorRates
 import transfer.hook.metafile as metafile
+import transfer.hook.eor as eor
 
 from optparse import OptionParser
 from subprocess import call
@@ -52,21 +47,36 @@ from subprocess import call
 from transfer.hook.runinfo import RunInfo
 from transfer.hook.config import Config
 
+__author__     = 'Lavinia Darlea, Jan Veverka'
+__copyright__  = 'Unknown'
+__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
+
+__licence__    = 'Unknonw'
+__version__    = '0.2.3'
+__maintainer__ = 'Jan Veverka'
+__email__      = 'veverka@mit.edu'
+__status__     = 'Development'
+
+
 logger = logging.getLogger(__name__)
 
 _dry_run = False
-_max_iterations = 10000
-_seconds_to_sleep = 20
-_hltkeysscript = "/opt/transferTests/hltKeyFromRunInfo.pl"
-_injectscript = "/opt/transferTests/injectFileIntoTransferSystem.pl"
+_max_iterations = 100000
+_max_exceptions = 10
+_seconds_to_sleep = 2
+_hltkeysscript = '/opt/transferTests/hltKeyFromRunInfo.pl'
+_injectscript = '/opt/transferTests/injectFileIntoTransferSystem.pl'
 _new_path_base = 'transfer'
 _scratch_base = 'scratch'
+_dqm_base = '/dqmburam/transfer'  ## Not mounted yet
+_ecal_base = '/store/calibarea/global'
 #_new_path_base = 'transfer_minidaq'
-_streams_to_ignore = ['EventDisplay', 'DQMHistograms', 'DQM', 'CalibrationDQM', 
-                      'DQMCalibration', 'Error']
+_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
+_streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
+_streams_to_ecal = ['EcalCalibration']
 _streams_with_scalers = ['L1Rates', 'HLTRates']
 _streams_to_postpone = []
-_run_number_min = 231816
+_run_number_min = 233749 # Begin of CRUZET Feb 2015
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
@@ -97,23 +107,53 @@ _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 def main():
     '''
     Main entry point to execution.
     '''
     options, args = parse_args()
     setup()
+    caught_exception_count = 0
     for iteration in range(1, _max_iterations + 1):
-        print '======================================'
-        print '============ ITERATION %d ============' % iteration
-        print '======================================'
-        iterate(options.path)
+        logger.info(
+            '============ ITERATION %d of %d ============' % (
+                iteration, _max_iterations
+            )
+        )
+        try:
+            iterate(options.path)
+        except Exception as e:
+            caught_exception_count += 1
+            logger.info(
+                'Caught untreated exception number {0}'.format(
+                    caught_exception_count
+                    )
+            )
+            logger.exception(e)
+            if caught_exception_count < _max_exceptions:
+                logger.info(
+                    'Will give up if I reach {0} exceptions.'.format(
+                        _max_exceptions
+                    )
+                )
+                logger.info('Trying to iterate again for now ...')
+            else:
+                logger.critical('Too many errors! Giving up ...')
+                raise e
+        logger.info('Sleeping {0} seconds ...'.format(_seconds_to_sleep))
         time.sleep(_seconds_to_sleep)
+
+    logger.info('Closing ECAL and DQM thransfer thread pools.')
+    ecal_pool.close()
+    dqm_pool.close()
+    logger.info('Joining ECAL and DQM thransfer thread pools.')
+    ecal_pool.join()
+    dqm_pool.join()
 ## main()
 
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 def parse_args():
     parser = OptionParser(usage="usage: %prog [-h|--help] [-p|--path]")
     parser.add_option("-p", "--path",
@@ -130,49 +170,56 @@ def parse_args():
     return options, args
 ## parse_args()
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 def setup():
     global log_and_maybe_exec
     global maybe_move
     global runinfo
+    global ecal_pool
+    global dqm_pool
     logging.basicConfig(level=logging.INFO,
-                        format='%(levelname)s in %(module)s: %(message)s',
+                        format=r'%(asctime)s %(name)s %(levelname)s: %(message)s',
                         filename='wai.log')
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo(Config(db_config_file = '.db.omds.runinfo_r.cfg.py'))
+    runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_to_new_rundir
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_to_new_rundir
+    ecal_pool = ThreadPool(4)
+    dqm_pool = ThreadPool(4)
 ## setup()
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 def iterate(path):
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
     new_path = get_new_path(path, _new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
-    rundirs, hltkeys = get_rundirs_and_hltkeys(path)
+    rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
+        logger.debug("Inspecting `%s' ..." % rundir)
+        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
+        if not jsns:
+            continue
         run_number = int(os.path.basename(rundir).replace('run', ''))
-        print "************ Run ", run_number, " *******************"
+        logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
+        dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir) + "/open"
+        dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)
+        ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir) + "/open"
+        ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)
+        run_key = runinfo.get_run_key(run_number)
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
-        if runinfo.get_run_key(run_number) == 'TIER0_TRANSFER_OFF':
-            for fname in glob.glob(os.path.join(rundir, '*.*')):
-                maybe_move(fname, scratch_rundir, force_overwrite=True)
-            for fname in glob.glob(os.path.join(rundir, 'bad', '*.*')):
-                maybe_move(fname, os.path.join(scratch_rundir, 'bad'),
-                           force_overwrite=True)
-            continue
-        if not os.path.exists(new_rundir):
+        if (not os.path.exists(new_rundir) and
+            not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.debug("Start bookkeeping for run %d ..." % run_number)
@@ -187,13 +234,13 @@ def iterate(path):
             appversion = get_cmssw_version(run_number)
         #hlt_key = hltkeys[run_number]
         hlt_key = runinfo.get_hlt_key(run_number)
-        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
+        # Sort JSON files by filename, implying also by lumi.
         jsns.sort()
-        log('Processing JSON files: ', newline=False)
-        pprint.pprint(jsns)
+        # Move the EoR files (ls0000) to the end.
+        jsns.sort(key=lambda x: 'EoR' in x) 
+        logger.info('Processing JSON files: ' + pprint.pformat(jsns))
         for jsn_file in jsns:
-            if ("streamError" not in jsn_file and
-                'BoLS' not in jsn_file and
+            if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
                 if 'EoR' in jsn_file:
@@ -202,6 +249,8 @@ def iterate(path):
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
                 if len(settings['data']) < 5:
+                    logger.warning("Failed to parse `%s'!" % jsn_file)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
                 eventsNumber = int(settings['data'][1])
                 fileName = str(settings['data'][3])
@@ -209,19 +258,37 @@ def iterate(path):
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
+                dat_file = os.path.join(rundir, fileName)
+                if streamName in _streams_with_scalers:
+                    monitor_rates(jsn_file)
                 if streamName in _streams_to_postpone:
                     continue
-                if streamName in _streams_to_ignore:
+                if streamName in _streams_to_dqm:
+                    ## TODO: Use some other temporary directory instead of scratch
                     maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
+                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace(rundir, scratch_rundir)
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    dqm_pool.apply_async(move_files, args)
                     continue
-                elif streamName in _streams_with_scalers:
-                    monitor_rates(jsn_file)
+                if streamName in _streams_to_ecal:
+                    ## TODO: Use some other temporary directory instead of scratch
                     maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(os.path.join(rundir, fileName), scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
+                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace(rundir, scratch_rundir)
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    ecal_pool.apply_async(move_files, args)
+                    continue
+                if (run_key == 'TIER0_TRANSFER_OFF' or
+                    streamName in (_streams_with_scalers +
+                                   _streams_to_ignore)):
+                    maybe_move(jsn_file, scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
                     continue
                 maybe_move(jsn_file, new_rundir)
-                maybe_move(os.path.join(rundir, fileName), new_rundir)
+                maybe_move(dat_file, new_rundir)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
@@ -246,8 +313,9 @@ def iterate(path):
                         args_transfer.append('--renotify')
                     log_and_maybe_exec(args_transfer, print_output=True)
                 try:
-                    bookkeeper.fill_number_of_files(cursor, streamName,
-                                                    lumiSection, number_of_files)
+                    bookkeeper.fill_number_of_files(
+                        cursor, streamName, lumiSection, number_of_files
+                    )
                     connection.commit()
                 except cx_Oracle.IntegrityError:
                     print ('WARNING: Failed to insert bookkeeping for ' +
@@ -255,6 +323,8 @@ def iterate(path):
                                run_number, streamName, lumiSection,
                                number_of_files
                            )
+
+
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
         new_rundir_bad = os.path.join(new_rundir, 'bad')
@@ -290,21 +360,29 @@ def mkdir(path):
 
 
 #_______________________________________________________________________________
-def get_rundirs_and_hltkeys(path):
+def get_rundirs_and_hltkeys(path, new_path):
     rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
         run_number = get_run_number(rundir)
         if run_number < _run_number_min or _run_number_max < run_number:
+            continue
+        new_rundir = os.path.join(new_path, rundir)
+        if eor.Run(new_rundir).is_closed():
             continue
         rundirs.append(rundir)
         runs.append(run_number)
     results = runinfo.get_hlt_keys(runs)
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
-    log('Run directories to transfer: ', newline=False)
-    pprint.pprint(rundirs)
-    log('HLT keys: ', newline=False)
-    pprint.pprint(hltkeys)
+    runnumbers = [r.replace(os.path.join(path, 'run'), '') for r in rundirs]
+    logger.info(
+        "Inspecting %d dirs in `%s' for runs %s to %s ..." % (
+            len(rundirs), path, runnumbers[0], runnumbers[-1]
+        )
+    )
+    logger.debug(pprint.pformat(runnumbers))
+    logger.info('HLT keys: ' + format_hltkey_map(hltkeys))
+    logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
     return rundirs, hltkeys
 ## get_rundirs_and_hltkeys()
 
@@ -336,13 +414,13 @@ def monitor_rates(jsn_file):
     fname = jsn_file + 'data'
     basename = os.path.basename(fname)
     try:
-        print 'Inserting %s in WBM ...' % basename
+        logger.info('Inserting %s in WBM ...' % basename)
         monitorRates.monitorRates(fname)
     except cx_Oracle.IntegrityError:
-        print 'WARNING: DB record for %s already present!' %  basename
+        logger.warning('DB record for %s already present!' %  basename)
 ## monitor_rates
 
-        
+
 #_______________________________________________________________________________
 def mock_move_to_new_rundir(src, dst):
     '''
@@ -351,7 +429,7 @@ def mock_move_to_new_rundir(src, dst):
     '''
     ## Append the filename to the destination directory
     dst = os.path.join(dst, os.path.basename(src))
-    print "I would do: mv %s %s" % (src, dst)
+    logger.info("I would do: mv %s %s" % (src, dst))
 ## mock_move_to_new_rundir()
 
 
@@ -368,39 +446,62 @@ def move_to_new_rundir(src, dst, force_overwrite=False):
         return
     if os.path.exists(full_dst):
         if os.path.samefile(src, full_dst):
-            print "No need to do: mv %s %s, it is the same file." % (src,
-                                                                     full_dst)
+            logger.info(
+                "No need to do: mv %s %s, it is the same file." % (
+                src, full_dst
+                )
+            )
             return
         elif force_overwrite:
             logger.info("Overwriting `%s'" % full_dst)
         else:
             raise RuntimeError, "Destination file `%s' exists!" % full_dst
-    print "I'll do: mv %s %s" % (src, full_dst)
+    logger.info("I'll do: mv %s %s" % (src, full_dst))
     try:
         shutil.move(src, full_dst)
     except IOError as error:
         if error.errno == 2 and error.filename == full_dst:
             ## Directory dst doesn't seem to exist. Let's create it.
-            print "Failed because destination does not exist."
-            print "Creating `%s'." % dst
-            os.mkdir(dst)
-            print "Retrying: mv %s %s" % (src, full_dst)
+            logger.info("Failed because destination does not exist.")
+            logger.info("Creating `%s'." % dst)
+            make_dir_including_parents(dst)
+            logger.info("Retrying: mv %s %s" % (src, full_dst))
             shutil.move(src, full_dst)
         else:
+            logger.error(
+                "errno: %d, filename: %s, message: %s" % (
+                   error.errno, error.filename, error.strerror
+                )
+            )
             raise error
 ## move_to_new_rundir()
+
+#_______________________________________________________________________________
+def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
+    try:
+        # first move to open area
+        maybe_move(datFile, final_rundir_open)
+        maybe_move(jsnFile, final_rundir_open)
+        # then move to the final area
+        maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)),
+                   final_rundir)
+        maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
+                   final_rundir)
+    except Exception as e:
+        logger.exception(e)
+## move_files()
 
 
 #_______________________________________________________________________________
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
-    log("I'll run:\n  %s" % ' '.join(args))
+    logger.info("I'll run:  `%s'" % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if print_output:
-        print out
-        print err
+        logger.info('STDOUT: ' + str(out))
+        logger.info('STDERR: ' + str(err))
     return out, err
 ## log_and_exec()
 
@@ -426,9 +527,9 @@ def need_to_retransfer(out):
 def log(msg, newline=True):
     msg = "%s: %s" % (strftime(), msg)
     if newline:
-        print msg
+        logger.info(msg)
     else:
-        print msg,
+        logger.info(msg)
 ## log()
 
 
@@ -436,6 +537,27 @@ def log(msg, newline=True):
 def strftime():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 ## strftime()
+
+
+#_______________________________________________________________________________
+## http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+def make_dir_including_parents(path):
+    '''
+    Create a directory, including parents when needed.  No error when exists.
+    '''
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+## make_dir_including_parents
+
+
+#_______________________________________________________________________________
+def format_hltkey_map(hltkeys):
+    return pprint.pformat(set(hltkeys.values()))
+## format_hltkey_map
 
 
 #_______________________________________________________________________________
