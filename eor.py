@@ -207,9 +207,8 @@ class Run(object):
             if not eorfile.is_run_complete():
                 return False
         return True
-    def is_complete2(self, debug=10, threshold=1.0):
-        is_run_complete(debug = debug,
-                        theInputDataFolder = self.path,
+    def is_complete2(self, threshold=1.0):
+        is_run_complete(theInputDataFolder = self.path,
                         completeMergingThreshold = threshold,
                         outputEndName = self.suffix)
         name = '_'.join([self.name, 'ls0000', 'MacroEoR', self.suffix])
