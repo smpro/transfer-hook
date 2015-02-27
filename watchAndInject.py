@@ -374,11 +374,6 @@ def get_rundirs_and_hltkeys(path, new_path):
     results = runinfo.get_hlt_keys(runs)
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
-    log('Run directories to inspect: ', newline=False)
-    pprint.pprint(rundirs)
-    log('HLT keys: ', newline=False)
-    pprint.pprint(hltkeys)
-=======
     runnumbers = [r.replace(os.path.join(path, 'run'), '') for r in rundirs]
     logger.info(
         "Inspecting %d dirs in `%s' for runs %s to %s ..." % (
@@ -388,7 +383,6 @@ def get_rundirs_and_hltkeys(path, new_path):
     logger.debug(pprint.pformat(runnumbers))
     logger.info('HLT keys: ' + format_hltkey_map(hltkeys))
     logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
->>>>>>> master
     return rundirs, hltkeys
 ## get_rundirs_and_hltkeys()
 
