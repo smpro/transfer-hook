@@ -12,7 +12,11 @@ import fileinput
 import socket
 from macroeor import is_run_complete
 
-def doCompleteRun(paths_to_watch, completeMergingThreshold, debug, nLoopsMax):
+def doCompleteRun(paths_to_watch, completeMergingThreshold, nLoopsMax):
+   streamsToExclude = ["DQM", "Error","DQMCalibration",
+   "DQMHistograms","EcalCalibration","EventDisplay",
+   "HLTRates","L1Rates"]
+   storeIniArea = "/store/lustre/mergeMacro"
    nLoops = 0
    while nLoops < nLoopsMax:
       nLoops = nLoops + 1
@@ -21,7 +25,8 @@ def doCompleteRun(paths_to_watch, completeMergingThreshold, debug, nLoopsMax):
           inputDataFolder = inputDataFolders[nf]
 	  outputEndName = socket.gethostname()
 
-	  is_run_complete(inputDataFolder, completeMergingThreshold, outputEndName)
+	  is_run_complete(inputDataFolder, completeMergingThreshold, 
+                          outputEndName, streamsToExclude, storeIniArea)
 
 """
 Main
@@ -42,7 +47,6 @@ except getopt.GetoptError, ex:
 
 paths_to_watch = "/store/lustre/transfer/run235849"
 completeMergingThreshold = 1.0
-debug = 10
 nLoopsMax = 1
 
 for opt, arg in opts:
@@ -53,8 +57,6 @@ for opt, arg in opts:
       paths_to_watch = arg
    if opt == "--nLoopsMax":
       nLoopsMax = arg
-   if opt == "--debug":
-      debug = int(arg)
    if opt == "--threshold":
       completeMergingThreshold = arg
 
@@ -62,7 +64,4 @@ if not os.path.exists(paths_to_watch):
    msg = "paths_to_watch folder Not Found: %s" % paths_to_watch
    raise RuntimeError, msg
 
-severity_level = logging.WARNING - debug
-logging.basicConfig(level=severity_level, format='%(message)s')
-
-doCompleteRun(paths_to_watch, completeMergingThreshold, debug, nLoopsMax)
+doCompleteRun(paths_to_watch, completeMergingThreshold, nLoopsMax)
