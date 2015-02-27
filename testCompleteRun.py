@@ -21,7 +21,7 @@ def doCompleteRun(paths_to_watch, completeMergingThreshold, debug, nLoopsMax):
           inputDataFolder = inputDataFolders[nf]
 	  outputEndName = socket.gethostname()
 
-	  is_run_complete(debug, inputDataFolder, completeMergingThreshold, outputEndName)
+	  is_run_complete(inputDataFolder, completeMergingThreshold, outputEndName)
 
 """
 Main
@@ -54,12 +54,15 @@ for opt, arg in opts:
    if opt == "--nLoopsMax":
       nLoopsMax = arg
    if opt == "--debug":
-      debug = arg
+      debug = int(arg)
    if opt == "--threshold":
       completeMergingThreshold = arg
 
 if not os.path.exists(paths_to_watch):
    msg = "paths_to_watch folder Not Found: %s" % paths_to_watch
    raise RuntimeError, msg
+
+severity_level = logging.WARNING - debug
+logging.basicConfig(level=severity_level, format='%(message)s')
 
 doCompleteRun(paths_to_watch, completeMergingThreshold, debug, nLoopsMax)

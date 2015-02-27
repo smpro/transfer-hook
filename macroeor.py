@@ -5,14 +5,12 @@ import logging
 import os
 import shutil
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
-def is_run_complete(
-        debug,
-        theInputDataFolder,
-        completeMergingThreshold,
-        outputEndName):
+def is_run_complete(theInputDataFolder,
+                    completeMergingThreshold,
+                    outputEndName):
     """
     Defines if a run is complete.
     """
@@ -69,21 +67,23 @@ def is_run_complete(
             continue
 
         inputEoRJsonFile = os.path.join(theInputDataFolder, afterStringSM[nb])
-        log.debug("Inspecting `%s'" % inputEoRJsonFile)
+        logger.debug("Inspecting `%s'" % inputEoRJsonFile)
         settingsLS = ""
         if(os.path.getsize(inputEoRJsonFile) > 0):
             try:
                 settingsLS_textI = open(inputEoRJsonFile, "r").read()
                 settingsLS = json.loads(settingsLS_textI)
             except ValueError as e:
-                log.warning("Looks like the file {0} ".format(inputEoRJsonFile)
-                            + "is not available, I'll try again...")
+                logger.warning(
+                    "Looks like the file {0} ".format(inputEoRJsonFile)
+                    + "is not available, I'll try again..."
+                )
                 try:
                     time.sleep(0.1)
                     settingsLS_textI = open(inputEoRJsonFile, "r").read()
                     settingsLS = json.loads(settingsLS_textI)
                 except ValueError as e:
-                    log.warning(
+                    logger.warning(
                         "Looks like the file {0} ".format(inputEoRJsonFile)
                         + "is not available (2nd try)..."
                     )
@@ -142,14 +142,16 @@ def is_run_complete(
                 settingsLS_textI = open(inputBadJsonFile, "r").read()
                 settingsLS = json.loads(settingsLS_textI)
             except ValueError as e:
-                log.warning("Looks like the file {0} ".format(inputBadJsonFile)
-                            + "is not available, I'll try again...")
+                logger.warning(
+                    "Looks like the file {0} ".format(inputBadJsonFile)
+                     + "is not available, I'll try again..."
+                )
                 try:
                     time.sleep(0.1)
                     settingsLS_textI = open(inputBadJsonFile, "r").read()
                     settingsLS = json.loads(settingsLS_textI)
                 except ValueError as e:
-                    log.warning(
+                    logger.warning(
                         "Looks like the file {0} ".format(inputBadJsonFile)
                         + "is not available (2nd try)..."
                     )
@@ -187,34 +189,32 @@ def is_run_complete(
                 isComplete = False
             elif(sumEvents > eventsBuilt):
                 isComplete = False
-                log.warning("sumEvents > eventsBuilt!: {0} > {1}".format(sumEvents,eventsBuilt))
+                logger.warning(
+                    "sumEvents > eventsBuilt!: {0} > {1}".format(
+                        sumEvents,eventsBuilt
+                     )
+                )
     else:
         isComplete = False
 
-    if(float(debug) >= 10):
-        print "run/events/completion: ", theInputDataFolder, eventsInputBUs,
-        print eventsInputFUs, numberBoLSFiles, isComplete
-    if(float(debug) >= 10 and 'streamA' in iniIDict.keys()):
-        print "numberMiniEoRFiles/streamAfile: ", numberMiniEoRFiles,
-        print len(iniIDict["streamA"])
+    logger.info(
+        "run/events/completion: {0} {1} {2} {3} {4}".format(
+            theInputDataFolder, eventsInputBUs, eventsInputFUs,
+            numberBoLSFiles, isComplete
+        )
+    )
+    if 'streamA' in iniIDict:
+        logger.debug(
+            "numberMiniEoRFiles/streamAfile: ".format(
+                numberMiniEoRFiles, len(iniIDict["streamA"])
+            )
+        )
 
     # Deleting input folders, make sure you know what you are doing
     # It will not delete anything for now, just testing
     if isComplete == True and theRunNumber != "" and eventsBuilt > 0:
-        theMergeMiniRunFolder  = os.path.join(theMergeMiniFolder,  theRunNumber)
-        theMergeMacroRunFolder = os.path.join(theMergeMacroFolder, theRunNumber)
-        if os.path.exists(theMergeMiniRunFolder):
-            try:
-                #shutil.rmtree(theMergeMiniRunFolder)
-               print "Removing folder {0}".format(theMergeMiniRunFolder)
-            except Exception,e:
-                print "Failed removing {0} - {1}".format(theMergeMiniRunFolder,e)
-        if os.path.exists(theMergeMacroRunFolder):
-            try:
-                #shutil.rmtree(theMergeMacroRunFolder)
-                print "Removing folder {0}".format(theMergeMacroRunFolder)
-            except Exception,e:
-                print "Failed removing {0} - {1}".format(theMergeMacroRunFolder,e)
+        remove_run_folder(theMergeMiniFolder, theRunNumber)
+        remove_run_folder(theMergeMacroFolder, theRunNumber)
 
     EoRFileNameMacroOutput = theInputDataFolder + "/" + \
         theRunNumber + "_ls0000_MacroEoR_" + outputEndName + ".jsn_TEMP"
@@ -242,3 +242,14 @@ def is_run_complete(
     theEoRFileMacroOutput.close()
 
     shutil.move(EoRFileNameMacroOutput, EoRFileNameMacroOutputStable)
+
+#_____________________________________________________________________________
+def remove_run_folder(parent_folder, run_number):
+    run_folder = os.path.join(parent_folder, run_number)
+    if os.path.exists(run_folder):
+        try:
+            logger.info("Removing folder `{0}' ...".format(run_folder))
+            #shutil.rmtree(run_folder)
+        except Exception,e:
+            logger.error("Failed to remove `{0}'!".format(run_folder))
+            logger.exception(e)
