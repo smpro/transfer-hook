@@ -77,7 +77,7 @@ class Config(object):
     def __init__(self, filename=None):
         self.filename = filename
         self.general_dryrun = False
-        self.max_iterations = 10000
+        self.max_iterations = 100000
         self.seconds_to_sleep = 20
         self.seconds_to_delay_run_closure = 120
         self.json_suffix = None
