@@ -269,7 +269,7 @@ def iterate(path):
                     maybe_move(dat_file, scratch_rundir)
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
                     dat_file = dat_file.replace(rundir, scratch_rundir)
-                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
                     dqm_pool.apply_async(move_files, args)
                     continue
                 if streamName in _streams_to_ecal:
