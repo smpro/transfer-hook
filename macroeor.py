@@ -75,6 +75,54 @@ def is_run_complete(
     eventsIDict = dict()
     eventsIDict_noLastLS = dict()
 
+    # We try to get the last LS number first
+    for nb in range(0, len(afterStringSM)):
+
+        if not afterStringSM[nb].endswith(".jsn"):
+            continue
+        if "index" in afterStringSM[nb]:
+            continue
+        if afterStringSM[nb].endswith("recv"):
+            continue
+        if "EoLS" in afterStringSM[nb]:
+            continue
+        if "BoLS" in afterStringSM[nb]:
+            continue
+        if "MacroEoR" in afterStringSM[nb]:
+            continue
+        if "TransferEoR" in afterStringSM[nb]:
+            continue
+
+        inputEoRJsonFile = os.path.join(theInputDataFolder, afterStringSM[nb])
+        logger.debug("Inspecting `%s'" % inputEoRJsonFile)
+        settingsLS = ""
+        if(os.path.getsize(inputEoRJsonFile) > 0):
+            try:
+                settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                settingsLS = json.loads(settingsLS_textI)
+            except ValueError as e:
+                logger.warning(
+                    "Looks like the file {0} ".format(inputEoRJsonFile)
+                    + "is not available, I'll try again..."
+                )
+                try:
+                    time.sleep(0.1)
+                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                    settingsLS = json.loads(settingsLS_textI)
+                except ValueError as e:
+                    logger.warning(
+                        "Looks like the file {0} ".format(inputEoRJsonFile)
+                        + "is not available (2nd try)..."
+                    )
+                    time.sleep(1.0)
+                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                    settingsLS = json.loads(settingsLS_textI)
+
+        if ("MiniEoR" in afterStringSM[nb]):
+            if 'lastLumiBU' in settingsLS:
+                if(lastLumiBU < int(settingsLS["lastLumiBU"])):
+                    lastLumiBU = int(settingsLS["lastLumiBU"])
+
     for nb in range(0, len(afterStringSM)):
 
         if not afterStringSM[nb].endswith(".jsn"):
@@ -129,17 +177,21 @@ def is_run_complete(
                 int(settingsLS["numberBoLSFiles"])
             if(eventsTotalRun < int(settingsLS["eventsTotalRun"])):
                 eventsTotalRun = int(settingsLS["eventsTotalRun"])
-            if 'lastLumiBU' in settingsLS:
-                if(lastLumiBU < int(settingsLS["lastLumiBU"])):
-                    lastLumiBU = int(settingsLS["lastLumiBU"])
-            
+
              ## Switch to the new version happened around run run235918
             if 'eventsInputBU_noLastLS' in settingsLS:
-                eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU_noLastLS"])
-                eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU_noLastLS"])
+	        if lastLumiBU == int(settingsLS["lastLumiBU"]):
+                    eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU_noLastLS"])
+                    eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU_noLastLS"])
 
-                if(eventsTotalRun_noLastLS < int(settingsLS["eventsTotalRun_noLastLS"])):
-                    eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun_noLastLS"])
+                    if(eventsTotalRun_noLastLS < int(settingsLS["eventsTotalRun_noLastLS"])):
+                        eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun_noLastLS"])
+                else:
+                    eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU"])
+                    eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU"])
+
+                    if(eventsTotalRun_noLastLS < int(settingsLS["eventsTotalRun"])):
+                        eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun"])
 
         else:
             eventsInput          = int(settingsLS["data"][0])
