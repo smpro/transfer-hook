@@ -238,7 +238,12 @@ def iterate(path):
         jsns.sort()
         # Move the EoR files (ls0000) to the end.
         jsns.sort(key=lambda x: 'EoR' in x) 
-        logger.info('Processing JSON files: ' + pprint.pformat(jsns))
+        logger.info(
+            "Processing {count} JSON files in `{folder}':".format(
+                count=len(jsns), folder=rundir
+            )
+        )
+        logger.info(pprint.pformat([os.path.basename(f) for f in jsns]))
         for jsn_file in jsns:
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
@@ -456,7 +461,7 @@ def move_to_new_rundir(src, dst, force_overwrite=False):
             logger.info("Overwriting `%s'" % full_dst)
         else:
             raise RuntimeError, "Destination file `%s' exists!" % full_dst
-    logger.info("I'll do: mv %s %s" % (src, full_dst))
+    logger.info("Running `mv %s %s' ..." % (src, full_dst))
     try:
         shutil.move(src, full_dst)
     except IOError as error:
@@ -496,12 +501,14 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
-    logger.info("I'll run:  `%s'" % ' '.join(args))
+    logger.info("Running `%s' ..." % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if print_output:
-        logger.info('STDOUT: ' + str(out))
-        logger.info('STDERR: ' + str(err))
+        if out:
+            logger.info('STDOUT: ' + str(out))
+        if err:
+            logger.info('STDERR: ' + str(err))
     return out, err
 ## log_and_exec()
 
