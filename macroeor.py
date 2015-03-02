@@ -78,45 +78,10 @@ def is_run_complete(
     # We try to get the last LS number first
     for nb in range(0, len(afterStringSM)):
 
-        if not afterStringSM[nb].endswith(".jsn"):
-            continue
-        if "index" in afterStringSM[nb]:
-            continue
-        if afterStringSM[nb].endswith("recv"):
-            continue
-        if "EoLS" in afterStringSM[nb]:
-            continue
-        if "BoLS" in afterStringSM[nb]:
-            continue
-        if "MacroEoR" in afterStringSM[nb]:
-            continue
-        if "TransferEoR" in afterStringSM[nb]:
-            continue
+        settingsLS = readFile(theInputDataFolder, afterStringSM[nb])
 
-        inputEoRJsonFile = os.path.join(theInputDataFolder, afterStringSM[nb])
-        logger.debug("Inspecting `%s'" % inputEoRJsonFile)
-        settingsLS = ""
-        if(os.path.getsize(inputEoRJsonFile) > 0):
-            try:
-                settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                settingsLS = json.loads(settingsLS_textI)
-            except ValueError as e:
-                logger.warning(
-                    "Looks like the file {0} ".format(inputEoRJsonFile)
-                    + "is not available, I'll try again..."
-                )
-                try:
-                    time.sleep(0.1)
-                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
-                except ValueError as e:
-                    logger.warning(
-                        "Looks like the file {0} ".format(inputEoRJsonFile)
-                        + "is not available (2nd try)..."
-                    )
-                    time.sleep(1.0)
-                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
+        if "bad" in settingsLS:
+            continue
 
         if ("MiniEoR" in afterStringSM[nb]):
             if 'lastLumiBU' in settingsLS:
@@ -125,45 +90,10 @@ def is_run_complete(
 
     for nb in range(0, len(afterStringSM)):
 
-        if not afterStringSM[nb].endswith(".jsn"):
-            continue
-        if "index" in afterStringSM[nb]:
-            continue
-        if afterStringSM[nb].endswith("recv"):
-            continue
-        if "EoLS" in afterStringSM[nb]:
-            continue
-        if "BoLS" in afterStringSM[nb]:
-            continue
-        if "MacroEoR" in afterStringSM[nb]:
-            continue
-        if "TransferEoR" in afterStringSM[nb]:
-            continue
+        settingsLS = readFile(theInputDataFolder, afterStringSM[nb])
 
-        inputEoRJsonFile = os.path.join(theInputDataFolder, afterStringSM[nb])
-        logger.debug("Inspecting `%s'" % inputEoRJsonFile)
-        settingsLS = ""
-        if(os.path.getsize(inputEoRJsonFile) > 0):
-            try:
-                settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                settingsLS = json.loads(settingsLS_textI)
-            except ValueError as e:
-                logger.warning(
-                    "Looks like the file {0} ".format(inputEoRJsonFile)
-                    + "is not available, I'll try again..."
-                )
-                try:
-                    time.sleep(0.1)
-                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
-                except ValueError as e:
-                    logger.warning(
-                        "Looks like the file {0} ".format(inputEoRJsonFile)
-                        + "is not available (2nd try)..."
-                    )
-                    time.sleep(1.0)
-                    settingsLS_textI = open(inputEoRJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
+        if "bad" in settingsLS:
+            continue
 
         if ("MiniEoR" in afterStringSM[nb]):
             numberMiniEoRFiles += 1
@@ -403,3 +333,50 @@ def remove_run_folder(parent_folder, run_number):
         except Exception,e:
             logger.error("Failed to remove `{0}'!".format(run_folder))
             logger.exception(e)
+
+#_____________________________________________________________________________
+def readFile(theInputDataFolder, fileName):
+
+    settingsLS = "bad"
+
+    if not fileName.endswith(".jsn"):
+    	return settingsLS
+    if "index" in fileName:
+    	return settingsLS
+    if fileName.endswith("recv"):
+    	return settingsLS
+    if "EoLS" in fileName:
+    	return settingsLS
+    if "BoLS" in fileName:
+    	return settingsLS
+    if "MacroEoR" in fileName:
+    	return settingsLS
+    if "TransferEoR" in fileName:
+    	return settingsLS
+
+    inputEoRJsonFile = os.path.join(theInputDataFolder, fileName)
+    logger.debug("Inspecting `%s'" % inputEoRJsonFile)
+
+    if(os.path.getsize(inputEoRJsonFile) > 0):
+    	try:
+    	    settingsLS_textI = open(inputEoRJsonFile, "r").read()
+    	    settingsLS = json.loads(settingsLS_textI)
+    	except ValueError as e:
+    	    logger.warning(
+    		"Looks like the file {0} ".format(inputEoRJsonFile)
+    		+ "is not available, I'll try again..."
+    	    )
+    	    try:
+    		time.sleep(0.1)
+    		settingsLS_textI = open(inputEoRJsonFile, "r").read()
+    		settingsLS = json.loads(settingsLS_textI)
+    	    except ValueError as e:
+    		logger.warning(
+    		    "Looks like the file {0} ".format(inputEoRJsonFile)
+    		    + "is not available (2nd try)..."
+    		)
+    		time.sleep(1.0)
+    		settingsLS_textI = open(inputEoRJsonFile, "r").read()
+    		settingsLS = json.loads(settingsLS_textI)
+
+    return settingsLS
