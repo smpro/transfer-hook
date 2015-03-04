@@ -238,7 +238,7 @@ def is_run_complete(
                 isComplete = False
         # Check if the number of Streams coming from the ini files is 
         # consistent with the number of merged Streams.
-        if len(iniIDict.keys()) != len(eventsIDict.keys()):
+        if len(iniIDict.keys()) != len(eventsIDict.keys()) and eventsTotalRun > 0:
             isComplete = False
 
         # Only go if it is still true
