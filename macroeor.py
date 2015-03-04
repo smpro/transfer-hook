@@ -11,8 +11,8 @@ def is_run_complete(
         theInputDataFolder,
         completeMergingThreshold,
         outputEndName,
-	streamsToExclude,
-	storeIniArea):
+        streamsToExclude,
+        storeIniArea):
     """
     Defines if a run is complete.
     """
@@ -110,7 +110,7 @@ def is_run_complete(
 
              ## Switch to the new version happened around run run235918
             if 'eventsInputBU_noLastLS' in settingsLS:
-	        if lastLumiBU == int(settingsLS["lastLumiBU"]):
+                if lastLumiBU == int(settingsLS["lastLumiBU"]):
                     eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU_noLastLS"])
                     eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU_noLastLS"])
 
@@ -148,7 +148,7 @@ def is_run_complete(
 
             # A way to decode the last LS
             if int(fileNameString[1].replace("ls","")) != lastLumiBU:
-	        if key in eventsIDict_noLastLS.keys():
+                if key in eventsIDict_noLastLS.keys():
                     eventsInput_noLastLS = eventsIDict_noLastLS[key][0] + eventsInput_noLastLS
                     eventsIDict_noLastLS[key].remove(eventsIDict_noLastLS[key][0])
                     eventsIDict_noLastLS.update({key: [eventsInput_noLastLS]})
@@ -232,12 +232,12 @@ def is_run_complete(
     # Need at least one MiniEoRFile to be completed
     if numberMiniEoRFiles > 0:
         # Check if the number of bus per Stream coming from the ini files is 
-	# consistent with the number of miniEoRFiles.
+        # consistent with the number of miniEoRFiles.
         for stream,nbus in iniIDict.items():
             if len(nbus) != numberMiniEoRFiles:
                 isComplete = False
         # Check if the number of Streams coming from the ini files is 
-	# consistent with the number of merged Streams.
+        # consistent with the number of merged Streams.
         if len(iniIDict.keys()) != len(eventsIDict.keys()):
             isComplete = False
 
@@ -258,13 +258,13 @@ def is_run_complete(
                     )
 
             # Only go if it is still false
-	    # eventsTotalRun_noLastLS to keep background compatibility
+            # eventsTotalRun_noLastLS to keep background compatibility
             if isComplete == False and eventsTotalRun_noLastLS >= 0:
                 for streamName in eventsIDict_noLastLS:
                     sumEvents = eventsIDict_noLastLS[streamName][0]
                     if streamName in eventsBadDict_noLastLS.keys():
                         sumEvents = sumEvents + eventsBadDict_noLastLS[streamName][0]
-		    if(sumEvents >= eventsBuilt_noLastLS * completeMergingThreshold and
+                    if(sumEvents >= eventsBuilt_noLastLS * completeMergingThreshold and
                         sumEvents < eventsBuilt_noLastLS+1):
                         isComplete = True
 
@@ -340,43 +340,43 @@ def readFile(theInputDataFolder, fileName):
     settingsLS = "bad"
 
     if not fileName.endswith(".jsn"):
-    	return settingsLS
+        return settingsLS
     if "index" in fileName:
-    	return settingsLS
+        return settingsLS
     if fileName.endswith("recv"):
-    	return settingsLS
+        return settingsLS
     if "EoLS" in fileName:
-    	return settingsLS
+        return settingsLS
     if "BoLS" in fileName:
-    	return settingsLS
+        return settingsLS
     if "MacroEoR" in fileName:
-    	return settingsLS
+        return settingsLS
     if "TransferEoR" in fileName:
-    	return settingsLS
+        return settingsLS
 
     inputEoRJsonFile = os.path.join(theInputDataFolder, fileName)
     logger.debug("Inspecting `%s'" % inputEoRJsonFile)
 
     if(os.path.getsize(inputEoRJsonFile) > 0):
-    	try:
-    	    settingsLS_textI = open(inputEoRJsonFile, "r").read()
-    	    settingsLS = json.loads(settingsLS_textI)
-    	except ValueError as e:
-    	    logger.warning(
-    		"Looks like the file {0} ".format(inputEoRJsonFile)
-    		+ "is not available, I'll try again..."
-    	    )
-    	    try:
-    		time.sleep(0.1)
-    		settingsLS_textI = open(inputEoRJsonFile, "r").read()
-    		settingsLS = json.loads(settingsLS_textI)
-    	    except ValueError as e:
-    		logger.warning(
-    		    "Looks like the file {0} ".format(inputEoRJsonFile)
-    		    + "is not available (2nd try)..."
-    		)
-    		time.sleep(1.0)
-    		settingsLS_textI = open(inputEoRJsonFile, "r").read()
-    		settingsLS = json.loads(settingsLS_textI)
+        try:
+            settingsLS_textI = open(inputEoRJsonFile, "r").read()
+            settingsLS = json.loads(settingsLS_textI)
+        except ValueError as e:
+            logger.warning(
+                "Looks like the file {0} ".format(inputEoRJsonFile)
+                + "is not available, I'll try again..."
+            )
+            try:
+                time.sleep(0.1)
+                settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                settingsLS = json.loads(settingsLS_textI)
+            except ValueError as e:
+                logger.warning(
+                    "Looks like the file {0} ".format(inputEoRJsonFile)
+                    + "is not available (2nd try)..."
+                )
+                time.sleep(1.0)
+                settingsLS_textI = open(inputEoRJsonFile, "r").read()
+                settingsLS = json.loads(settingsLS_textI)
 
     return settingsLS

@@ -23,9 +23,9 @@ def doCompleteRun(paths_to_watch, completeMergingThreshold, nLoopsMax):
       inputDataFolders = glob.glob(paths_to_watch)
       for nf in range(0, len(inputDataFolders)):
           inputDataFolder = inputDataFolders[nf]
-	  outputEndName = socket.gethostname()
+          outputEndName = socket.gethostname()
 
-	  is_run_complete(inputDataFolder, completeMergingThreshold, 
+          is_run_complete(inputDataFolder, completeMergingThreshold, 
                           outputEndName, streamsToExclude, storeIniArea)
 
 """
