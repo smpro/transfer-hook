@@ -177,18 +177,20 @@ def setup():
     global runinfo
     global ecal_pool
     global dqm_pool
-    logging.basicConfig(level=logging.INFO,
-                        format=r'%(asctime)s %(name)s %(levelname)s: %(message)s',
-                        filename='wai.log')
+    logging.basicConfig(
+        level=logging.INFO,
+        format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
+        filename='wai.log'
+    )
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
     runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
-        maybe_move = mock_move_to_new_rundir
+        maybe_move = mock_move_file_to_dir
     else:
         log_and_maybe_exec = log_and_exec
-        maybe_move = move_to_new_rundir
+        maybe_move = move_file_to_dir
     ecal_pool = ThreadPool(4)
     dqm_pool = ThreadPool(4)
 ## setup()
@@ -222,11 +224,12 @@ def iterate(path):
             not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
-            logger.debug("Start bookkeeping for run %d ..." % run_number)
+            logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
                 bookkeeper.open_run(cursor)
+                connection.commit()
             except cx_Oracle.IntegrityError:
-                lagger.warning(
+                logger.warning(
                     'Bookkeeping for run %d already open!' % run_number
                 )
         appversion = runinfo.get_cmssw_version(run_number)
@@ -237,8 +240,12 @@ def iterate(path):
         # Sort JSON files by filename, implying also by lumi.
         jsns.sort()
         # Move the EoR files (ls0000) to the end.
-        jsns.sort(key=lambda x: 'EoR' in x) 
-        logger.info('Processing JSON files: ' + pprint.pformat(jsns))
+        jsns.sort(key=lambda x: 'EoR' in x)
+        logger.info(
+            "Processing {count} JSON file(s) in `{folder}':\n".format(
+                count=len(jsns), folder=rundir
+            ) + pprint.pformat([os.path.basename(f) for f in jsns])
+        )
         for jsn_file in jsns:
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
@@ -354,7 +361,7 @@ def get_new_path(path, new_base=_new_path_base):
 
 #_______________________________________________________________________________
 def mkdir(path):
-    logger.debug("Making `%s' ..." % path)
+    logger.info("Making directory `%s' ..." % path)
     os.mkdir(path)
 ## mkdir()
 
@@ -381,7 +388,7 @@ def get_rundirs_and_hltkeys(path, new_path):
         )
     )
     logger.debug(pprint.pformat(runnumbers))
-    logger.info('HLT keys: ' + format_hltkey_map(hltkeys))
+    logger.info('HLT keys: ' + format_hltkeys(hltkeys))
     logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
     return rundirs, hltkeys
 ## get_rundirs_and_hltkeys()
@@ -422,7 +429,7 @@ def monitor_rates(jsn_file):
 
 
 #_______________________________________________________________________________
-def mock_move_to_new_rundir(src, dst):
+def mock_move_file_to_dir(src, dst):
     '''
     Prints a message about how it would move the file src to the directory dst
     if this was for real.
@@ -430,43 +437,47 @@ def mock_move_to_new_rundir(src, dst):
     ## Append the filename to the destination directory
     dst = os.path.join(dst, os.path.basename(src))
     logger.info("I would do: mv %s %s" % (src, dst))
-## mock_move_to_new_rundir()
+## mock_move_file_to_dir()
 
 
 #_______________________________________________________________________________
-def move_to_new_rundir(src, dst, force_overwrite=False):
+def move_file_to_dir(src, dst_dir, force_overwrite=False):
     '''
-    Moves the file src to the directory dst. Creates dst if it doesn't exist.
+    Moves the file src to the directory dst_dir. Creates dst_dir if it doesn't exist.
     '''
     ## Append the filename to the destination directory
-    full_dst = os.path.join(dst, os.path.basename(src))
+    src_dir , basename = os.path.split(src)
+    dst_path = os.path.join(dst_dir, basename)
 
     if not os.path.exists(src):
         logger.error("Source file `%s' doesn't exits!" % src)
         return
-    if os.path.exists(full_dst):
-        if os.path.samefile(src, full_dst):
+    if os.path.exists(dst_path):
+        if os.path.samefile(src, dst_path):
             logger.info(
                 "No need to do: mv %s %s, it is the same file." % (
-                src, full_dst
+                src, dst_path
                 )
             )
             return
         elif force_overwrite:
-            logger.info("Overwriting `%s'" % full_dst)
+            logger.info("Overwriting `%s'" % dst_path)
         else:
-            raise RuntimeError, "Destination file `%s' exists!" % full_dst
-    logger.info("I'll do: mv %s %s" % (src, full_dst))
+            raise RuntimeError, "Destination file `%s' exists!" % dst_path
+    logger.info("Running `mv %s %s' ..." % (src, dst_path))
     try:
-        shutil.move(src, full_dst)
+        shutil.move(src, dst_path)
     except IOError as error:
-        if error.errno == 2 and error.filename == full_dst:
-            ## Directory dst doesn't seem to exist. Let's create it.
-            logger.info("Failed because destination does not exist.")
-            logger.info("Creating `%s'." % dst)
-            make_dir_including_parents(dst)
-            logger.info("Retrying: mv %s %s" % (src, full_dst))
-            shutil.move(src, full_dst)
+        if error.errno == 2 and error.filename == dst_path:
+            ## Directory dst_dir doesn't seem to exist. Let's create it.
+            logger.info(
+                "Failed moving `%s' b/c destination `%s' does not exist." % (
+                os.path.basename(src), dst_dir
+                )
+            )
+            mkdir_with_parents(dst_dir)
+            logger.info("Retrying `mv %s %s' ..." % (src, dst_path))
+            shutil.move(src, dst_path)
         else:
             logger.error(
                 "errno: %d, filename: %s, message: %s" % (
@@ -474,7 +485,7 @@ def move_to_new_rundir(src, dst, force_overwrite=False):
                 )
             )
             raise error
-## move_to_new_rundir()
+## move_file_to_dir()
 
 #_______________________________________________________________________________
 def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
@@ -496,12 +507,14 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
 def log_and_exec(args, print_output=False):
     ## Make sure all arguments are strings; cast integers.
     args = map(str, args)
-    logger.info("I'll run:  `%s'" % ' '.join(args))
+    logger.info("Running `%s' ..." % ' '.join(args))
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     if print_output:
-        logger.info('STDOUT: ' + str(out))
-        logger.info('STDERR: ' + str(err))
+        if out:
+            logger.info('STDOUT: ' + str(out))
+        if err:
+            logger.info('STDERR: ' + str(err))
     return out, err
 ## log_and_exec()
 
@@ -541,23 +554,52 @@ def strftime():
 
 #_______________________________________________________________________________
 ## http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
-def make_dir_including_parents(path):
+def mkdir_with_parents(path):
     '''
     Create a directory, including parents when needed.  No error when exists.
     '''
     try:
+        logger.info("Making directory `%s' (incl. parents) ..." % path)
         os.makedirs(path)
     except OSError as exc: # Python >2.5
         if exc.errno == errno.EEXIST and os.path.isdir(path):
+            logger.info("Directory `%s' already exists!" % path)
             pass
-        else: raise
-## make_dir_including_parents
+        else:
+            raise
+## mkdir_with_parents
 
 
 #_______________________________________________________________________________
-def format_hltkey_map(hltkeys):
-    return pprint.pformat(set(hltkeys.values()))
-## format_hltkey_map
+def format_hltkeys(hltkeys, max_runs=4, indent=4):
+    rows = []
+    run_map = invert(hltkeys)
+    # t = (<hltkey>, [<run_1>, <run_2>, ..., <run_n>])
+    for hltkey, runs in sorted(run_map.items(), key=lambda t: min(t[1])):
+        if len(runs) == 1:
+            row = hltkey + ': run ' + str(runs[0])
+        elif len(runs) < 5:
+            row = hltkey + ': runs ' + ', '.join(map(str, runs))
+        else:
+            row = '{hltkey}: {count} runs between {first} and {last}'.format(
+                hltkey=hltkey, count=len(runs), first=min(runs), last=max(runs)
+            )
+        rows.append(row)
+    return ('\n' + indent * ' ').join(rows)
+## format_hltkeys
+
+
+#_______________________________________________________________________________
+def invert(mapping):
+    '''
+    Returns an inverse of the given mapping.
+    http://stackoverflow.com/questions/483666/python-reverse-inverse-a-mapping
+    '''
+    inverse_mapping = {}
+    for key, value in mapping.iteritems():
+        inverse_mapping.setdefault(value, []).append(key)
+    return inverse_mapping
+## invert_mapping
 
 
 #_______________________________________________________________________________

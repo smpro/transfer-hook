@@ -52,6 +52,7 @@ class Driver(object):
         self.dump_cmssw_versions()
         self.dump_hlt_keys()
         self.dump_run_keys()
+        self.dump_stop_times()
         self.runinfo.connection.close()
     def dump_cmssw_versions(self):
         print 'Run    CMSSW Version'
@@ -66,6 +67,11 @@ class Driver(object):
     def dump_run_keys(self):
         print 'Run    Run Key'
         results = self.runinfo.get_run_keys(self.run_numbers)
+        for run_number, result in zip(self.run_numbers, results):
+            print run_number, result
+    def dump_stop_times(self):
+        print 'Run    Stop Time'
+        results = self.runinfo.get_stop_times(self.run_numbers)
         for run_number, result in zip(self.run_numbers, results):
             print run_number, result
 
@@ -99,6 +105,7 @@ class RunInfo(object):
             ('lvl0fm_hlt_key'   , 'CMS.LVL0:HLT_KEY_DESCRIPTION'),
             ('old_cmssw_version', 'CMS.DAQ:DAQ_CMSSW_VERSION_T' ),
             ('new_cmssw_version', 'CMS.DAQ:CMSSW_VERSION'       ),
+            ('stop_time'        , 'CMS.LVL0:STOP_TIME%'         ),
         ]:
             getter_name      = 'get_' + name
             list_getter_name = 'get_' + name + 's'
@@ -160,12 +167,12 @@ class RunInfo(object):
             SELECT STRING_VALUE
             FROM CMS_RUNINFO.RUNSESSION_PARAMETER
             WHERE RUNNUMBER=:run_number and
-            NAME='%s'
+            NAME LIKE '%s'
             """ % name
         self.logger.debug("Using SQL query: `%s'" % query)
         self.cursor.prepare(query)
     def _execute_query(self, run_number):
-        self.logger.debug('Executing query for run %d ...' % run_number)
+        self.logger.debug('Executing query for run {0} ...'.format(run_number))
         self.cursor.execute(None, {'run_number': run_number})
         try:
             result = self.cursor.next()[0]
