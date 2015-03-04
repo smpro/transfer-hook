@@ -224,9 +224,10 @@ def iterate(path):
             not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
-            logger.info("Start bookkeeping for run %d ..." % run_number)
+            logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
                 bookkeeper.open_run(cursor)
+                connection.commit()
             except cx_Oracle.IntegrityError:
                 logger.warning(
                     'Bookkeeping for run %d already open!' % run_number
