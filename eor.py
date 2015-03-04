@@ -148,6 +148,11 @@ def iterate(cfg):
                 )
             )
             time.sleep(cfg.seconds_to_delay_run_closure)
+            if not run.is_complete2():
+                logger.warning(
+                    'Run %d was closed and became open again!' % run.number
+                )
+                continue
             logger.info('Closing run %d ...' % run.number)
             bookkeeper._run_number = run.number
             bookkeeper.main()
