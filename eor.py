@@ -40,13 +40,21 @@ import socket
 import sys
 import time
 
-import bookkeeper
-import metafile
+import transfer.hook.bookkeeper as bookkeeper
+import transfer.hook.metafile as metafile
 
-from macroeor import is_run_complete
+from transfer.hook.macroeor import is_run_complete
 
 logger = logging.getLogger(__name__)
 
+_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
+_streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
+_streams_to_ecal = ['EcalCalibration']
+_streams_with_scalers = ['L1Rates', 'HLTRates']
+_streams_to_exclude = _streams_to_ignore + \
+                      _streams_to_dqm + \
+                      _streams_to_ecal + \
+                      _streams_with_scalers
 #_______________________________________________________________________________
 def main():
     '''
@@ -79,7 +87,7 @@ class Config(object):
         self.general_dryrun = False
         self.max_iterations = 100000
         self.seconds_to_sleep = 20
-        self.seconds_to_delay_run_closure = 120
+        self.seconds_to_delay_run_closure = 60
         self.json_suffix = None
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
@@ -89,6 +97,8 @@ class Config(object):
                                r'%(message)s')
         self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
+        self.store_ini_area = '/store/lustre/mergeMacro'
+        self.streams_to_exclude = _streams_to_exclude
         if filename:
             self._parse_config_file()
     ## __init__
@@ -141,13 +151,19 @@ def setup(cfg):
 def iterate(cfg):
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     for run in get_runs(cfg):
-        if run.is_complete2():
+        if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info(
                 'Sleeping %ds before closing run %d ...' % (
                     cfg.seconds_to_delay_run_closure, run.number
                 )
             )
             time.sleep(cfg.seconds_to_delay_run_closure)
+            if not run.is_complete2(cfg.streams_to_exclude,
+                                    cfg.store_ini_area):
+                logger.warning(
+                    'Run %d was closed and became open again!' % run.number
+                )
+                continue
             logger.info('Closing run %d ...' % run.number)
             bookkeeper._run_number = run.number
             bookkeeper.main()
@@ -207,10 +223,12 @@ class Run(object):
             if not eorfile.is_run_complete():
                 return False
         return True
-    def is_complete2(self, threshold=1.0):
+    def is_complete2(self, streams_to_exclude, store_ini_area, threshold=1.0):
         is_run_complete(theInputDataFolder = self.path,
                         completeMergingThreshold = threshold,
-                        outputEndName = self.suffix)
+                        outputEndName = self.suffix,
+                        streamsToExclude = streams_to_exclude,
+                        storeIniArea = store_ini_area)
         name = '_'.join([self.name, 'ls0000', 'MacroEoR', self.suffix])
         with open(os.path.join(self.path, name + '.jsn')) as source:
             data = json.load(source)
