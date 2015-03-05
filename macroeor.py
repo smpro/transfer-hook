@@ -124,8 +124,7 @@ def is_run_complete(
                         eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun"])
 
         else:
-            eventsInput          = int(settingsLS["data"][0])
-            eventsInput_noLastLS = int(settingsLS["data"][0])
+            eventsInput = int(settingsLS["data"][0])
             
             # 0: run, 1: ls, 2: stream
             fileNameString = afterStringSM[nb].split('_')
@@ -138,23 +137,11 @@ def is_run_complete(
             if  key.replace("stream","") in streamsToExclude:
                 continue
 
-            if key in eventsIDict.keys():
-                eventsInput = eventsIDict[key][0] + eventsInput
-                eventsIDict[key].remove(eventsIDict[key][0])
-                eventsIDict.update({key: [eventsInput]})
-
-            else:
-                eventsIDict.update({key: [eventsInput]})
+            fillDictionary(key,eventsIDict,eventsInput)
 
             # A way to decode the last LS
             if int(fileNameString[1].replace("ls","")) != lastLumiBU:
-                if key in eventsIDict_noLastLS.keys():
-                    eventsInput_noLastLS = eventsIDict_noLastLS[key][0] + eventsInput_noLastLS
-                    eventsIDict_noLastLS[key].remove(eventsIDict_noLastLS[key][0])
-                    eventsIDict_noLastLS.update({key: [eventsInput_noLastLS]})
-
-                else:
-                    eventsIDict_noLastLS.update({key: [eventsInput_noLastLS]})
+                fillDictionary(key,eventsIDict_noLastLS,eventsInput)
 
     # Analyzing bad area
     theInputDataBadFolder = theInputDataFolder + "/bad"
@@ -172,57 +159,22 @@ def is_run_complete(
         if not afterStringBad[nb].endswith(".jsn"):
             continue
 
-        inputBadJsonFile = os.path.join(
-            theInputDataBadFolder,
-            afterStringBad[nb])
-        settingsLS = ""
-        if(os.path.getsize(inputBadJsonFile) > 0):
-            try:
-                settingsLS_textI = open(inputBadJsonFile, "r").read()
-                settingsLS = json.loads(settingsLS_textI)
-            except ValueError as e:
-                logger.warning(
-                    "Looks like the file {0} ".format(inputBadJsonFile)
-                     + "is not available, I'll try again..."
-                )
-                try:
-                    time.sleep(0.1)
-                    settingsLS_textI = open(inputBadJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
-                except ValueError as e:
-                    logger.warning(
-                        "Looks like the file {0} ".format(inputBadJsonFile)
-                        + "is not available (2nd try)..."
-                    )
-                    time.sleep(1.0)
-                    settingsLS_textI = open(inputBadJsonFile, "r").read()
-                    settingsLS = json.loads(settingsLS_textI)
+        settingsLS = readFile(theInputDataBadFolder, afterStringBad[nb])
 
-            eventsInput          = int(settingsLS["data"][0])
-            if 'eventsInputBU_noLastLS' in settingsLS:
-                eventsInput_noLastLS = int(settingsLS["data"][0])
-            # 0: run, 1: ls, 2: stream
-            fileNameString = afterStringBad[nb].split('_')
-            key = (fileNameString[2])
+        if "bad" in settingsLS:
+            continue
 
-            if key in eventsBadDict.keys():
-                eventsInput = eventsBadDict[key][0] + eventsInput
-                eventsBadDict[key].remove(eventsBadDict[key][0])
-                eventsBadDict.update({key: [eventsInput]})
+        eventsInput = int(settingsLS["data"][0])
+        # 0: run, 1: ls, 2: stream
+        fileNameString = afterStringBad[nb].split('_')
+        key = (fileNameString[2])
 
-            else:
-                eventsBadDict.update({key: [eventsInput]})
+        fillDictionary(key,eventsBadDict,eventsInput)
+        
+        # A way to decode the last LS
+        if int(fileNameString[1].replace("ls","")) != lastLumiBU:
 
-            # A way to decode the last LS
-            if int(fileNameString[1].replace("ls","")) != lastLumiBU:
-
-                if key in eventsBadDict_noLastLS.keys():
-                    eventsInput_noLastLS = eventsBadDict_noLastLS[key][0] + eventsInput_noLastLS
-                    eventsBadDict_noLastLS[key].remove(eventsBadDict_noLastLS[key][0])
-                    eventsBadDict_noLastLS.update({key: [eventsInput_noLastLS]})
-
-                else:
-                    eventsBadDict_noLastLS.update({key: [eventsInput_noLastLS]})
+            fillDictionary(key,eventsBadDict_noLastLS,eventsInput)
 
     # Analyzing the information
     isComplete = True
@@ -380,3 +332,14 @@ def readFile(theInputDataFolder, fileName):
                 settingsLS = json.loads(settingsLS_textI)
 
     return settingsLS
+
+#_____________________________________________________________________________
+def fillDictionary(key,eventsDict,eventsInput):
+
+    if key in eventsDict.keys():
+        eventsInput = eventsDict[key][0] + eventsInput
+        eventsDict[key].remove(eventsDict[key][0])
+        eventsDict.update({key: [eventsInput]})
+
+    else:
+        eventsDict.update({key: [eventsInput]})
