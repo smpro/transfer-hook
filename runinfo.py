@@ -7,20 +7,11 @@ import sys
 import cx_Oracle
 
 import transfer.hook.config as config
+from transfer.hook.config.runinfo.driver_cfg import driver_cfg as _driver_defaults
 
 logger = logging.getLogger(__name__)
 
-## Default configuration
-_driver_defaults = config.Config(
-    logging_level = logging.WARNING,
-    db_config_file = '.db.omds.runinfo_r.cfg.py',
-    run_numbers = [
-        229221,
-    ]
-)
-
 _first_run_with_new_cmssw_version_name_tag = 231017
-
 
 #______________________________________________________________________________
 def main():
@@ -34,9 +25,16 @@ def main():
     logger.info('End')
 ## main
 
-
 #______________________________________________________________________________
 class Driver(object):
+    # tuple of parameter names and titles
+    _parameters = [
+        ('run_key'      , 'Run Key'      ),
+        ('cmssw_version', 'CMSSW_VERSION'),
+        ('hlt_key'      , 'HLT Key'      ),
+        ('stop_time'    , 'Stop Time'    ),
+        ('start_time'   , 'Start Time'   ),
+    ]
     def __init__(self, cfg=_driver_defaults):
         self.logger = logging.getLogger(type(self).__module__ + '.' +
                                         type(self).__name__)
@@ -48,33 +46,28 @@ class Driver(object):
         else:
             self.run_numbers = []
         self.runinfo = RunInfo(self.cfg.db_config_file)
+        self._define_dumpers()
+    def _define_dumpers(self):
+        for name, title in self._parameters:
+            dumper_name = self._get_dumper_name(name)
+            dumper = self._make_dumper(name, title)
+            setattr(self, dumper_name, dumper)
+    def _make_dumper(self, name, title):
+        def dumper():
+            print 'Run    %s' % title
+            getter_name = 'get_' + name + 's'
+            getter = getattr(self.runinfo, getter_name)
+            results = getter(self.run_numbers)
+            for run_number, result in zip(self.run_numbers, results):
+                print run_number, result
+        return dumper
+    def _get_dumper_name(self, name):
+        return 'dump_' + name + 's'
+    def _get_dumper(self, name):
+        return getattr(self, self._get_dumper_name(name))
     def main(self):
-        self.dump_cmssw_versions()
-        self.dump_hlt_keys()
-        self.dump_run_keys()
-        self.dump_stop_times()
-        self.runinfo.connection.close()
-    def dump_cmssw_versions(self):
-        print 'Run    CMSSW Version'
-        results = self.runinfo.get_cmssw_versions(self.run_numbers)
-        for run_number, result in zip(self.run_numbers, results):
-            print run_number, result
-    def dump_hlt_keys(self):
-        print 'Run    HLT Key'
-        results = self.runinfo.get_hlt_keys(self.run_numbers)
-        for run_number, result in zip(self.run_numbers, results):
-            print run_number, result
-    def dump_run_keys(self):
-        print 'Run    Run Key'
-        results = self.runinfo.get_run_keys(self.run_numbers)
-        for run_number, result in zip(self.run_numbers, results):
-            print run_number, result
-    def dump_stop_times(self):
-        print 'Run    Stop Time'
-        results = self.runinfo.get_stop_times(self.run_numbers)
-        for run_number, result in zip(self.run_numbers, results):
-            print run_number, result
-
+        for name, title in self._parameters:
+            self._get_dumper(name)()
 
 #______________________________________________________________________________
 class RunInfo(object):
@@ -106,6 +99,7 @@ class RunInfo(object):
             ('old_cmssw_version', 'CMS.DAQ:DAQ_CMSSW_VERSION_T' ),
             ('new_cmssw_version', 'CMS.DAQ:CMSSW_VERSION'       ),
             ('stop_time'        , 'CMS.LVL0:STOP_TIME%'         ),
+            ('start_time'       , 'CMS.LVL0:START_TIME%'        ),
         ]:
             getter_name      = 'get_' + name
             list_getter_name = 'get_' + name + 's'
@@ -181,6 +175,7 @@ class RunInfo(object):
         result = result.strip()
         self.logger.debug("Received `{0}'".format(result))
         return result
+
 
 
 #______________________________________________________________________________
