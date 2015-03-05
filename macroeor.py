@@ -216,7 +216,7 @@ def is_run_complete(
             # A way to decode the last LS
             if int(fileNameString[1].replace("ls","")) != lastLumiBU:
 
-                if key in eventsInput_noLastLS.keys():
+                if key in eventsBadDict_noLastLS.keys():
                     eventsInput_noLastLS = eventsBadDict_noLastLS[key][0] + eventsInput_noLastLS
                     eventsBadDict_noLastLS[key].remove(eventsBadDict_noLastLS[key][0])
                     eventsBadDict_noLastLS.update({key: [eventsInput_noLastLS]})
