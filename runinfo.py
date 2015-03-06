@@ -3,6 +3,7 @@
 ## Use of str.foramt requires Python version >= 2.6.
 import logging
 import sys
+import os.path
 
 import cx_Oracle
 
@@ -176,6 +177,8 @@ class RunInfo(object):
         self.logger.debug("Received `{0}'".format(result))
         return result
 
+runinfo = RunInfo(os.path.join(config.DIR, '.db_runinfo_cred.py'))
+get_stop_time = runinfo.get_stop_time
 
 
 #______________________________________________________________________________

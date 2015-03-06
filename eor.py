@@ -40,8 +40,11 @@ import socket
 import sys
 import time
 
+from datetime import datetime, timedelta
+
 import transfer.hook.bookkeeper as bookkeeper
 import transfer.hook.metafile as metafile
+import transfer.hook.runinfo as runinfo
 
 from transfer.hook.macroeor import is_run_complete
 
@@ -88,6 +91,7 @@ class Config(object):
         self.max_iterations = 100000
         self.seconds_to_sleep = 20
         self.seconds_to_delay_run_closure = 60
+        self.hours_to_wait_for_completion = 0.5
         self.json_suffix = None
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
@@ -144,6 +148,9 @@ def setup(cfg):
     bookkeeper.setup()
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()
+    cfg.time_to_wait_for_completion = timedelta(
+        hours=cfg.hours_to_wait_for_completion
+    )
 ## setup
 
 
@@ -151,6 +158,10 @@ def setup(cfg):
 def iterate(cfg):
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     for run in get_runs(cfg):
+        time_since_stop = run.time_since_stop()
+        if not time_since_stop:
+            logger.info('Run {0} is ongoing ...'.format(run.number))
+            continue
         if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info(
                 'Sleeping %ds before closing run %d ...' % (
@@ -169,7 +180,15 @@ def iterate(cfg):
             bookkeeper.main()
             run.close()
         else:
-            logger.warning('Run %d is incomplete!' % run.number)
+            if time_since_stop > cfg.time_to_wait_for_completion:
+                message = ('Run {0} open for too long: {1}, probably ' + 
+                    'want to close it by hand!').format(run.number, 
+                                                        time_since_stop)
+                logger.warning(message)
+            else:
+                message = ('Run {0} open for {1}, waiting for it to ' + 
+                    'close ...').format(run.number, time_since_stop)
+                logger.info(message)
     logger.info("Finished inspecting path `%s'." % cfg.input_path)
 ## iterate
 
@@ -260,6 +279,29 @@ class Run(object):
         logger.info("Creating `%s' ..." % self.eorpath)
         with file(self.eorpath, 'a') as destination:
             pass
+    def time_since_stop(self):
+        '''
+        Returns the datetime.timedelta object describing the time
+        since the run stopped if it actually did stop. Othewise returns None.
+        '''
+        stop_time = self.stop_time()
+        if stop_time:
+            since_stop = datetime.utcnow() - stop_time
+        else:
+            since_stop = None
+        return since_stop
+    def stop_time(self):
+        '''
+        Returns the stop time as a datetime.datetime object if the run
+        ended, returns None otherwise
+        '''
+        stop_time_string = runinfo.get_stop_time(self.number)
+        if stop_time_string == 'UNKNOWN':
+            stop_time = None
+        else:
+            time_string_format = '%m/%d/%y %I:%M:%S %p %Z'
+            stop_time = datatime.strptime(stop_time_string, time_string_format)
+        return stop_time
 ## Run
 
 
