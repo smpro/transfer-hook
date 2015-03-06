@@ -300,7 +300,7 @@ class Run(object):
             stop_time = None
         else:
             time_string_format = '%m/%d/%y %I:%M:%S %p %Z'
-            stop_time = datatime.strptime(stop_time_string, time_string_format)
+            stop_time = datetime.strptime(stop_time_string, time_string_format)
         return stop_time
 ## Run
 
