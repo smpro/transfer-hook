@@ -40,8 +40,11 @@ import socket
 import sys
 import time
 
+from datetime import datetime, timedelta
+
 import transfer.hook.bookkeeper as bookkeeper
 import transfer.hook.metafile as metafile
+import transfer.hook.runinfo as runinfo
 
 from transfer.hook.macroeor import is_run_complete
 
@@ -88,6 +91,7 @@ class Config(object):
         self.max_iterations = 100000
         self.seconds_to_sleep = 20
         self.seconds_to_delay_run_closure = 60
+        self.hours_to_wait_for_completion = 0.5
         self.json_suffix = None
         self.input_path = '/store/lustre/transfer'
         ## Set to None for logging to STDOUT
@@ -144,6 +148,9 @@ def setup(cfg):
     bookkeeper.setup()
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()
+    cfg.time_to_wait_for_completion = timedelta(
+        hours=cfg.hours_to_wait_for_completion
+    )
 ## setup
 
 
@@ -169,7 +176,17 @@ def iterate(cfg):
             bookkeeper.main()
             run.close()
         else:
-            logger.warning('Run %d is incomplete!' % run.number)
+            since_stop = run.time_since_stop()
+            if since_stop and since_stop > cfg.time_to_wait_for_completion:
+                message = ('Run {0} open for too long: {1}, probably ' + 
+                    'want to close it by hand!').format(run.number, since_stop)
+                logger.warning(message)
+            elif since_stop:
+                message = ('Run {0} open for {1}, waiting for it to ' + 
+                    'close ...').format(run.number, since_stop)
+                logger.info(message)
+            else:
+                logger.info('Run {0} is ongoing ...'.format(run.number))
     logger.info("Finished inspecting path `%s'." % cfg.input_path)
 ## iterate
 
@@ -260,6 +277,29 @@ class Run(object):
         logger.info("Creating `%s' ..." % self.eorpath)
         with file(self.eorpath, 'a') as destination:
             pass
+    def time_since_stop(self):
+        '''
+        Returns the datetime.timedelta object describing the time
+        since the run stopped if it actually did stop. Othewise returns None.
+        '''
+        stop_time = self.stop_time()
+        if stop_time:
+            since_stop = datetime.utcnow() - stop_time
+        else:
+            since_stop = None
+        return since_stop
+    def stop_time(self):
+        '''
+        Returns the stop time as a datetime.datetime object if the run
+        ended, returns None otherwise
+        '''
+        stop_time_string = runinfo.get_stop_time(self.number)
+        if stop_time_string == 'UNKNOWN':
+            stop_time = None
+        else:
+            time_string_format = '%m/%d/%y %I:%M:%S %p %Z'
+            stop_time = datatime.strptime(stop_time_string, time_string_format)
+        return stop_time
 ## Run
 
 
