@@ -159,14 +159,15 @@ def iterate(cfg):
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     runs = get_runs(cfg)
     for run in runs:
-        if run.number == runs[-1].number and not run.stop_time():
+        time_since_stop = run.time_since_stop()
+        if run.number == runs[-1].number and not time_since_stop:
             ## This is the last known run and looking at RunInfo,
             ## it hasn't stopped yet.
             logger.info('Run {0} is ongoing ...'.format(run.number))
             continue
         if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info('Closing run %d ...' % run.number)
-        elif run.time_since_stop() > cfg.time_to_wait_for_completion:
+        elif time_since_stop > cfg.time_to_wait_for_completion:
             message = ('Run {0} INCOMPLETE FOR TOO LONG: {1}, closing ' +
                 'it brute force!').format(run.number, time_since_stop)
             logger.warning(message)
