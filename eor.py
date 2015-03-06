@@ -158,6 +158,10 @@ def setup(cfg):
 def iterate(cfg):
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     for run in get_runs(cfg):
+        time_since_stop = run.time_since_stop()
+        if not time_since_stop:
+            logger.info('Run {0} is ongoing ...'.format(run.number))
+            continue
         if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info(
                 'Sleeping %ds before closing run %d ...' % (
@@ -176,17 +180,15 @@ def iterate(cfg):
             bookkeeper.main()
             run.close()
         else:
-            since_stop = run.time_since_stop()
-            if since_stop and since_stop > cfg.time_to_wait_for_completion:
+            if time_since_stop > cfg.time_to_wait_for_completion:
                 message = ('Run {0} open for too long: {1}, probably ' + 
-                    'want to close it by hand!').format(run.number, since_stop)
+                    'want to close it by hand!').format(run.number, 
+                                                        time_since_stop)
                 logger.warning(message)
-            elif since_stop:
-                message = ('Run {0} open for {1}, waiting for it to ' + 
-                    'close ...').format(run.number, since_stop)
-                logger.info(message)
             else:
-                logger.info('Run {0} is ongoing ...'.format(run.number))
+                message = ('Run {0} open for {1}, waiting for it to ' + 
+                    'close ...').format(run.number, time_since_stop)
+                logger.info(message)
     logger.info("Finished inspecting path `%s'." % cfg.input_path)
 ## iterate
 
