@@ -37,12 +37,14 @@ import glob
 import imp
 import json
 import logging
-import os
+import os.path
 import pprint
 import socket
 import sys
 
 import cx_Oracle
+
+import transfer.hook.config as config
 
 from collections import defaultdict
 
@@ -53,7 +55,8 @@ _dry_run = False
 #_db_config = '.db.int2r.stomgr_w.cfg.py'
 
 # Production DB, will be read and processed by Tier0
-_db_config = '.db.rcms.stomgr_w.cfg.py'
+_db_config = os.path.join(config.DIR, '.db_rcms_cred.py')
+
 
 # _input_dir = '/store/lustre/mergeMacro'
 _input_dir = '/store/lustre/transfer'
