@@ -1,3 +1,35 @@
+# Debugging delay of trigger scalars in WBM 
+2015-03-03 18:54:06,924 __main__ INFO: Processing 3 JSON files in `/store/lustre/mergeMacro/run236705':
+2015-03-03 19:06:22,685 __main__ INFO: Processing 127 JSON files in `/store/lustre/mergeMacro/run236705':
+2015-03-03 20:48:54,912 __main__ INFO: Processing 16 JSON files in `/store/lustre/mergeMacro/run236713':
+2015-03-03 20:51:28,500 __main__ INFO: Processing 109 JSON files in `/store/lustre/mergeMacro/run236705':
+2015-03-03 22:08:52,267 __main__ INFO: Processing 16 JSON files in `/store/lustre/mergeMacro/run236721':
+2015-03-03 22:08:52,402 __main__ INFO: Processing 100 JSON files in `/store/lustre/mergeMacro/run236728':
+2015-03-03 22:27:33,342 __main__ INFO: Processing 30 JSON files in `/store/lustre/mergeMacro/run236736':
+2015-03-03 22:27:39,897 __main__ INFO: Processing 30 JSON files in `/store/lustre/mergeMacro/run236741':
+2015-03-03 22:27:49,670 __main__ INFO: Processing 758 JSON files in `/store/lustre/mergeMacro/run236743':
+2015-03-03 22:39:39,021 __main__ INFO: Processing 16 JSON files in `/store/lustre/mergeMacro/run236752':
+2015-03-03 22:39:39,189 __main__ INFO: Processing 380 JSON files in `/store/lustre/mergeMacro/run236755':
+2015-03-03 22:46:10,371 __main__ INFO: Processing 282 JSON files in `/store/lustre/mergeMacro/run236763':
+2015-03-03 22:56:32,217 __main__ INFO: Processing 758 JSON files in `/store/lustre/mergeMacro/run236764':
+2015-03-03 23:05:26,955 __main__ INFO: Processing 716 JSON files in `/store/lustre/mergeMacro/run236765':
+2015-03-03 23:42:16,485 __main__ INFO: Processing 16 JSON files in `/store/lustre/mergeMacro/run236766':
+2015-03-03 23:42:16,553 __main__ INFO: Processing 2143 JSON files in `/store/lustre/mergeMacro/run236767':
+2015-03-04 00:07:28,873 __main__ INFO: Processing 909 JSON files in `/store/lustre/mergeMacro/run236767':
+2015-03-04 00:18:06,787 __main__ INFO: Processing 376 JSON files in `/store/lustre/mergeMacro/run236767':
+2015-03-04 00:22:33,741 __main__ INFO: Processing 156 JSON files in `/store/lustre/mergeMacro/run236767':
+2015-03-04 00:24:28,839 __main__ INFO: Processing 70 JSON files in `/store/lustre/mergeMacro/run236767':
+
+2015-03-03 18:54:06,938
+
+2015-03-03 18:54:06,938 __main__ INFO: Running `/opt/transferTests/injectFileIntoTransferSystem.pl --filename run236705_ls0001_streamCalibration_StorageManager.dat --path /store/lustre/transfer/run236705 --type streamer --runnumber 236705 --lumisection 1 --numevents 434 --appname CMSSW --appversion CMSSW_7_3_2_patch2 --stream Calibration --setuplabel Data --config /opt/injectworker/.db.conf --destination Global --filesize 10264660 --hltkey /cdaq/special/LS1/CRUZET/HLT_CondDBV2/V3' ...
+2015-03-03 19:06:17,956 __main__ INFO: STDOUT: DB inserts completed, running Tier 0 notification script.
+File sucessfully submitted for transfer.
+
+The call above took 12 minutes!!
+
+
+
  For transfers:
    - everything is under /opt/transferTests on srv-c2c07-16 and mrg-c2f13-37-01. The script to be launched is watchAndInject.py with the parameter "-p /store/lustre/macroMerger", but take a look inside before actually launching it. The original idea was to have it automatically transfer everything it finds under the path, but since we'd be transferring mostly junk, the runs to be transferred are hardcoded inside. By this evening I might turn that into a parameter if I have the time, but not sure. So please just take a look at the script before launching it, it's very simple and straightforward to understand.  I've been running the actual transfers rather from the srv not to disturb the minidaq merger, but it should not really matter
    - when launching it watch on the same machine that the copyworker is actually handling the files: in /store/copyworker/Logs/CopyManager/CopyWorker_<date>.log you should see entries from the RFCP telling you it has succesfully copied the files over. If instead you only see entries of the type :
