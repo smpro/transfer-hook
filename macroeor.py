@@ -212,13 +212,20 @@ def is_run_complete(
             # Only go if it is still false
             # eventsTotalRun_noLastLS to keep background compatibility
             if isComplete == False and eventsTotalRun_noLastLS >= 0:
+                isComplete = True
                 for streamName in eventsIDict_noLastLS:
                     sumEvents = eventsIDict_noLastLS[streamName][0]
                     if streamName in eventsBadDict_noLastLS.keys():
                         sumEvents = sumEvents + eventsBadDict_noLastLS[streamName][0]
-                    if(sumEvents >= eventsBuilt_noLastLS * completeMergingThreshold and
-                        sumEvents < eventsBuilt_noLastLS+1):
-                        isComplete = True
+                    if(sumEvents < eventsBuilt_noLastLS * completeMergingThreshold):
+                        isComplete = False
+                    elif(sumEvents > eventsBuilt_noLastLS):
+                        isComplete = False
+                        logger.warning(
+                           "sumEvents > eventsBuilt_noLastLS!: {0} > {1}".format(
+                            sumEvents,eventsBuilt_noLastLS
+                           )
+                        )
 
     else:
         isComplete = False
@@ -313,7 +320,7 @@ def readFile(theInputDataFolder, fileName):
         try:
             settingsLS_textI = open(inputEoRJsonFile, "r").read()
             settingsLS = json.loads(settingsLS_textI)
-        except ValueError as e:
+        except Exception as e:
             logger.warning(
                 "Looks like the file {0} ".format(inputEoRJsonFile)
                 + "is not available, I'll try again..."
@@ -322,7 +329,7 @@ def readFile(theInputDataFolder, fileName):
                 time.sleep(0.1)
                 settingsLS_textI = open(inputEoRJsonFile, "r").read()
                 settingsLS = json.loads(settingsLS_textI)
-            except ValueError as e:
+            except Exception as e:
                 logger.warning(
                     "Looks like the file {0} ".format(inputEoRJsonFile)
                     + "is not available (2nd try)..."
