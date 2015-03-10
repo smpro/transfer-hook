@@ -61,7 +61,7 @@ __status__     = 'Development'
 logger = logging.getLogger(__name__)
 
 _dry_run = False
-_max_iterations = 100000
+_max_iterations = float("inf")
 _max_exceptions = 10
 _seconds_to_sleep = 2
 _hltkeysscript = '/opt/transferTests/hltKeyFromRunInfo.pl'
@@ -115,12 +115,13 @@ def main():
     options, args = parse_args()
     setup()
     caught_exception_count = 0
-    for iteration in range(1, _max_iterations + 1):
-        logger.info(
-            '============ ITERATION %d of %d ============' % (
-                iteration, _max_iterations
-            )
-        )
+    iteration = 0
+    while True:
+        iteration += 1
+        if iteration > _max_iterations:
+            break
+        logger.info('Start iteration {0} of {1} ...'.format(iteration,
+                                                            _max_iterations))
         try:
             iterate(options.path)
         except Exception as e:
