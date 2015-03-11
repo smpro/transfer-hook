@@ -50,9 +50,6 @@ from macroeor import is_run_complete
 
 #logger = logging.getLogger(__name__)
 
-
-
-#to be uncommented if it does not work - lavinia
 from Logging import getLogger
 logger = getLogger()
 
@@ -69,14 +66,13 @@ def main():
     '''
     Main entry point of execution.
     '''
-    #what is this????
+    #what is this???? to be removed if it is not doing anything
+    #only added here because it was in the main function..
     import user
 
     logger.info("Welcome to eor.main()")
     cfg = get_config()
-    logger.info("cfg get _config finished")
     setup(cfg)
-    logger.info("setup(cfg) finished")
     logger.info(
         "Start closing runs between %d and %d in `%s' ..." % (
             cfg.runs_first, cfg.runs_last, cfg.input_path
@@ -150,7 +146,6 @@ def setup(cfg):
     '''
     Sets up the logging configuration.  Plan to apply configuration.
     '''
-    logging.info("in eor in setup(cfg)")
     ## Configure the logging
     #logging.basicConfig(filename = cfg.logging_filename,
     #                    level    = cfg.logging_level,
@@ -159,11 +154,8 @@ def setup(cfg):
     ## Integration DB, will not be read by Tier0
     #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
     ## Production DB, will be read by Tier0
-    logger.info("the book keeper db_config is about to be set")
     bookkeeper._db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py'
-    logger.info("the book keeper db_config is set")
     bookkeeper.setup()
-    logger.info("the book keeper setup is set")
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()
     cfg.time_to_wait_for_completion = timedelta(
