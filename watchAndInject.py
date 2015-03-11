@@ -252,7 +252,10 @@ def iterate(path):
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
                 if 'EoR' in jsn_file:
-                    maybe_move(jsn_file, new_rundir, force_overwrite=True)
+                    if run_key == 'TIER0_TRANSFER_OFF':
+                        maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
+                    else:
+                        maybe_move(jsn_file, new_rundir, force_overwrite=True)
                     continue
                 settings_textI = open(jsn_file, "r").read()
                 settings = json.loads(settings_textI)
