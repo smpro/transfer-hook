@@ -120,19 +120,10 @@ def main(params):
     '''
     Main entry point to execution.
     '''
-    #options, args = parse_args()
     setup()
     input_path = params['Input']['path']
     caught_exception_count = 0
     iteration = 0
-    logger.info('Testing...')
-
-    logger.info('Trying to call eor.main')
-    process = multiprocessing.Process(target = eor.main, args = [])
-    process.start()
-    #process.join()
-    logger.info('Finished calling eor.main')
-
     while True:
         iteration += 1
         if iteration > _max_iterations:
