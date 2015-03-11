@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os.path
 import logging
-import transfer.hook.config as config
+import config as config
 
 ## Default runinfo.Driver configuration
 driver_cfg = config.Config(

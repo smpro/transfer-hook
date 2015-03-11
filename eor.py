@@ -42,13 +42,19 @@ import time
 
 from datetime import datetime, timedelta
 
-import transfer.hook.bookkeeper as bookkeeper
-import transfer.hook.metafile as metafile
-import transfer.hook.runinfo as runinfo
+import bookkeeper as bookkeeper
+import metafile as metafile
+import runinfo as runinfo
 
-from transfer.hook.macroeor import is_run_complete
+from macroeor import is_run_complete
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
+
+
+
+#to be uncommented if it does not work - lavinia
+from Logging import getLogger
+logger = getLogger()
 
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
 _streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
@@ -63,8 +69,14 @@ def main():
     '''
     Main entry point of execution.
     '''
+    #what is this????
+    import user
+
+    logger.info("Welcome to eor.main()")
     cfg = get_config()
+    logger.info("cfg get _config finished")
     setup(cfg)
+    logger.info("setup(cfg) finished")
     logger.info(
         "Start closing runs between %d and %d in `%s' ..." % (
             cfg.runs_first, cfg.runs_last, cfg.input_path
@@ -93,15 +105,17 @@ class Config(object):
         self.seconds_to_delay_run_closure = 60
         self.hours_to_wait_for_completion = 2.0
         self.json_suffix = None
-        self.input_path = '/store/lustre/transfer'
+        #self.input_path = '/store/lustre/transfer'
+        self.input_path = '/opt/transfers/mock_directory/transfer'
         ## Set to None for logging to STDOUT
-        self.logging_filename = 'eor.log'
-        self.logging_level = logging.INFO
-        self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
-                               r'%(message)s')
+        #self.logging_filename = 'eor.log'
+        #self.logging_level = logging.INFO
+        #self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
+        #                       r'%(message)s')
         self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
-        self.store_ini_area = '/store/lustre/mergeMacro'
+        #self.store_ini_area = '/store/lustre/mergeMacro'
+        self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
         self.streams_to_exclude = _streams_to_exclude
         if filename:
             self._parse_config_file()
@@ -111,9 +125,9 @@ class Config(object):
         parser = ConfigParser.ConfigParser()
         parser.read(self.filename)
         self.input_path = parser.get('Input', 'path')
-        self.logging_filename = parser.get('Logging', 'filename')
-        self.logging_level = getattr(logging, parser.get('Logging', 'level'))
-        self.logging_format = parser.get('Logging', 'format', True)
+        #self.logging_filename = parser.get('Logging', 'filename')
+        #self.logging_level = getattr(logging, parser.get('Logging', 'level'))
+        #self.logging_format = parser.get('Logging', 'format', True)
     ## _parse_config_file
 ## Config
 
@@ -136,16 +150,20 @@ def setup(cfg):
     '''
     Sets up the logging configuration.  Plan to apply configuration.
     '''
+    logging.info("in eor in setup(cfg)")
     ## Configure the logging
-    logging.basicConfig(filename = cfg.logging_filename,
-                        level    = cfg.logging_level,
-                        format   = cfg.logging_format)
+    #logging.basicConfig(filename = cfg.logging_filename,
+    #                    level    = cfg.logging_level,
+    #                    format   = cfg.logging_format)
     bookkeeper._dry_run = cfg.general_dryrun
     ## Integration DB, will not be read by Tier0
     #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
     ## Production DB, will be read by Tier0
-    bookkeeper._db_config = '.db.rcms.stomgr_w.cfg.py'
+    logger.info("the book keeper db_config is about to be set")
+    bookkeeper._db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py'
+    logger.info("the book keeper db_config is set")
     bookkeeper.setup()
+    logger.info("the book keeper setup is set")
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()
     cfg.time_to_wait_for_completion = timedelta(

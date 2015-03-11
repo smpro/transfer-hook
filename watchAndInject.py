@@ -36,16 +36,16 @@ import time
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 
-import transfer.hook.bookkeeper as bookkeeper
-import transfer.hook.monitorRates as monitorRates
-import transfer.hook.metafile as metafile
-import transfer.hook.eor as eor
+import bookkeeper as bookkeeper
+import monitorRates as monitorRates
+import metafile as metafile
+import eor as eor
 
 from optparse import OptionParser
 from subprocess import call
 
-from transfer.hook.runinfo import RunInfo
-from transfer.hook.config import Config
+from runinfo import RunInfo
+from config import Config
 
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -58,7 +58,12 @@ __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
+from Logging import getLogger
+logger = getLogger()
+
+#from Logging import getLogger
+#logger = logging.getLogger()
 
 _dry_run = False
 _max_iterations = float("inf")
@@ -70,7 +75,7 @@ _new_path_base = 'transfer'
 _scratch_base = 'scratch'
 _dqm_base = '/dqmburam/transfer'  ## Not mounted yet
 _ecal_base = '/store/calibarea/global'
-#_new_path_base = 'transfer_minidaq'
+##_new_path_base = 'transfer_minidaq'
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
 _streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
 _streams_to_ecal = ['EcalCalibration']
@@ -100,30 +105,41 @@ _file_status_list_to_retransfer = [
 ## Defualt is False, set this to True if you want to re-transfer.
 _renotify = False
 
-# _db_config = '.db.int2r.stomgr_w.cfg.py' # integration
-_db_config = '.db.rcms.stomgr_w.cfg.py' # production
+#_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
+_db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
 execfile(_db_config)
 _db_sid = db_sid
 _db_user = db_user
 _db_pwd = db_pwd
 
+
+_path = '/opt/transfers/mock_directory/mergeMacro'
+
 #______________________________________________________________________________
-def main():
+def main(path):
     '''
     Main entry point to execution.
     '''
-    options, args = parse_args()
+    #options, args = parse_args()
     setup()
     caught_exception_count = 0
     iteration = 0
+    logger.info('Testing...')
+
+    logger.info('Trying to call eor.main()')
+    process = multiprocessing.Process(target = eor.main, args = [])
+    process.start()
+    #process.join()
+    logger.info('Finished calling eor.main()')
+    #logger.info('Trying to call watchandinject.main()')
+
     while True:
         iteration += 1
         if iteration > _max_iterations:
             break
-        logger.info('Start iteration {0} of {1} ...'.format(iteration,
-                                                            _max_iterations))
+        logger.info('Start iteration {0} of {1} ...'.format(iteration,_max_iterations))
         try:
-            iterate(options.path)
+            iterate(path)
         except Exception as e:
             caught_exception_count += 1
             logger.info(
@@ -178,14 +194,14 @@ def setup():
     global runinfo
     global ecal_pool
     global dqm_pool
-    logging.basicConfig(
-        level=logging.INFO,
-        format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
-        filename='wai.log'
-    )
+    #logging.basicConfig(
+    #    level=logging.INFO,
+    #    format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
+    #    filename='wai.log'
+    #)
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
+    runinfo = RunInfo('/opt/transfers/.db.omds.runinfo_r.cfg.py')
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_file_to_dir
@@ -605,4 +621,5 @@ def invert(mapping):
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
-    main()
+
+    main(_path)
