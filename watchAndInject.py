@@ -401,11 +401,14 @@ def get_rundirs_and_hltkeys(path, new_path):
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
     runnumbers = [r.replace(os.path.join(path, 'run'), '') for r in rundirs]
-    logger.info(
-        "Inspecting %d dirs in `%s' for runs %s to %s ..." % (
-            len(rundirs), path, runnumbers[0], runnumbers[-1]
+    if len(runnumbers) == 0:
+        logger.info("Found no run directories in `%s' ..." % path)
+    else:
+        logger.info(
+            "Inspecting %d dir(s) in `%s' for runs %s to %s ..." % (
+                len(rundirs), path, runnumbers[0], runnumbers[-1]
+            )
         )
-    )
     logger.debug(pprint.pformat(runnumbers))
     logger.info('HLT keys: ' + format_hltkeys(hltkeys))
     logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
