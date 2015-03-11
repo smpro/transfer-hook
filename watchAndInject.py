@@ -113,15 +113,16 @@ _db_user = db_user
 _db_pwd = db_pwd
 
 
-_path = '/opt/transfers/mock_directory/mergeMacro'
+#_path = '/opt/transfers/mock_directory/mergeMacro'
 
 #______________________________________________________________________________
-def main(path):
+def main(params):
     '''
     Main entry point to execution.
     '''
     #options, args = parse_args()
     setup()
+    input_path = params['Input']['path']
     caught_exception_count = 0
     iteration = 0
     logger.info('Testing...')
@@ -138,7 +139,7 @@ def main(path):
             break
         logger.info('Start iteration {0} of {1} ...'.format(iteration,_max_iterations))
         try:
-            iterate(path)
+            iterate(input_path)
         except Exception as e:
             caught_exception_count += 1
             logger.info(
