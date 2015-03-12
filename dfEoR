@@ -1,0 +1,62 @@
+#! /bin/bash
+# cmsDataFlowEoR_initd
+
+#
+# dfEoR       Init file used for starting / stoppping the CMS Data Flow Trasfer.
+#
+# chkconfig: 2345 85 25
+# description: The daemon which does the transfers.
+# processname: dataFlowEoR
+# pidfile: /var/run/dfEoR.pid
+
+###########################################################
+################### Managed by puppet #####################
+###########################################################
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+prog="dataFlowEoR"
+
+#TODO: decide on the final location, both for the wrapper and for the core script
+#scriptFile="/opt/python/transfer/hook/$prog"
+#scriptFile="/nfshome0/zdemirag/DAQ/transfers/transfer-hook/service/$prog"
+scriptFile="/opt/transfers/$prog"
+RETVAL=0
+
+# See how we were called.
+case "$1" in
+  start)
+        echo -n "Starting $prog: "
+
+        $scriptFile start > /dev/null
+
+        RETVAL=$?
+        [ $RETVAL -eq 0 ] && success "$prog startup" || failure "$prog startup"
+        echo
+        ;;
+  stop)
+        echo -n "Stopping $prog: "
+        $scriptFile stop > /dev/null
+
+        RETVAL=$?
+
+        [ $RETVAL -eq 0 ] && success "$prog stop" || failure "$prog stop"
+        echo
+        ;;
+  status)
+        $scriptFile status
+        RETVAL=$?
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        RETVAL=$?
+        ;;
+  *)
+        echo "Usage: $prog {start|stop|status|restart}"
+        exit 1
+esac
+
+exit $RETVAL
+
