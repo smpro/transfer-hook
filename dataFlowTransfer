@@ -7,56 +7,12 @@ pidFile ="/var/run/dfTransfer.pid"
 import sys, os, socket, signal, pprint
 from Daemon import Daemon
 
-from configobj import ConfigObj
 from Logging import getLogger
+import config
 import watchAndInject
 
 logger = getLogger()
 
-def getTransferParams(transferConfigFileName):
-    try:
-        if os.path.isfile(transferConfigFileName):
-            config = ConfigObj(transferConfigFileName)
-        else:
-            logger.error("Configuration file not found: {0}!".format(transferConfigFileName))
-            sys.exit(1)
-    except IOError, e:
-        logger.error("Unable to open configuration file: {0}!".format(transferConfigFileName))
-        sys.exit(1)
-
-    return config
-
-def get_params():
-    params = getTransferParams(configfile)
-
-    try:
-        _path          = params['Input']['path']
-        _new_path_base = params['Input']['new_path_base']
-        _scratch_base  = params['Input']['scratch_base']
-        _dqm_base      = params['Streams']['dqm_base']
-        _ecal_base     = params['Streams']['ecal_base']
-        #_streams_with_scalers = params['Misc']['streams_with_scalers']
-        #_streams_to_postpone  = params['Misc']['streams_to_postpone']
-        #_streams_to_dqm       = params['Streams']['streams_to_dqm'] 
-        #_streams_to_ecal      = params['Streams']['streams_to_ecal']
-        #_streams_to_ignore    = params['Streams']['streams_to_ignore']
-        _renotify             = params['Misc']['renotify']
-#        _max_iterations       = params['Misc']['max_iterations']
-        _max_exceptions       = params['Misc']['max_exceptions']
-        _seconds_to_sleep     = params['Misc']['seconds_to_sleep']
-
-    except KeyError, e:
-        logger.error("At least one non-optional parameter missing from the config file {0}:".format(configfile))
-        logger.error("{0}".format(e))
-        exit(1)
-
-#    try:
-#        debug_level = params['Misc']['debugLevel']
-#    except KeyError, e:
-#        debug_level = 10
-
-#    return _path
-    return _path,_new_path_base,_scrach_base,_dqm_base,_ecal_base,_renotify,_max_exceptions,_seconds_to_sleep
 
 class DataFlowTransfer(Daemon):
     running = True
@@ -68,22 +24,9 @@ class DataFlowTransfer(Daemon):
         self.running = False
 
     def run(self):
-        #[_path, _new_path_base, _scrach_base,_dqm_base,_ecal_base,_streams_with_scalers,_streams_to_postpone,_streams_to_dqm,_streams_to_ecal,_streams_to_ignore,_renotify,_max_iterations,_max_exceptions,_seconds_to_sleep] = get_params()
-
-        #logger.info("delFiles: {0}".format(delOrigFiles))
-
-        #you need to make the main take in arguments such as:
-        #watchAndInject.main(_path,_new_path_base,_scrach_base,_dqm_base,_ecal_base,_streams_with_scalers,_streams_to_postpone,_streams_to_dqm,_streams_to_ecal,_streams_to_ignore,_renotify,_max_iterations,_max_exceptions,_seconds_to_sleep)
-
-        #logger.info("you would be instead running: watchAndInject.main(_path,_new_path_base,_scrach_base,_dqm_base,_ecal_base,_streams_with_scalers,_streams_to_postpone,_streams_to_dqm,_streams_to_ecal,_streams_to_ignore,_renotify,_max_iterations,_max_exceptions,_seconds_to_sleep)")
-        
-        params = getTransferParams(configfile)
-        logger.info(
-            "You are now running: watchAndInject.main({0})".format(
-                pprint.pformat(params)
-            )
-        )
-        watchAndInject.main(params)
+        config.load(configfile)
+        logger.info("You are now running: watchAndInject.main()")
+        watchAndInject.main()
 
 if __name__ == "__main__":
 

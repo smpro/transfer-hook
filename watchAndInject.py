@@ -40,6 +40,7 @@ import bookkeeper as bookkeeper
 import monitorRates as monitorRates
 import metafile as metafile
 import eor as eor
+import config as config
 
 from optparse import OptionParser
 from subprocess import call
@@ -66,12 +67,10 @@ logger = getLogger()
 #logger = logging.getLogger()
 
 _dry_run = False
-_max_iterations = float("inf")
 _max_exceptions = 10
 _seconds_to_sleep = 2
-_hltkeysscript = '/opt/transferTests/hltKeyFromRunInfo.pl'
 _injectscript = '/opt/transferTests/injectFileIntoTransferSystem.pl'
-_new_path_base = 'transfer'
+#_new_path_base = 'transfer'
 _scratch_base = 'scratch'
 _dqm_base = '/dqmburam/transfer'  ## Not mounted yet
 _ecal_base = '/store/calibarea/global'
@@ -85,43 +84,26 @@ _run_number_min = 233749 # Begin of CRUZET Feb 2015
 _run_number_max = 300000
 
 _old_cmssw_version = 'CMSSW_7_1_9_patch1'
-_first_run_to_new_cmssw_version_map = {
-    226911: 'CMSSW_7_1_10',
-    227163: 'CMSSW_7_1_10_patch1',
-    227356: 'CMSSW_7_1_10_patch2',
-    228783: 'CMSSW_7_2_1',
-    229521: 'CMSSW_7_2_1_patch2',
-    229710: 'CMSSW_7_2_1_patch4',
-    229831: 'CMSSW_7_2_3',
-    }
-
-_file_status_list_to_retransfer = [
-    'FILES_TRANS_NEW',
-    'FILES_TRANS_COPIED',
-    #'FILES_TRANS_CHECKED',
-    #'FILES_TRANS_INSERTED',
-    ]
 
 ## Defualt is False, set this to True if you want to re-transfer.
 _renotify = False
 
 #_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
 _db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
-execfile(_db_config)
-_db_sid = db_sid
-_db_user = db_user
-_db_pwd = db_pwd
-
+#execfile(_db_config)
+#_db_sid = db_sid
+#_db_user = db_user
+#_db_pwd = db_pwd
 
 #_path = '/opt/transfers/mock_directory/mergeMacro'
 
 #______________________________________________________________________________
-def main(params):
+def main():
     '''
     Main entry point to execution.
     '''
     setup()
-    input_path = params['Input']['path']
+    input_path = cfg.get('Input', 'path')
     caught_exception_count = 0
     iteration = 0
     while True:
@@ -130,7 +112,7 @@ def main(params):
             break
         logger.info('Start iteration {0} of {1} ...'.format(iteration,_max_iterations))
         try:
-            iterate(input_path)
+            iterate()
         except Exception as e:
             caught_exception_count += 1
             logger.info(
@@ -185,6 +167,7 @@ def setup():
     global runinfo
     global ecal_pool
     global dqm_pool
+    global cfg
     #logging.basicConfig(
     #    level=logging.INFO,
     #    format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
@@ -201,13 +184,19 @@ def setup():
         maybe_move = move_file_to_dir
     ecal_pool = ThreadPool(4)
     dqm_pool = ThreadPool(4)
+    cfg = config.config
 ## setup()
 
 #______________________________________________________________________________
-def iterate(path):
-    connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
+def iterate():
+    path = cfg.get('Input', 'path')
+    db_config = cfg.get('Bookkeeping', 'db_config')
+    new_path_base = cfg.get('Output', 'new_path_base')
+    db_cred = config.load(db_config)
+    connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd, 
+                                   db_cred.db_sid)
     cursor = connection.cursor()
-    new_path = get_new_path(path, _new_path_base)
+    new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
@@ -360,7 +349,7 @@ def iterate(path):
 
 
 #_______________________________________________________________________________
-def get_new_path(path, new_base=_new_path_base):
+def get_new_path(path, new_base):
     '''
     Given the path to watch, returns the new path under which the files 
     being transferred are moved.
