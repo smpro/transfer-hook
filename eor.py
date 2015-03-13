@@ -163,8 +163,25 @@ def setup(cfg):
     '''
     ## Get global configurations from the config module
     myconfig = config.config
+    myconfig.getlist = getlist_from_config(myconfig)
     cfg.input_path = myconfig.get('eor', 'input_path')
     cfg.store_ini_area = myconfig.get('eor', 'store_ini_area')
+    cfg.general_dryrun = myconfig.getboolean('eor', 'general_dryrun')
+    cfg.max_iterations = myconfig.getfloat('eor', 'max_iterations')
+    cfg.seconds_to_sleep = myconfig.getfloat('eor', 'seconds_to_sleep')
+    cfg.seconds_to_delay_run_closure = myconfig.getfloat(
+        'eor', 'seconds_to_delay_run_closure'
+    )
+    cfg.hours_to_wait_for_completion = myconfig.getfloat(
+        'eor', 'hours_to_wait_for_completion'
+    )
+    cfg.runs_first = myconfig.getint('eor', 'runs_first')
+    cfg.runs_last = myconfig.getint('eor', 'runs_last')
+    streams_to_exclude = []
+    for stream_list in myconfig.getlist('eor', 'streams_to_exclude'):
+        streams_to_exclude.extend(
+            myconfig.getlist('Streams', stream_list)
+        )
     bookkeeper._dry_run = cfg.general_dryrun
     ## Integration DB, will not be read by Tier0
     #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
@@ -320,6 +337,12 @@ class Run(object):
         return stop_time
 ## Run
 
+
+#_______________________________________________________________________________
+def getlist_from_config(self):
+    def getlist(section, option):
+        return map(str.strip, self.get(section, option).split(','))
+    return getlist
 
 #_______________________________________________________________________________
 def print_usage():

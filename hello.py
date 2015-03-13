@@ -32,6 +32,7 @@ def run():
             logger.info(message)
             iteration = 0
         iteration += 1
+        time.sleep(1)
     logger.info('... done! Exiting with great success ...')
 
 def terminator(signum, frame):

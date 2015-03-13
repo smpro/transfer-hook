@@ -179,6 +179,7 @@ def iterate():
 
     _streams_with_scalers = map(str.strip, cfg.get('Streams','streams_with_scalars').split(','))
     _streams_to_ecal      = map(str.strip, cfg.get('Streams','streams_to_ecal').split(','))
+    _streams_to_dqm       = map(str.strip, cfg.get('Streams','streams_to_dqm').split(','))
     _streams_to_postpone  = map(str.strip, cfg.get('Streams','streams_to_postpone').split(','))
     _streams_to_ignore    = map(str.strip, cfg.get('Streams','streams_to_ignore').split(','))
 
