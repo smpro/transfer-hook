@@ -50,7 +50,7 @@ from macroeor import is_run_complete
 
 #logger = logging.getLogger(__name__)
 
-from Logging import getLogger
+from Logging_EoR import getLogger
 logger = getLogger()
 
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
@@ -101,8 +101,8 @@ class Config(object):
         self.seconds_to_delay_run_closure = 60
         self.hours_to_wait_for_completion = 2.0
         self.json_suffix = None
-        #self.input_path = '/store/lustre/transfer'
-        self.input_path = '/opt/transfers/mock_directory/transfer'
+        self.input_path = '/store/lustre/transfer'
+        #self.input_path = '/opt/transfers/mock_directory/transfer'
         ## Set to None for logging to STDOUT
         #self.logging_filename = 'eor.log'
         #self.logging_level = logging.INFO
@@ -110,8 +110,8 @@ class Config(object):
         #                       r'%(message)s')
         self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
-        #self.store_ini_area = '/store/lustre/mergeMacro'
-        self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
+        self.store_ini_area = '/store/lustre/mergeMacro'
+        #self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
         self.streams_to_exclude = _streams_to_exclude
         if filename:
             self._parse_config_file()
@@ -130,14 +130,15 @@ class Config(object):
 
 #_______________________________________________________________________________
 def get_config():
-    if len(sys.argv) == 1:
-        return Config()
-    elif len(sys.argv) == 2:
-        return Config(sys.argv[1])
-    else:
-        logger.critical("Invalid args: %s" % str(sys.argv))
-        print_usage()
-        sys.exit(1)
+    # if len(sys.argv) == 1:
+    #     return Config()
+    # elif len(sys.argv) == 2:
+    #     return Config(sys.argv[1])
+    # else:
+    #     logger.critical("Invalid args: %s" % str(sys.argv))
+    #     print_usage()
+    #     sys.exit(1)
+    return Config()
 ## get_config
 
 

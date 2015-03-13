@@ -5,7 +5,7 @@ import inspect
 from configobj import ConfigObj
 
 #mergeConfigFileName = "/opt/merger/dataFlowMerger.conf"
-mergeConfigFileName = "/opt/transfers/dataFlowTransfer.conf"
+mergeConfigFileName = "/opt/transfers/smhookd.conf"
 try:
     if os.path.isfile(mergeConfigFileName):
         config = ConfigObj(mergeConfigFileName)
