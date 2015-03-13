@@ -44,7 +44,7 @@ import sys
 
 import cx_Oracle
 
-import config as config
+import smhook.config as config
 
 from collections import defaultdict
 

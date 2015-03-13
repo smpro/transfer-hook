@@ -28,11 +28,10 @@ def run():
     signal.signal(signal.SIGTERM, terminator)
     iteration = 0
     while running:
-        if iteration % seconds_to_sleep == 0: 
+        if iteration % seconds_to_sleep == 0:
             logger.info(message)
             iteration = 0
         iteration += 1
-        time.sleep(1)
     logger.info('... done! Exiting with great success ...')
 
 def terminator(signum, frame):

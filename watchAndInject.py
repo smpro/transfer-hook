@@ -36,17 +36,17 @@ import time
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 
-import bookkeeper as bookkeeper
-import monitorRates as monitorRates
-import metafile as metafile
-import eor as eor
-import config as config
+import smhook.bookkeeper as bookkeeper
+import smhook.monitorRates as monitorRates
+import smhook.metafile as metafile
+import smhook.eor as eor
+import smhook.config as config
 
 from optparse import OptionParser
 from subprocess import call
 
-from runinfo import RunInfo
-from config import Config
+from smhook.runinfo import RunInfo
+from smhook.config import Config
 
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -58,8 +58,8 @@ __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
-from Logging import getLogger
-logger = getLogger()
+#from Logging import getLogger
+logger = logging.getLogger(__name__)
 
 
 ## Defualt is False, set this to True if you want to re-transfer.

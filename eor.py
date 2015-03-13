@@ -9,6 +9,8 @@ USAGE:
     ./eor.py eor.cfg
 
 TODO:
+    * Move sleep -> snooze to react to SIGTERM quickly
+    * Change all the dependent packages from relative imports to absolute ones
     * Use rotating log files
     * Turn this into a deamon service
     * Avoid inspecting directories that have not changed
@@ -42,35 +44,42 @@ import time
 
 from datetime import datetime, timedelta
 
-import bookkeeper as bookkeeper
-import metafile as metafile
-import runinfo as runinfo
+import smhook.bookkeeper as bookkeeper
+import smhook.config as config
+import smhook.metafile as metafile
+import smhook.runinfo as runinfo
 
-from macroeor import is_run_complete
+from smhook.macroeor import is_run_complete
 
-#logger = logging.getLogger(__name__)
-
-from Logging_EoR import getLogger
-logger = getLogger()
+logger = logging.getLogger(__name__)
+running = True
 
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
 _streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
 _streams_to_ecal = ['EcalCalibration']
-_streams_with_scalers = ['L1Rates', 'HLTRates']
+_streams_with_scalars = ['L1Rates', 'HLTRates']
 _streams_to_exclude = _streams_to_ignore + \
                       _streams_to_dqm + \
                       _streams_to_ecal + \
-                      _streams_with_scalers
+                      _streams_with_scalars
+
 #_______________________________________________________________________________
 def main():
     '''
     Main entry point of execution.
     '''
-    #what is this???? to be removed if it is not doing anything
-    #only added here because it was in the main function..
-    import user
-
     logger.info("Welcome to eor.main()")
+    cfg = get_config()
+    # Configure the logging
+    logging.basicConfig(filename = cfg.logging_filename,
+                        level    = cfg.logging_level,
+                        format   = cfg.logging_format)
+    run(cfg)
+## main
+
+#_______________________________________________________________________________
+def run():
+    logger.info('Running ...')
     cfg = get_config()
     setup(cfg)
     logger.info(
@@ -78,13 +87,18 @@ def main():
             cfg.runs_first, cfg.runs_last, cfg.input_path
         )
     )
-    for iteration in range(1, cfg.max_iterations + 1):
-        logger.info('=== ITERATION %d ===' % iteration)
+    iteration = 0
+    running = True
+    while running:
+        iteration += 1
+        if iteration >= cfg.max_iterations:
+            running = False
+        logger.info('Iteration {0} of {1} ...'.format(iteration,
+                                                      cfg.max_iterations))
         iterate(cfg)
         logger.info('Sleeping %d second(s) ...' % cfg.seconds_to_sleep)
         time.sleep(cfg.seconds_to_sleep)
-    logger.info('Exiting with great success!')
-## main
+    logger.info('Finshed.')
 
 
 #_______________________________________________________________________________
@@ -96,13 +110,13 @@ class Config(object):
     def __init__(self, filename=None):
         self.filename = filename
         self.general_dryrun = False
-        self.max_iterations = 100000
+        self.max_iterations = float('inf')
         self.seconds_to_sleep = 20
         self.seconds_to_delay_run_closure = 60
         self.hours_to_wait_for_completion = 2.0
         self.json_suffix = None
-        self.input_path = '/store/lustre/transfer'
-        #self.input_path = '/opt/transfers/mock_directory/transfer'
+        #self.input_path = '/store/lustre/transfer'
+        self.input_path = '/opt/transfers/mock_directory/transfer'
         ## Set to None for logging to STDOUT
         #self.logging_filename = 'eor.log'
         #self.logging_level = logging.INFO
@@ -110,8 +124,8 @@ class Config(object):
         #                       r'%(message)s')
         self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
-        self.store_ini_area = '/store/lustre/mergeMacro'
-        #self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
+        #self.store_ini_area = '/store/lustre/mergeMacro'
+        self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
         self.streams_to_exclude = _streams_to_exclude
         if filename:
             self._parse_config_file()
@@ -147,15 +161,16 @@ def setup(cfg):
     '''
     Sets up the logging configuration.  Plan to apply configuration.
     '''
-    ## Configure the logging
-    #logging.basicConfig(filename = cfg.logging_filename,
-    #                    level    = cfg.logging_level,
-    #                    format   = cfg.logging_format)
+    ## Get global configurations from the config module
+    myconfig = config.config
+    cfg.input_path = myconfig.get('eor', 'input_path')
+    cfg.store_ini_area = myconfig.get('eor', 'store_ini_area')
     bookkeeper._dry_run = cfg.general_dryrun
     ## Integration DB, will not be read by Tier0
     #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
     ## Production DB, will be read by Tier0
-    bookkeeper._db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py'
+    bookkeeper._db_config = myconfig.get('eor', 'db_config_path')
+    logging.debug("Using `%s' for DB credentials ..." % bookkeeper._db_config)
     bookkeeper.setup()
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()

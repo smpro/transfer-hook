@@ -1,4 +1,8 @@
 #!/bin/env python
+'''
+TODO:
+    * Catch exceptions in child processes and log them
+'''
 import sys
 import os
 import socket
@@ -9,16 +13,17 @@ from multiprocessing import Process
 
 import smhook.config
 import smhook.hello
+import smhook.eor
+import smhook.watchAndInject
 
 from smhook.daemon import Daemon
 
 CONFIGFILE = '/opt/python/smhook/smhookd.conf'
-PIDFILE = '/var/run/smhookd.pid'
-STDOUT = '/opt/python/smhook/smhookd.out'
+STDOUT = '/dev/null'
 STDERR = '/opt/python/smhook/smhookd.out'
+PIDFILE = '/var/run/smhookd.pid'
 
 logger = logging.getLogger(__name__)
-
 
 class SMHookD(Daemon):
     running = True
@@ -26,17 +31,34 @@ class SMHookD(Daemon):
     def cleanup(self, signum = None, frame = None):
         self.logger.debug('Cleaning up ...')
         if hasattr(self, 'children'):
-            map(Process.terminate, self.children)
+            self.logger.debug('Terminating child processes ...')
+            for proc in self.children:
+                if proc is not None:
+                    self.logger.debug('Terminating {0} ...'.format(proc))
+                    proc.terminate()
+                else:
+                    self.logger.warning('A child process is "None"!')
+            #map(Process.terminate, self.children)
         self.delpid()
         self.running = False
 
     def run(self):
-        self.logger.info("Calling smhook.hello.run() asynchronously ...")
         self.children = []
+        self.logger.debug("Creating a child process for smhook.hello.run() ...")
         self.children.append(Process(target=smhook.hello.run, args = []))
+        #self.logger.debug("Creating a child process for smhook.eor.run() ...")
+        #self.children.append(Process(target=smhook.eor.run, args = []))
+        #self.logger.debug(
+            #"Creating a child process for smhook.watchAndInject.main() ..."
+        #)
+        #self.children.append(
+            #Process(target=smhook.watchAndInject.main, args = [])
+        #)
+        self.logger.debug('Starting child processes asynchronously ...')
         map(Process.start, self.children)
+        self.logger.debug('Waiting for child processes to finish ...')
         map(Process.join, self.children)
-        self.logger.info("Finished.")
+        self.logger.debug("Finished.")
 
 def main():
     logging.config.fileConfig(CONFIGFILE)
