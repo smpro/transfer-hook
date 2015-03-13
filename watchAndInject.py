@@ -58,44 +58,15 @@ __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
-
-#logger = logging.getLogger(__name__)
 from Logging import getLogger
 logger = getLogger()
 
-#from Logging import getLogger
-#logger = logging.getLogger()
-
-_dry_run = False
-_max_exceptions = 10
-_seconds_to_sleep = 2
-_injectscript = '/opt/transferTests/injectFileIntoTransferSystem.pl'
-#_new_path_base = 'transfer'
-_scratch_base = 'scratch'
-_dqm_base = '/dqmburam/transfer'  ## Not mounted yet
-_ecal_base = '/store/calibarea/global'
-##_new_path_base = 'transfer_minidaq'
-_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
-_streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
-_streams_to_ecal = ['EcalCalibration']
-_streams_with_scalers = ['L1Rates', 'HLTRates']
-_streams_to_postpone = []
-_run_number_min = 233749 # Begin of CRUZET Feb 2015
-_run_number_max = 300000
-
-_old_cmssw_version = 'CMSSW_7_1_9_patch1'
 
 ## Defualt is False, set this to True if you want to re-transfer.
-_renotify = False
 
 #_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
-_db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
-#execfile(_db_config)
-#_db_sid = db_sid
-#_db_user = db_user
-#_db_pwd = db_pwd
+#_db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
 
-#_path = '/opt/transfers/mock_directory/mergeMacro'
 
 #______________________________________________________________________________
 def main():
@@ -103,7 +74,13 @@ def main():
     Main entry point to execution.
     '''
     setup()
-    input_path = cfg.get('Input', 'path')
+
+    _input_path = cfg.get('Input', 'path')
+    _max_exceptions = cfg.getint('Misc','max_exceptions')
+    _seconds_to_sleep = cfg.getint('Misc','seconds_to_sleep')
+    _max_iterations = float('inf')
+
+    logger.info('input path is {0}'.format(_input_path))
     caught_exception_count = 0
     iteration = 0
     while True:
@@ -168,11 +145,10 @@ def setup():
     global ecal_pool
     global dqm_pool
     global cfg
-    #logging.basicConfig(
-    #    level=logging.INFO,
-    #    format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
-    #    filename='wai.log'
-    #)
+    cfg = config.config
+
+    _dry_run = cfg.getboolean('Misc','dry_run')
+
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
     runinfo = RunInfo('/opt/transfers/.db.omds.runinfo_r.cfg.py')
@@ -184,18 +160,32 @@ def setup():
         maybe_move = move_file_to_dir
     ecal_pool = ThreadPool(4)
     dqm_pool = ThreadPool(4)
-    cfg = config.config
+    
 ## setup()
 
 #______________________________________________________________________________
 def iterate():
     path = cfg.get('Input', 'path')
+    _scratch_base = cfg.get('Output','scratch_base')
+    _dqm_base = cfg.get('Output','dqm_base')
+    _ecal_base = cfg.get('Output','ecal_base')
+
     db_config = cfg.get('Bookkeeping', 'db_config')
     new_path_base = cfg.get('Output', 'new_path_base')
     db_cred = config.load(db_config)
     connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd, 
                                    db_cred.db_sid)
     cursor = connection.cursor()
+
+    _streams_with_scalers = map(str.strip, cfg.get('Streams','streams_with_scalars').split(','))
+    _streams_to_ecal      = map(str.strip, cfg.get('Streams','streams_to_ecal').split(','))
+    _streams_to_postpone  = map(str.strip, cfg.get('Streams','streams_to_postpone').split(','))
+    _streams_to_ignore    = map(str.strip, cfg.get('Streams','streams_to_ignore').split(','))
+
+    _injectscript = cfg.get('Input', 'injectscript')
+
+    _renotify = cfg.getboolean('Misc','renotify')
+
     new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
@@ -368,6 +358,10 @@ def mkdir(path):
 
 #_______________________________________________________________________________
 def get_rundirs_and_hltkeys(path, new_path):
+    
+    _run_number_min = cfg.getint('Misc','run_number_min')
+    _run_number_max = cfg.getint('Misc','run_number_max')
+
     rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
         run_number = get_run_number(rundir)
@@ -406,6 +400,8 @@ def get_run_number(rundir):
 
 #_______________________________________________________________________________
 def get_cmssw_version(run_number):
+
+    _old_cmssw_version = cfg.get('Misc','old_cmssw_version')
     current_cmssw_version = _old_cmssw_version
     ## Sort the first_run -> new_cmssw_version map by the first_run
     sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),

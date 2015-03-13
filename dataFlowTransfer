@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 #configfile = "/opt/python/transfer/hook/dataFlowTransfer.conf"
 #configfile = "/nfshome0/zdemirag/DAQ/transfers/transfer-hook/service/dataFlowTransfer.conf"
-configfile = "/opt/transfers/dataFlowTransfer.conf"
+#configfile = "/opt/transfers/dataFlowTransfer.conf"
+configfile  = "/opt/transfers/smhookd.conf"
 pidFile ="/var/run/dfTransfer.pid"
 
 import sys, os, socket, signal, pprint
@@ -24,7 +25,7 @@ class DataFlowTransfer(Daemon):
         self.running = False
 
     def run(self):
-        config.load(configfile)
+        config.init(configfile)
         logger.info("You are now running: watchAndInject.main()")
         watchAndInject.main()
 

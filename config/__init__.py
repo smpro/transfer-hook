@@ -113,7 +113,7 @@ def load_vanilla(pathname):
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     ## Load a python config
-    cfg = load(os.path.join(DIR, '.db_int2r_cred.py'))
+    cfg = load(os.path.join(DIR, '.db_int2r_cred.py'))    
     ## Load a vanilla config
     init('smhookd.conf')
     print "config.get('Input', 'path'):", config.get('Input', 'path')
