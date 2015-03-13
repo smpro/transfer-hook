@@ -1,3 +1,23 @@
+# Transferring ECAL mini DAQ runs requested by Jean F.
+11 runs to transfer 237033, 237041, 237043, 237048, 237049, 237052, 237053, 237059, 237078, 237083, 237086
+* run 237033, lumicount 8, tot. size 55G, auto-closed OK
+    thook: 2015-03-11 16:11:42-16:17:05 (6 minutes!)
+* run 237041, lumicount 1, only DQM
+* run 237043 - cannot find the data on Lustre
+* run 237048 - cannot stat `/store/lustre/mergeMiniDAQMacro/run237048': No such file or directory
+* run 237049, lumicount 3, auto-closed OK
+* run 237052, lumicount 4, auto-closed OK
+    thook: 2015.03.11 16:38:07-16:38:18 (11s)
+* run 237053, lumicount 8, tot size 13G, auto-closed OK
+    thook: 2015.03.11 16:43:09-16:43:35 (26s)
+* run 237059, lumicount 5, tot size 11G, auto-closed OK
+    thook 2015.03.11 16:52:59-16:53:17 (18s)
+* run 237078, lumicount 9, tot size 21G, auto-closed OK
+* run 237083, lumicount 7, tot size 17G, thook ca 25s, auto-closed OK
+* run 237086, lumicount 9, tot size 14G, thook ca 36s, auto-closed OK
+
+
+
 # Debugging delay of trigger scalars in WBM 
 2015-03-03 18:54:06,924 __main__ INFO: Processing 3 JSON files in `/store/lustre/mergeMacro/run236705':
 2015-03-03 19:06:22,685 __main__ INFO: Processing 127 JSON files in `/store/lustre/mergeMacro/run236705':
