@@ -27,7 +27,7 @@ class HelloD(Daemon):
         self.running = False
 
     def run(self):
-        self.logger.info("Calling smhook.hello.main() ...")
+        self.logger.info("Calling smhook.hello.run() ...")
         smhook.hello.run()
 
 def main():
