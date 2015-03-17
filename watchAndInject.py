@@ -22,6 +22,7 @@ TODO:
 '''
 
 import cx_Oracle
+import datetime
 import errno
 import glob 
 import json
@@ -30,6 +31,7 @@ import os
 import pprint
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -187,6 +189,8 @@ def iterate():
 
     _renotify = cfg.getboolean('Misc','renotify')
 
+    hostname = socket.gethostname()
+
     new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
@@ -285,31 +289,84 @@ def iterate():
                     maybe_move(jsn_file, scratch_rundir)
                     maybe_move(dat_file, scratch_rundir)
                     continue
-                maybe_move(jsn_file, new_rundir)
+                starttime = int(os.stat(dat_file).st_atime)
+                stoptime  = int(os.stat(jsn_file).st_ctime)
                 maybe_move(dat_file, new_rundir)
+                maybe_move(jsn_file, new_rundir)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
                     number_of_files = 1
-                    args_transfer = [_injectscript,
-                            '--filename'   , fileName,
-                            "--path"       , new_rundir,
-                            "--type"       , "streamer",
-                            "--runnumber"  , run_number,
-                            "--lumisection", lumiSection,
-                            "--numevents"  , eventsNumber,
-                            "--appname"    , "CMSSW",
-                            "--appversion" , appversion,
-                            "--stream"     , streamName,
-                            "--setuplabel" , "Data",
-                            "--config"     , "/opt/injectworker/.db.conf",
-                            "--destination", "Global",
-                            "--filesize"   , str(fileSize),
-                            "--hltkey"     , hlt_key,]
-                    if _renotify:
-                        args_transfer.append('--renotify')
-                    log_and_maybe_exec(args_transfer, print_output=True)
+                    args_insert = [
+                        './insertFile.pl',
+                        '--FILENAME'     , fileName,
+                        '--FILECOUNTER'  , 0,
+                        '--NEVENTS'      , 0,
+                        '--FILESIZE'     , 0,
+                        '--STARTTIME'    , starttime,
+                        '--STOPTIME'     , 0,
+                        '--STATUS'       , 'open',
+                        '--RUNNUMBER'    , run_number,
+                        '--LUMISECTION'  , lumiSection,
+                        '--PATHNAME'     , rundir,
+                        '--HOSTNAME'     , hostname,
+                        '--SETUPLABEL'   , 'Data',
+                        '--STREAM'       , streamName,
+                        '--INSTANCE'     , 1,
+                        '--SAFETY'       , 0,
+                        '--APPVERSION'   , appversion,
+                        '--APPNAME'      , 'CMSSW',
+                        '--TYPE'         , 'streamer',
+                        '--CHECKSUM'     , 0,
+                        '--CHECKSUMIND'  , 0,
+                    ]
+                    args_close = [
+                        './closeFile.pl',
+                        '--FILENAME'    , fileName,
+                        '--FILECOUNTER' , 0,
+                        '--NEVENTS'     , eventsNumber,
+                        '--FILESIZE'    , fileSize,
+                        '--STARTTIME'   , starttime,
+                        '--STOPTIME'    , stoptime,
+                        '--STATUS'      , 'closed',
+                        '--RUNNUMBER'   , run_number,
+                        '--LUMISECTION' , lumiSection,
+                        '--PATHNAME'    , new_rundir,
+                        '--HOSTNAME'    , hostname,
+                        '--SETUPLABEL'  , 'Data',
+                        '--STREAM'      , streamName,
+                        '--INSTANCE'    , 1,
+                        '--SAFETY'      , 0,
+                        '--APPVERSION'  , appversion,
+                        '--APPNAME'     , 'CMSSW',
+                        '--TYPE'        , 'streamer',
+                        '--DEBUGCLOSE'  , 2,
+                        '--CHECKSUM'    , 0,
+                        '--CHECKSUMIND' , 0,
+                    ]
+                    inject_file_path = os.path.join(
+                        cfg.get('Output', 'inject_base'),
+                        '{date}-{hostname}.log'.format(
+                            date=datetime.date.today().strftime('%Y%m%d'),
+                            hostname=hostname,
+                        )
+                    )
+                    with open(inject_file_path, 'a') as inject_file:
+                        line = ' '.join(map(str, args_insert))
+                        logger.info(
+                            "Appending line `%s' to `%s' ..." % (
+                                line, inject_file_path
+                            )
+                        )
+                        inject_file.write(line + '\n')
+                        line = ' '.join(map(str, args_close))
+                        logger.info(
+                            "Appending line `%s' to `%s' ..." % (
+                                line, inject_file_path
+                            )
+                        )
+                        inject_file.write(line + '\n')
                 try:
                     bookkeeper.fill_number_of_files(
                         cursor, streamName, lumiSection, number_of_files
