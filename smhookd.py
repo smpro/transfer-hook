@@ -23,10 +23,10 @@ from smhook.daemon import Daemon
 #STDERR = '/opt/python/smhook/smhookd.out'
 #PIDFILE = '/var/run/smhookd.pid'
 
-CONFIGFILE = '/nfshome0/veverka/lib/python/smhook/smhookd_test.conf'
+CONFIGFILE = '/opt/python/smhook/smhookd_test.conf'
 STDOUT = '/dev/null'
-STDERR = '/tmp/smhookd_test/smhookd.out'
-PIDFILE = '/tmp/smhookd_test/smhookd.pid'
+STDERR = '/opt/python/smhook/test/smhookd.out'
+PIDFILE = '/opt/python/smhook/test/smhookd.pid'
 
 logger = logging.getLogger(__name__)
 
