@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 class SMHookD(Daemon):
     running = True
-
     def cleanup(self, signum = None, frame = None):
         self.logger.debug('Cleaning up ...')
         if hasattr(self, 'children'):
@@ -48,6 +47,13 @@ class SMHookD(Daemon):
                             self.logger.warning(
                                 '{0} not running!'.format(proc)
                             )
+                    except AttributeError, err:
+                        if not proc:
+                            self.logger.warning(
+                                '{0} not running!'.format(proc)
+                            )
+                        else:
+                            raise err
                 else:
                     self.logger.warning('A child process is "None"!')
             #map(Process.terminate, self.children)
