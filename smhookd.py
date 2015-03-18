@@ -18,15 +18,15 @@ import smhook.watchAndInject
 
 from smhook.daemon import Daemon
 
-#CONFIGFILE = '/opt/python/smhook/smhookd.conf'
-#STDOUT = '/dev/null'
-#STDERR = '/opt/python/smhook/smhookd.out'
-#PIDFILE = '/var/run/smhookd.pid'
-
-CONFIGFILE = '/opt/python/smhook/smhookd_test.conf'
+CONFIGFILE = '/opt/python/smhook/smhookd.conf'
 STDOUT = '/dev/null'
-STDERR = '/opt/python/smhook/test/smhookd.out'
-PIDFILE = '/opt/python/smhook/test/smhookd.pid'
+STDERR = '/opt/python/smhook/smhookd.out'
+PIDFILE = '/var/run/smhookd.pid'
+
+#CONFIGFILE = '/opt/python/smhook/smhookd_test.conf'
+#STDOUT = '/dev/null'
+#STDERR = '/opt/python/smhook/test/smhookd.out'
+#PIDFILE = '/opt/python/smhook/test/smhookd.pid'
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +48,9 @@ class SMHookD(Daemon):
                                 '{0} not running!'.format(proc)
                             )
                     except AttributeError, err:
-                        if not proc:
-                            self.logger.warning(
-                                '{0} not running!'.format(proc)
-                            )
-                        else:
-                            raise err
+                        self.logger.warning(
+                            '{0} not running!'.format(proc)
+                        )
                 else:
                     self.logger.warning('A child process is "None"!')
             #map(Process.terminate, self.children)

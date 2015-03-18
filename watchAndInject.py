@@ -153,7 +153,7 @@ def setup():
 
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo('/opt/transfers/.db.omds.runinfo_r.cfg.py')
+    runinfo = RunInfo(os.path.join(config.DIR, '.db.omds.runinfo_r.cfg.py'))
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_file_to_dir
