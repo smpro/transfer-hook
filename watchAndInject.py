@@ -189,6 +189,10 @@ def iterate():
 
     _renotify = cfg.getboolean('Misc','renotify')
 
+    max_tier0_transfer_file_size = cfg.getint(
+        'Output', 'maximum_tier0_transfer_file_size_in_bytes'
+    )
+
     hostname = socket.gethostname()
 
     new_path = get_new_path(path, new_path_base)
@@ -203,6 +207,8 @@ def iterate():
         logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
+        rundir_bad = os.path.join(rundir, 'bad')
+        new_rundir_bad = os.path.join(new_rundir, 'bad')
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
         dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir) + "/open"
         dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)
@@ -288,6 +294,16 @@ def iterate():
                                    _streams_to_ignore)):
                     maybe_move(jsn_file, scratch_rundir)
                     maybe_move(dat_file, scratch_rundir)
+                    continue
+                if (fileSize > max_tier0_transfer_file_size):
+                    logger.warning(
+                        "`{0}' too large ({1} > {2})! ".format(
+                            dat_file, fileSize, max_tier0_transfer_file_size
+                        ) +
+                        "Moving it to bad area with the suffix `TooLarge' ..."
+                    )
+                    maybe_move(jsn_file, new_rundir_bad, suffix='TooLarge')
+                    maybe_move(dat_file, new_rundir_bad, suffix='TooLarge')
                     continue
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
@@ -382,8 +398,7 @@ def iterate():
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
-        new_rundir_bad = os.path.join(new_rundir, 'bad')
-        for fname in glob.glob(os.path.join(rundir, 'bad', '*.jsn')):
+        for fname in glob.glob(os.path.join(rundir_bad, '*.jsn')):
             try:
                 jsn = metafile.File(fname)
                 if jsn.type == metafile.Type.MacroMerger:
@@ -486,24 +501,31 @@ def monitor_rates(jsn_file):
 
 
 #_______________________________________________________________________________
-def mock_move_file_to_dir(src, dst):
+def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None):
     '''
     Prints a message about how it would move the file src to the directory dst
     if this was for real.
     '''
     ## Append the filename to the destination directory
-    dst = os.path.join(dst, os.path.basename(src))
+    basename = os.path.basename(src)
+    if suffix is not None:
+        name, extension = os.path.splitext(basename)
+        basename = name + suffix + extension
+    dst = os.path.join(dst, basename)
     logger.info("I would do: mv %s %s" % (src, dst))
 ## mock_move_file_to_dir()
 
 
 #_______________________________________________________________________________
-def move_file_to_dir(src, dst_dir, force_overwrite=False):
+def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None):
     '''
     Moves the file src to the directory dst_dir. Creates dst_dir if it doesn't exist.
     '''
     ## Append the filename to the destination directory
     src_dir , basename = os.path.split(src)
+    if suffix is not None:
+        name, extension = os.path.splitext(basename)
+        basename = name + suffix + extension
     dst_path = os.path.join(dst_dir, basename)
 
     if not os.path.exists(src):
