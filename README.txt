@@ -1,3 +1,18 @@
+# What is the srv-c2c06-17 NIC used for transfers?
+The destination machine is castorcms.cern.ch.
+Useful commands: ifstats, tcpdump (Andre), traceroute, ethtool ifconfig
+
+# Dealing with large files
+## Write the list of run directories for all runs starting with 238615 to the
+## file dirs.txt
+for r in $(ls /store/lustre/transfer/ | sed 's/run//' | awk '{if ($1 >= 238615) {print $1;}}'); do
+    echo /store/lustre/transfer/run${r};
+done > dirs.txt
+
+for d in $(cat dirs.txt); do
+    ls -s $d/*.dat | awk '{if ($1 > 25000000) {print $2}}';
+done > above25gb.txt
+
 # Working areas for different versions during the service deployment
 transfer machine: srv-c2c07-16
 area with vanilla obsolete code: /opt/transferTests
