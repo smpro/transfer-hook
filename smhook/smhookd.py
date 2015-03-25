@@ -1,7 +1,6 @@
 #!/bin/env python
 '''
-TODO:
-    * Catch exceptions in child processes and log them
+A simple daemon to run watchAndInject as a service.
 '''
 import sys
 import os
@@ -34,46 +33,18 @@ class SMHookD(Daemon):
     running = True
     def cleanup(self, signum = None, frame = None):
         self.logger.debug('Cleaning up ...')
-        if hasattr(self, 'children'):
-            self.logger.debug('Terminating child processes ...')
-            for proc in self.children:
-                if proc is not None:
-                    self.logger.debug('Terminating {0} ...'.format(proc))
-                    try:
-                        proc.terminate()
-                    except OSError, err:
-                        errs = str(err)
-                        if errs.find("No such process") > 0:
-                            self.logger.warning(
-                                '{0} not running!'.format(proc)
-                            )
-                    except AttributeError, err:
-                        self.logger.warning(
-                            '{0} not running!'.format(proc)
-                        )
-                else:
-                    self.logger.warning('A child process is "None"!')
-            #map(Process.terminate, self.children)
         self.delpid()
         self.running = False
-
     def run(self):
-        self.children = []
-        self.logger.debug("Creating a child process for smhook.hello.run() ...")
-        self.children.append(Process(target=smhook.hello.run, args = []))
-        self.logger.debug("Creating a child process for smhook.eor.run() ...")
-        self.children.append(Process(target=smhook.eor.run, args = []))
-        self.logger.debug(
-            "Creating a child process for smhook.watchAndInject.main() ..."
-        )
-        self.children.append(
-            Process(target=smhook.watchAndInject.main, args = [])
-        )
-        self.logger.debug('Starting child processes asynchronously ...')
-        map(Process.start, self.children)
-        self.logger.debug('Waiting for child processes to finish ...')
-        map(Process.join, self.children)
-        self.logger.debug("Finished.")
+        self.logger.debug("Calling smhook.watchAndInject.main() ...")
+        try:
+            smhook.watchAndInject.main()
+        except Exception as e:
+            self.logger.critical(
+                "Exiting due to an exception in smhook.watchAndInject.main()!"
+            )
+            self.logger.exception(e)
+            raise e
 
 def main():
     logging.config.fileConfig(CONFIGFILE)
