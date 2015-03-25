@@ -1,3 +1,19 @@
+# Rebooting srv-c2c07-16
+[root@srv-C2C07-16 smhook]# service sm stop
+Stopping sm: Stopping notifyworker: ..                     [FAILED]
+Stopping injectworker: ..                                  [  OK  ]
+Stopping copyworker: ............................................................CopyWorker did not terminate within 60 seconds, killing it!
+                                                           [  OK  ]
+Stopping copymanager:                                      [  OK  ]
+Attempting to unmount /store/sata75a01v01
+Attempting to unmount /store/lookarea
+Attempting to umount /store/calibarea
+                                                           [  OK  ]
+# reboot # 17:40
+[root@srv-C2C07-16 ~]# uptime
+ 17:49:37 up 6 min,  1 user,  load average: 0.15, 0.65, 0.39
+
+
 # What is the srv-c2c06-17 NIC used for transfers?
 The destination machine is castorcms.cern.ch.
 Useful commands: ifstats, tcpdump (Andre), traceroute, ethtool ifconfig
