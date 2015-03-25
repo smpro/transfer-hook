@@ -125,6 +125,10 @@ class Daemon(object):
             for i in range(20):
                 os.kill(pid, SIGTERM)
                 time.sleep(0.1)
+            self.logger.warning(
+                'Failed to terminate PID {0}, killing it ...'.format(pid)
+            )
+            os.kill(pid, SIGKILL)
         except OSError, err:
             errs = str(err)
             if errs.find("No such process") > 0:
@@ -134,8 +138,7 @@ class Daemon(object):
             else:
                 self.logger.exception(err)
                 sys.exit(1)
-        self.logger.info('Failed to stop. Try killing ...')
-        sys.exit(2)
+        self.logger.info('Daemon has stopped.')
 
     def kill(self):
         """
