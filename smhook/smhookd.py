@@ -7,12 +7,11 @@ import os
 import socket
 import signal
 import logging
+import logging.config
 
 from multiprocessing import Process
 
 import smhook.config
-import smhook.hello
-import smhook.eor
 import smhook.watchAndInject
 
 from smhook.daemon import Daemon
