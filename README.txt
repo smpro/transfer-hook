@@ -1,3 +1,41 @@
+# Rebooting srv-c2c07-16
+[root@srv-C2C07-16 smhook]# service sm stop
+Stopping sm: Stopping notifyworker: ..                     [FAILED]
+Stopping injectworker: ..                                  [  OK  ]
+Stopping copyworker: ............................................................CopyWorker did not terminate within 60 seconds, killing it!
+                                                           [  OK  ]
+Stopping copymanager:                                      [  OK  ]
+Attempting to unmount /store/sata75a01v01
+Attempting to unmount /store/lookarea
+Attempting to umount /store/calibarea
+                                                           [  OK  ]
+# reboot # 17:40
+[root@srv-C2C07-16 ~]# uptime
+ 17:49:37 up 6 min,  1 user,  load average: 0.15, 0.65, 0.39
+
+
+# What is the srv-c2c06-17 NIC used for transfers?
+The destination machine is castorcms.cern.ch.
+Useful commands: ifstats, tcpdump (Andre), traceroute, ethtool ifconfig
+
+# Dealing with large files
+## Write the list of run directories for all runs starting with 238615 to the
+## file dirs.txt
+for r in $(ls /store/lustre/transfer/ | sed 's/run//' | awk '{if ($1 >= 238615) {print $1;}}'); do
+    echo /store/lustre/transfer/run${r};
+done > dirs.txt
+
+for d in $(cat dirs.txt); do
+    ls -s $d/*.dat | awk '{if ($1 > 25000000) {print $2}}';
+done > above25gb.txt
+
+# Working areas for different versions during the service deployment
+transfer machine: srv-c2c07-16
+area with vanilla obsolete code: /opt/transferTests
+area with vanilla produciton code: /opt/python/transfer/hook
+area with the service branch: /opt/transfers
+area with the service_devel branch: /opt/python/smhook
+
 # Transferring ECAL mini DAQ runs requested by Jean F.
 11 runs to transfer 237033, 237041, 237043, 237048, 237049, 237052, 237053, 237059, 237078, 237083, 237086
 * run 237033, lumicount 8, tot. size 55G, auto-closed OK

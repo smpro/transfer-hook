@@ -7,8 +7,8 @@ import os.path
 
 import cx_Oracle
 
-import transfer.hook.config as config
-from transfer.hook.config.runinfo.driver_cfg import driver_cfg as _driver_defaults
+import smhook.config as config
+from smhook.config.runinfo.driver_cfg import driver_cfg as _driver_defaults
 
 logger = logging.getLogger(__name__)
 
