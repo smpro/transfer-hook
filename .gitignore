@@ -4,3 +4,4 @@ logs/
 runs_to_bk*.dat
 *.pyc
 *.py~
+*.out
