@@ -22,6 +22,7 @@ TODO:
 '''
 
 import cx_Oracle
+import datetime
 import errno
 import glob 
 import json
@@ -30,22 +31,24 @@ import os
 import pprint
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import time
 import multiprocessing
 from multiprocessing.pool import ThreadPool
 
-import transfer.hook.bookkeeper as bookkeeper
-import transfer.hook.monitorRates as monitorRates
-import transfer.hook.metafile as metafile
-import transfer.hook.eor as eor
+import smhook.bookkeeper as bookkeeper
+import smhook.monitorRates as monitorRates
+import smhook.metafile as metafile
+import smhook.eor as eor
+import smhook.config as config
 
 from optparse import OptionParser
 from subprocess import call
 
-from transfer.hook.runinfo import RunInfo
-from transfer.hook.config import Config
+from smhook.runinfo import RunInfo
+from smhook.config import Config
 
 __author__     = 'Lavinia Darlea, Jan Veverka'
 __copyright__  = 'Unknown'
@@ -57,73 +60,38 @@ __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
 
-
+#from Logging import getLogger
 logger = logging.getLogger(__name__)
 
-_dry_run = False
-_max_iterations = float("inf")
-_max_exceptions = 10
-_seconds_to_sleep = 2
-_hltkeysscript = '/opt/transferTests/hltKeyFromRunInfo.pl'
-_injectscript = '/opt/transferTests/injectFileIntoTransferSystem.pl'
-_new_path_base = 'transfer'
-_scratch_base = 'scratch'
-_dqm_base = '/dqmburam/transfer'  ## Not mounted yet
-_ecal_base = '/store/calibarea/global'
-#_new_path_base = 'transfer_minidaq'
-_streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
-_streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
-_streams_to_ecal = ['EcalCalibration']
-_streams_with_scalers = ['L1Rates', 'HLTRates']
-_streams_to_postpone = []
-_run_number_min = 233749 # Begin of CRUZET Feb 2015
-_run_number_max = 300000
-
-_old_cmssw_version = 'CMSSW_7_1_9_patch1'
-_first_run_to_new_cmssw_version_map = {
-    226911: 'CMSSW_7_1_10',
-    227163: 'CMSSW_7_1_10_patch1',
-    227356: 'CMSSW_7_1_10_patch2',
-    228783: 'CMSSW_7_2_1',
-    229521: 'CMSSW_7_2_1_patch2',
-    229710: 'CMSSW_7_2_1_patch4',
-    229831: 'CMSSW_7_2_3',
-    }
-
-_file_status_list_to_retransfer = [
-    'FILES_TRANS_NEW',
-    'FILES_TRANS_COPIED',
-    #'FILES_TRANS_CHECKED',
-    #'FILES_TRANS_INSERTED',
-    ]
 
 ## Defualt is False, set this to True if you want to re-transfer.
-_renotify = False
 
-# _db_config = '.db.int2r.stomgr_w.cfg.py' # integration
-_db_config = '.db.rcms.stomgr_w.cfg.py' # production
-execfile(_db_config)
-_db_sid = db_sid
-_db_user = db_user
-_db_pwd = db_pwd
+#_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
+#_db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
+
 
 #______________________________________________________________________________
 def main():
     '''
     Main entry point to execution.
     '''
-    options, args = parse_args()
     setup()
+
+    _input_path = cfg.get('Input', 'path')
+    _max_exceptions = cfg.getint('Misc','max_exceptions')
+    _seconds_to_sleep = cfg.getint('Misc','seconds_to_sleep')
+    _max_iterations = float('inf')
+
+    logger.info('input path is {0}'.format(_input_path))
     caught_exception_count = 0
     iteration = 0
     while True:
         iteration += 1
         if iteration > _max_iterations:
             break
-        logger.info('Start iteration {0} of {1} ...'.format(iteration,
-                                                            _max_iterations))
+        logger.info('Start iteration {0} of {1} ...'.format(iteration,_max_iterations))
         try:
-            iterate(options.path)
+            iterate()
         except Exception as e:
             caught_exception_count += 1
             logger.info(
@@ -178,14 +146,14 @@ def setup():
     global runinfo
     global ecal_pool
     global dqm_pool
-    logging.basicConfig(
-        level=logging.INFO,
-        format=r'%(asctime)s %(name)s %(levelname)s %(thread)d: %(message)s',
-        filename='wai.log'
-    )
+    global cfg
+    cfg = config.config
+
+    _dry_run = cfg.getboolean('Misc','dry_run')
+
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
-    runinfo = RunInfo('.db.omds.runinfo_r.cfg.py')
+    runinfo = RunInfo(os.path.join(config.DIR, '.db.omds.runinfo_r.cfg.py'))
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
         maybe_move = mock_move_file_to_dir
@@ -194,13 +162,40 @@ def setup():
         maybe_move = move_file_to_dir
     ecal_pool = ThreadPool(4)
     dqm_pool = ThreadPool(4)
+    
 ## setup()
 
 #______________________________________________________________________________
-def iterate(path):
-    connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
+def iterate():
+    path = cfg.get('Input', 'path')
+    _scratch_base = cfg.get('Output','scratch_base')
+    _dqm_base = cfg.get('Output','dqm_base')
+    _ecal_base = cfg.get('Output','ecal_base')
+
+    db_config = cfg.get('Bookkeeping', 'db_config')
+    new_path_base = cfg.get('Output', 'new_path_base')
+    db_cred = config.load(db_config)
+    connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd, 
+                                   db_cred.db_sid)
     cursor = connection.cursor()
-    new_path = get_new_path(path, _new_path_base)
+
+    _streams_with_scalers = map(str.strip, cfg.get('Streams','streams_with_scalars').split(','))
+    _streams_to_ecal      = map(str.strip, cfg.get('Streams','streams_to_ecal').split(','))
+    _streams_to_dqm       = map(str.strip, cfg.get('Streams','streams_to_dqm').split(','))
+    _streams_to_postpone  = map(str.strip, cfg.get('Streams','streams_to_postpone').split(','))
+    _streams_to_ignore    = map(str.strip, cfg.get('Streams','streams_to_ignore').split(','))
+
+    _injectscript = cfg.get('Input', 'injectscript')
+
+    _renotify = cfg.getboolean('Misc','renotify')
+
+    max_tier0_transfer_file_size = cfg.getint(
+        'Output', 'maximum_tier0_transfer_file_size_in_bytes'
+    )
+
+    hostname = socket.gethostname()
+
+    new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
@@ -212,6 +207,8 @@ def iterate(path):
         logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
         new_rundir = os.path.join(new_path, os.path.basename(rundir))
+        rundir_bad = os.path.join(rundir, 'bad')
+        new_rundir_bad = os.path.join(new_rundir, 'bad')
         scratch_rundir = os.path.join(scratch_path, os.path.basename(rundir))
         dqm_rundir_open  = _dqm_base  + "/" + os.path.basename(rundir) + "/open"
         dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)
@@ -298,31 +295,94 @@ def iterate(path):
                     maybe_move(jsn_file, scratch_rundir)
                     maybe_move(dat_file, scratch_rundir)
                     continue
-                maybe_move(jsn_file, new_rundir)
+                if (fileSize > max_tier0_transfer_file_size):
+                    logger.warning(
+                        "`{0}' too large ({1} > {2})! ".format(
+                            dat_file, fileSize, max_tier0_transfer_file_size
+                        ) +
+                        "Moving it to bad area with the suffix `TooLarge' ..."
+                    )
+                    maybe_move(jsn_file, new_rundir_bad, suffix='TooLarge')
+                    maybe_move(dat_file, new_rundir_bad, suffix='TooLarge')
+                    continue
+                starttime = int(os.stat(dat_file).st_atime)
+                stoptime  = int(os.stat(jsn_file).st_ctime)
                 maybe_move(dat_file, new_rundir)
+                maybe_move(jsn_file, new_rundir)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
                     number_of_files = 1
-                    args_transfer = [_injectscript,
-                            '--filename'   , fileName,
-                            "--path"       , new_rundir,
-                            "--type"       , "streamer",
-                            "--runnumber"  , run_number,
-                            "--lumisection", lumiSection,
-                            "--numevents"  , eventsNumber,
-                            "--appname"    , "CMSSW",
-                            "--appversion" , appversion,
-                            "--stream"     , streamName,
-                            "--setuplabel" , "Data",
-                            "--config"     , "/opt/injectworker/.db.conf",
-                            "--destination", "Global",
-                            "--filesize"   , str(fileSize),
-                            "--hltkey"     , hlt_key,]
-                    if _renotify:
-                        args_transfer.append('--renotify')
-                    log_and_maybe_exec(args_transfer, print_output=True)
+                    args_insert = [
+                        './insertFile.pl',
+                        '--FILENAME'     , fileName,
+                        '--FILECOUNTER'  , 0,
+                        '--NEVENTS'      , 0,
+                        '--FILESIZE'     , 0,
+                        '--STARTTIME'    , starttime,
+                        '--STOPTIME'     , 0,
+                        '--STATUS'       , 'open',
+                        '--RUNNUMBER'    , run_number,
+                        '--LUMISECTION'  , lumiSection,
+                        '--PATHNAME'     , rundir,
+                        '--HOSTNAME'     , hostname,
+                        '--SETUPLABEL'   , 'Data',
+                        '--STREAM'       , streamName,
+                        '--INSTANCE'     , 1,
+                        '--SAFETY'       , 0,
+                        '--APPVERSION'   , appversion,
+                        '--APPNAME'      , 'CMSSW',
+                        '--TYPE'         , 'streamer',
+                        '--CHECKSUM'     , 0,
+                        '--CHECKSUMIND'  , 0,
+                    ]
+                    args_close = [
+                        './closeFile.pl',
+                        '--FILENAME'    , fileName,
+                        '--FILECOUNTER' , 0,
+                        '--NEVENTS'     , eventsNumber,
+                        '--FILESIZE'    , fileSize,
+                        '--STARTTIME'   , starttime,
+                        '--STOPTIME'    , stoptime,
+                        '--STATUS'      , 'closed',
+                        '--RUNNUMBER'   , run_number,
+                        '--LUMISECTION' , lumiSection,
+                        '--PATHNAME'    , new_rundir,
+                        '--HOSTNAME'    , hostname,
+                        '--SETUPLABEL'  , 'Data',
+                        '--STREAM'      , streamName,
+                        '--INSTANCE'    , 1,
+                        '--SAFETY'      , 0,
+                        '--APPVERSION'  , appversion,
+                        '--APPNAME'     , 'CMSSW',
+                        '--TYPE'        , 'streamer',
+                        '--DEBUGCLOSE'  , 2,
+                        '--CHECKSUM'    , 0,
+                        '--CHECKSUMIND' , 0,
+                    ]
+                    inject_file_path = os.path.join(
+                        cfg.get('Output', 'inject_base'),
+                        '{date}-{hostname}.log'.format(
+                            date=datetime.date.today().strftime('%Y%m%d'),
+                            hostname=hostname,
+                        )
+                    )
+                    with open(inject_file_path, 'a') as inject_file:
+                        line = ' '.join(map(str, args_insert))
+                        logger.info(
+                            "Appending line `%s' to `%s' ..." % (
+                                line, inject_file_path
+                            )
+                        )
+                        inject_file.write(line + '\n')
+                        line = ' '.join(map(str, args_close))
+                        logger.info(
+                            "Appending line `%s' to `%s' ..." % (
+                                line, inject_file_path
+                            )
+                        )
+                        inject_file.write(line + '\n')
                 try:
                     bookkeeper.fill_number_of_files(
                         cursor, streamName, lumiSection, number_of_files
@@ -338,8 +398,7 @@ def iterate(path):
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
-        new_rundir_bad = os.path.join(new_rundir, 'bad')
-        for fname in glob.glob(os.path.join(rundir, 'bad', '*.jsn')):
+        for fname in glob.glob(os.path.join(rundir_bad, '*.jsn')):
             try:
                 jsn = metafile.File(fname)
                 if jsn.type == metafile.Type.MacroMerger:
@@ -353,7 +412,7 @@ def iterate(path):
 
 
 #_______________________________________________________________________________
-def get_new_path(path, new_base=_new_path_base):
+def get_new_path(path, new_base):
     '''
     Given the path to watch, returns the new path under which the files 
     being transferred are moved.
@@ -372,6 +431,10 @@ def mkdir(path):
 
 #_______________________________________________________________________________
 def get_rundirs_and_hltkeys(path, new_path):
+    
+    _run_number_min = cfg.getint('Misc','run_number_min')
+    _run_number_max = cfg.getint('Misc','run_number_max')
+
     rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
         run_number = get_run_number(rundir)
@@ -386,11 +449,14 @@ def get_rundirs_and_hltkeys(path, new_path):
     hltkeys = dict(zip(runs, results))
     rundirs.sort()
     runnumbers = [r.replace(os.path.join(path, 'run'), '') for r in rundirs]
-    logger.info(
-        "Inspecting %d dirs in `%s' for runs %s to %s ..." % (
-            len(rundirs), path, runnumbers[0], runnumbers[-1]
+    if len(runnumbers) == 0:
+        logger.info("Found no run directories in `%s' ..." % path)
+    else:
+        logger.info(
+            "Inspecting %d dir(s) in `%s' for runs %s to %s ..." % (
+                len(rundirs), path, runnumbers[0], runnumbers[-1]
+            )
         )
-    )
     logger.debug(pprint.pformat(runnumbers))
     logger.info('HLT keys: ' + format_hltkeys(hltkeys))
     logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
@@ -407,6 +473,8 @@ def get_run_number(rundir):
 
 #_______________________________________________________________________________
 def get_cmssw_version(run_number):
+
+    _old_cmssw_version = cfg.get('Misc','old_cmssw_version')
     current_cmssw_version = _old_cmssw_version
     ## Sort the first_run -> new_cmssw_version map by the first_run
     sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
@@ -433,24 +501,31 @@ def monitor_rates(jsn_file):
 
 
 #_______________________________________________________________________________
-def mock_move_file_to_dir(src, dst):
+def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None):
     '''
     Prints a message about how it would move the file src to the directory dst
     if this was for real.
     '''
     ## Append the filename to the destination directory
-    dst = os.path.join(dst, os.path.basename(src))
+    basename = os.path.basename(src)
+    if suffix is not None:
+        name, extension = os.path.splitext(basename)
+        basename = name + suffix + extension
+    dst = os.path.join(dst, basename)
     logger.info("I would do: mv %s %s" % (src, dst))
 ## mock_move_file_to_dir()
 
 
 #_______________________________________________________________________________
-def move_file_to_dir(src, dst_dir, force_overwrite=False):
+def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None):
     '''
     Moves the file src to the directory dst_dir. Creates dst_dir if it doesn't exist.
     '''
     ## Append the filename to the destination directory
     src_dir , basename = os.path.split(src)
+    if suffix is not None:
+        name, extension = os.path.splitext(basename)
+        basename = name + suffix + extension
     dst_path = os.path.join(dst_dir, basename)
 
     if not os.path.exists(src):
@@ -608,4 +683,5 @@ def invert(mapping):
 
 #_______________________________________________________________________________
 if __name__ == '__main__':
-    main()
+
+    main(_path)

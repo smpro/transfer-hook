@@ -8,3 +8,4 @@
 - runs_to_bk*.dat
 - *.pyc
 - .db*.py
+- *.*~
