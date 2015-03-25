@@ -52,7 +52,7 @@ import smhook.runinfo as runinfo
 from smhook.macroeor import is_run_complete
 
 logger = logging.getLogger(__name__)
-running = True
+_running = True
 
 _streams_to_ignore = ['EventDisplay', 'CalibrationDQM', 'Error']
 _streams_to_dqm = ['DQMHistograms', 'DQM', 'DQMCalibration', 'CalibrationDQM']
@@ -79,6 +79,7 @@ def main():
 
 #_______________________________________________________________________________
 def run():
+    global _running
     logger.info('Running ...')
     cfg = get_config()
     setup(cfg)
@@ -88,18 +89,22 @@ def run():
         )
     )
     iteration = 0
-    running = True
-    while running:
+    while _running:
         iteration += 1
         if iteration >= cfg.max_iterations:
-            running = False
+            _running = False
         logger.info('Iteration {0} of {1} ...'.format(iteration,
                                                       cfg.max_iterations))
         iterate(cfg)
         logger.info('Sleeping %d second(s) ...' % cfg.seconds_to_sleep)
         time.sleep(cfg.seconds_to_sleep)
-    logger.info('Finshed.')
+    logger.info('Stopped, exiting ...')
 
+#_______________________________________________________________________________
+def terminate():
+    global _running
+    logger.info('Received the terminate signal.')
+    _running = False
 
 #_______________________________________________________________________________
 class Config(object):
@@ -199,9 +204,13 @@ def setup(cfg):
 
 #_______________________________________________________________________________
 def iterate(cfg):
+    global _running
     logger.info("Inspecting path `%s' ..." % cfg.input_path)
     runs = get_runs(cfg)
     for run in runs:
+        if _running is False:
+            logger.info('Stopping loop over runs ...')
+            break
         time_since_stop = run.time_since_stop()
         if run.number == runs[-1].number and not time_since_stop:
             ## This is the last known run and looking at RunInfo,
