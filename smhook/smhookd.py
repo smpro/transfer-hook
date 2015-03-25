@@ -18,12 +18,12 @@ import smhook.watchAndInject
 
 from smhook.daemon import Daemon
 
-CONFIGFILE = '/opt/python/smhook/smhookd.conf'
+CONFIGFILE = '/opt/python/smhook/config/smhookd.conf'
 STDOUT = '/dev/null'
 STDERR = '/opt/python/smhook/smhookd.out'
 PIDFILE = '/var/run/smhookd.pid'
 
-#CONFIGFILE = '/opt/python/smhook/smhookd_test.conf'
+#CONFIGFILE = '/opt/python/smhook/config/smhookd_test.conf'
 #STDOUT = '/dev/null'
 #STDERR = '/opt/python/smhook/test/smhookd.out'
 #PIDFILE = '/opt/python/smhook/test/smhookd.pid'
