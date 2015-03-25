@@ -4,4 +4,3 @@ logs/
 runs_to_bk*.dat
 *.pyc
 *.py~
-hltKeyFromRunInfo.pl
