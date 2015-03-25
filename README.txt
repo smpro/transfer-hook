@@ -1,3 +1,9 @@
+# Update the tranfer hook on the production machine
+service puppet stop
+rsync -cavF /nfshome0/veverka/lib/python/smhook/smhook/ /opt/python/smhook/
+service smhookd restart
+service puppet start
+
 # Rebooting srv-c2c07-16
 [root@srv-C2C07-16 smhook]# service sm stop
 Stopping sm: Stopping notifyworker: ..                     [FAILED]
