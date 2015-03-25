@@ -122,7 +122,7 @@ class Daemon(object):
             return # not an error in a restart
         # Try killing the daemon process    
         try:
-            for i in range(20):
+            for i in range(100):
                 os.kill(pid, SIGTERM)
                 time.sleep(0.1)
             self.logger.warning(
