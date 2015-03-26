@@ -1,3 +1,12 @@
+# Setup service sm on mrg 25:
+[root@mrg-c2f12-25-01 test]# service puppet stop
+~smpro/scripts/setup_sm.sh : modified mrg-c2f13 -> mrg-c2f12
+[root@mrg-c2f12-25-01 test]# mkdir -p /store/global/log
+[root@mrg-c2f12-25-01 test]# chmod 777 /store/global/log
+[root@mrg-c2f12-25-01 test]# yum install perl-POE-Component-Log4perl perl-POE-Component-SimpleDBI perl-DBD-Oracle
+Replace /opt/copyworker/TransferSystem_Cessy.cfg with srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg
+
+
 # Update the tranfer hook on the production machine
 service puppet stop
 rsync -cavF /nfshome0/veverka/lib/python/smhook/smhook/ /opt/python/smhook/
