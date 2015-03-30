@@ -185,8 +185,6 @@ def iterate():
     _streams_to_postpone  = map(str.strip, cfg.get('Streams','streams_to_postpone').split(','))
     _streams_to_ignore    = map(str.strip, cfg.get('Streams','streams_to_ignore').split(','))
 
-    _injectscript = cfg.get('Input', 'injectscript')
-
     _renotify = cfg.getboolean('Misc','renotify')
 
     max_tier0_transfer_file_size = cfg.getint(
