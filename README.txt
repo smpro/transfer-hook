@@ -5,7 +5,8 @@
 [root@mrg-c2f12-25-01 test]# chmod 777 /store/global/log
 [root@mrg-c2f12-25-01 test]# yum install perl-POE-Component-Log4perl perl-POE-Component-SimpleDBI perl-DBD-Oracle
 Replace /opt/copyworker/TransferSystem_Cessy.cfg with srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg
-
+Copy srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg to the same location locally
+Include mrg nodes in /nfshome0/smpro/transfertest_byhand/transfertest.sh
 
 # Update the tranfer hook on the production machine
 service puppet stop
