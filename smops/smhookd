@@ -45,11 +45,8 @@ case "$1" in
         ;;
   restart)
         $0 stop
-        RETVAL=$?
-        [ $RETVAL -eq 0 ] && success "$PROG stop" || failure "$PROG stop"
         $0 start
         RETVAL=$?
-        [ $RETVAL -eq 0 ] && success "$PROG startup" || failure "$PROG startup"
         ;;
   *)
         echo "Usage: $PROG {start|stop|kill|status|restart}"
