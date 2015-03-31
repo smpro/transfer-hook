@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 import cx_Oracle
 import logging
-import imp
+import os
+
+import smhook.config as config
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +13,6 @@ _db_config = '.db.conf.py'
 _db_config = '.db.int2r.stomgr_tier0_r.cfg.py'
 _db_config = '.db.int2r.stomgr_w.cfg.py'
 _db_config = '.db.rcms.stomgr_w.cfg.py'
-
-
 
 #______________________________________________________________________________
 def main():
@@ -32,7 +32,7 @@ def setup():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s in %(module)s: %(message)s')
     logger.debug("Loading DB config `%s'" % _db_config)
-    cfg = imp.load_source('db_config', _db_config)
+    cfg = config.load(os.path.join(config.DIR, _db_config))
     _db_user = cfg.db_user
     _db_pwd = cfg.db_pwd
     _db_sid = cfg.db_sid
@@ -50,7 +50,7 @@ def dump_queries(cursor):
     # dump_closed_lumis_and_filecount(cursor,
     #                                stream='NanoDST', runnumber=231309)
     dump_closed_lumis_and_filecount(
-        cursor, stream='TrackerCalibration', runnumber=235691
+        cursor, stream='A', runnumber=238929
     )
     #dump_closed_runs(cursor, 235487)
     # dump_closed_runs(cursor, 231024)
