@@ -5,10 +5,11 @@
 [root@mrg-c2f12-25-01 test]# chmod 777 /store/global/log
 [root@mrg-c2f12-25-01 test]# yum install perl-POE-Component-Log4perl perl-POE-Component-SimpleDBI perl-DBD-Oracle
 Replace /opt/copyworker/TransferSystem_Cessy.cfg with srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg
-Copy srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg to the same location locally
-Include mrg nodes in /nfshome0/smpro/transfertest_byhand/transfertest.sh
+[root@mrg-c2f12-25-01 transfertest_byhand]# mkdir -p /store/global/00/closed
+[root@mrg-c2f12-25-01 transfertest_byhand]# chmod 777 /store/global/00/closed
 
-# Update the tranfer hook on the production machine
+
+# Updated the tranfer hook on the production machine (not the way to do it!)
 service puppet stop
 rsync -cavF /nfshome0/veverka/lib/python/smhook/smhook/ /opt/python/smhook/
 service smhookd restart
