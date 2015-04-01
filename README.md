@@ -132,4 +132,25 @@ Logging output to `bkeep_2.log'.
 nohup ./bookkeeper.py $(cat runs_to_bk_2.dat) >& bkeep_2.log &
 ```
 
+#RPM Recipe
+
+This recipe will be automatized by a bash wrapper but for the time being
+the steps are documented here.
+
+You need to start with the following command:
+    rpmdev-setuptree
+
+This creates all the relevant directories/sub directories that needs to
+exist to be able to build an RPM. You then go into the 
+SPEC folder, I run the following command:
+
+    rpmdev-newspec	
+
+This will create you a template spec file, you can rename it/edit it. The 
+spec file used in this RPM is in git. You need to also copy a .tgz of the 
+source code under the SOURCE directory. Lastly to build the RPM execute 
+the following command:
+    
+    rpmbuild -ba smhook.spec
+
 Voila, that's it!
