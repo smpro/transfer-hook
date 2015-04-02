@@ -41,7 +41,7 @@ import enum
 ## Enumerates different types of JSON meta files.
 Type = enum.enum('MacroMerger', 'MiniEoR', 'Unknown')
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 class Filename(object):
     '''
     Takes a filename of a meta-data file, parses it and stores the results in
@@ -125,7 +125,7 @@ class Filename(object):
 ## Filename
 
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 class File(Filename):
     def __init__(self, path):
         Filename.__init__(self, path)
@@ -137,7 +137,7 @@ class File(Filename):
 ## File
 
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
 class MiniEoRFile(File):
     def __init__(self, path):
         File.__init__(self, path)
@@ -157,7 +157,29 @@ class MiniEoRFile(File):
                 self.eventsInputFU   == self.eventsTotalEoR)
 ## MiniEoRFile
 
-#_______________________________________________________________________________
+#______________________________________________________________________________
+class MacroMergerFile(File):
+    def __init__(self, path):
+        File.__init__(self, path)
+        if self.type != Type.MacroMerger:
+            self._raise_bad_filename(
+                "expect `run<N>_ls<M>_stream<A>_<suffix>.jsn' form!"
+                )
+        self._parse_data()
+
+    def _parse_data(self):
+        # https://twiki.cern.ch/twiki/bin/view/CMS/FFFMetafileFormats#Jsn_Per_output_file
+        self.processed         = self.data['data'][0]
+        self.accepted          = self.data['data'][1]
+        self.return_code_mask  = self.data['data'][2]
+        self.file_name         = self.data['data'][3]
+        self.file_size         = self.data['data'][4]
+        self.file_adler32      = self.data['data'][5]
+        self.n_files           = self.data['data'][6]
+        self.n_total_processed = self.data['data'][7]
+## MacroMergerFile
+
+#______________________________________________________________________________
 if __name__ == '__main__':
     import doctest
     doctest.testmod()

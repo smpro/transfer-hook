@@ -12,6 +12,7 @@ from smhook.config.runinfo.driver_cfg import driver_cfg as _driver_defaults
 
 logger = logging.getLogger(__name__)
 
+_default_db_config_file = os.path.join(config.DIR, '.db.omds.runinfo_r.cfg.py')
 _first_run_with_new_cmssw_version_name_tag = 231017
 
 #______________________________________________________________________________
@@ -72,7 +73,7 @@ class Driver(object):
 
 #______________________________________________________________________________
 class RunInfo(object):
-    def __init__(self, db_config_file):
+    def __init__(self, db_config_file=_default_db_config_file):
         self.logger = logging.getLogger(type(self).__module__ + '.' +
                                         type(self).__name__)
         self.db_config_file = db_config_file
@@ -177,7 +178,7 @@ class RunInfo(object):
         self.logger.debug("Received `{0}'".format(result))
         return result
 
-runinfo = RunInfo(os.path.join(config.DIR, '.db_runinfo_cred.py'))
+runinfo = RunInfo(_default_db_config_file)
 get_stop_time = runinfo.get_stop_time
 
 
