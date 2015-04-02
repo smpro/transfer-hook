@@ -113,12 +113,14 @@ def main():
         logger.info('Sleeping {0} seconds ...'.format(_seconds_to_sleep))
         time.sleep(_seconds_to_sleep)
 
-    logger.info('Closing ECAL and DQM thransfer thread pools.')
+    logger.info('Closing ECAL, DQM and Event Diplay thransfer thread pools.')
     ecal_pool.close()
     dqm_pool.close()
-    logger.info('Joining ECAL and DQM thransfer thread pools.')
+    evd_pool.close()
+    logger.info('Joining ECAL, DQM and Event Display thransfer thread pools.')
     ecal_pool.join()
     dqm_pool.join()
+    evd_pool.join()
 ## main()
 
 
@@ -146,6 +148,7 @@ def setup():
     global runinfo
     global ecal_pool
     global dqm_pool
+    global evd_pool
     global cfg
     cfg = config.config
 
@@ -162,7 +165,7 @@ def setup():
         maybe_move = move_file_to_dir
     ecal_pool = ThreadPool(4)
     dqm_pool = ThreadPool(4)
-    
+    evd_pool = ThreadPool(4)
 ## setup()
 
 #______________________________________________________________________________
@@ -171,6 +174,8 @@ def iterate():
     _scratch_base = cfg.get('Output','scratch_base')
     _dqm_base = cfg.get('Output','dqm_base')
     _ecal_base = cfg.get('Output','ecal_base')
+    _evd_base = cfg.get('Output','evd_base')
+    _evd_eosbase = cfg.get('Output','evd_eosbase')
 
     db_config = cfg.get('Bookkeeping', 'db_config')
     new_path_base = cfg.get('Output', 'new_path_base')
@@ -181,6 +186,7 @@ def iterate():
 
     _streams_with_scalers = map(str.strip, cfg.get('Streams','streams_with_scalars').split(','))
     _streams_to_ecal      = map(str.strip, cfg.get('Streams','streams_to_ecal').split(','))
+    _streams_to_evd      = map(str.strip, cfg.get('Streams','streams_to_evd').split(','))
     _streams_to_dqm       = map(str.strip, cfg.get('Streams','streams_to_dqm').split(','))
     _streams_to_postpone  = map(str.strip, cfg.get('Streams','streams_to_postpone').split(','))
     _streams_to_ignore    = map(str.strip, cfg.get('Streams','streams_to_ignore').split(','))
@@ -212,6 +218,8 @@ def iterate():
         dqm_rundir       = _dqm_base  + "/" + os.path.basename(rundir)
         ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir) + "/open"
         ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)
+        evd_rundir       = _evd_base + "/" + os.path.basename(rundir)
+        evd_eosrundir       = _evd_eosbase + "/" + os.path.basename(rundir)
         run_key = runinfo.get_run_key(run_number)
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
@@ -286,6 +294,17 @@ def iterate():
                     dat_file = dat_file.replace(rundir, scratch_rundir)
                     args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
                     ecal_pool.apply_async(move_files, args)
+                    continue
+                if streamName in _streams_to_evd:
+                    maybe_move(jsn_file, scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
+                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace(rundir, scratch_rundir)
+
+                    #Dima said they don't need the open area
+                    args = [dat_file,jsn_file,evd_rundir,evd_eosrundir]
+                    evd_pool.apply_async(copy_move_files,args)
+                    
                     continue
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
@@ -499,7 +518,7 @@ def monitor_rates(jsn_file):
 
 
 #_______________________________________________________________________________
-def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None):
+def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None, eos=False):
     '''
     Prints a message about how it would move the file src to the directory dst
     if this was for real.
@@ -511,11 +530,12 @@ def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None):
         basename = name + suffix + extension
     dst = os.path.join(dst, basename)
     logger.info("I would do: mv %s %s" % (src, dst))
+    if eos:
+        logger.info("I woud do: cp %s %s" %(src,dst))
 ## mock_move_file_to_dir()
 
-
 #_______________________________________________________________________________
-def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None):
+def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None, eos=False):
     '''
     Moves the file src to the directory dst_dir. Creates dst_dir if it doesn't exist.
     '''
@@ -542,8 +562,14 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None):
         else:
             raise RuntimeError, "Destination file `%s' exists!" % dst_path
     logger.info("Running `mv %s %s' ..." % (src, dst_path))
+    logger.info("Running `mv %s %s' ... the eos is set to %s" % (src, dst_path, eos))
+    
     try:
-        shutil.move(src, dst_path)
+        if eos:
+            #do copy to eos
+            os.system("xrdcp "+str(src)+" root://eoscms.cern.ch//"+str(dst_path))
+        else:
+            shutil.move(src, dst_path)
     except IOError as error:
         if error.errno == 2 and error.filename == dst_path:
             ## Directory dst_dir doesn't seem to exist. Let's create it.
@@ -553,8 +579,12 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None):
                 )
             )
             mkdir_with_parents(dst_dir)
-            logger.info("Retrying `mv %s %s' ..." % (src, dst_path))
-            shutil.move(src, dst_path)
+            logger.info("Retrying `mv or xrdcp %s %s' ..." % (src, dst_path))
+            if eos:
+                #do copy to eos
+                os.system("xrdcp "+str(src)+" root://eoscms.cern.ch/eos/cms/store/user/veverka/test/"+str(dst_path))
+            else:
+                shutil.move(src, dst_path)
         else:
             logger.error(
                 "errno: %d, filename: %s, message: %s" % (
@@ -578,6 +608,20 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
     except Exception as e:
         logger.exception(e)
 ## move_files()
+
+#_______________________________________________________________________________
+def copy_move_files(datFile, jsnFile, final_rundir, final_eosrundir):
+    try:
+        # first copy or move to the final area with the eos parameter
+        maybe_move(datFile, final_eosrundir,eos=True)
+        maybe_move(jsnFile, final_eosrundir,eos=True)
+        maybe_move(datFile, final_rundir,eos=False)
+        maybe_move(jsnFile, final_rundir,eos=False)
+    except Exception as e:
+        logger.exception(e)
+## copy_move_files()
+
+
 
 
 #_______________________________________________________________________________
