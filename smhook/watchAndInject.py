@@ -219,6 +219,7 @@ def iterate():
         ecal_rundir_open = _ecal_base + "/" + os.path.basename(rundir) + "/open"
         ecal_rundir      = _ecal_base + "/" + os.path.basename(rundir)
         evd_rundir       = _evd_base + "/" + os.path.basename(rundir)
+        evd_rundir_open  = _evd_base + "/" + os.path.basename(rundir) + "/open"
         evd_eosrundir       = _evd_eosbase + "/" + os.path.basename(rundir)
         run_key = runinfo.get_run_key(run_number)
         if not os.path.exists(scratch_rundir):
@@ -302,7 +303,7 @@ def iterate():
                     dat_file = dat_file.replace(rundir, scratch_rundir)
 
                     #Dima said they don't need the open area
-                    args = [dat_file,jsn_file,evd_rundir,evd_eosrundir]
+                    args = [dat_file,jsn_file,evd_rundir_open,evd_rundir,evd_eosrundir]
                     evd_pool.apply_async(copy_move_files,args)
                     
                     continue
@@ -610,13 +611,22 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
 ## move_files()
 
 #_______________________________________________________________________________
-def copy_move_files(datFile, jsnFile, final_rundir, final_eosrundir):
+def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir, final_eosrundir):
     try:
         # first copy or move to the final area with the eos parameter
         maybe_move(datFile, final_eosrundir,eos=True)
         maybe_move(jsnFile, final_eosrundir,eos=True)
-        maybe_move(datFile, final_rundir,eos=False)
-        maybe_move(jsnFile, final_rundir,eos=False)
+
+        # first move to open area in the nfs
+        maybe_move(datFile, final_rundir_open,eos=False)
+        maybe_move(jsnFile, final_rundir_open,eos=False)
+        # then move to the final area in the nfs
+        maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)),
+                   final_rundir,eos=False)
+        maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
+                   final_rundir,eos=False)
+        #maybe_move(datFile, final_rundir,eos=False)
+        #maybe_move(jsnFile, final_rundir,eos=False)
     except Exception as e:
         logger.exception(e)
 ## copy_move_files()
