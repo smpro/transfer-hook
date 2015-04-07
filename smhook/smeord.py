@@ -23,8 +23,8 @@ PIDFILE = '/var/run/smeord.pid'
 
 #CONFIGFILE = '/opt/python/smhook/config/smeord_test.conf'
 #STDOUT = '/dev/null'
-#STDERR = '/opt/python/smhook/test/smeord.out'
-#PIDFILE = '/opt/python/smhook/test/smeord.pid'
+#STDERR = '/store/lustre/test/smhook/smeord.out'
+#PIDFILE = '/store/lustre/test/smhook/smeord.pid'
 
 logger = logging.getLogger(__name__)
 
