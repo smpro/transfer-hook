@@ -1,3 +1,28 @@
+# Fixing run 239785. It had one file not properly transferred:
+[veverka@srv-C2C07-16 smops]$ sudo ./check-run.sh --runnumber=239785
+Checking run 239785:
+1 files in FILES_TRANS_NEW (File found in database and being processed by T0 system):
+        run239785_ls0738_streamA_StorageManager.dat srv-C2C07-16 0 1487999
+7160 files in FILES_TRANS_INSERTED (File found in database and inserted into T0ast):
+## Fixed with this call:
+[veverka@srv-C2C07-16 smops]$ sudo ./check-run.sh --runnumber=239785 --force --fix --nodbupdate --pattern=run239785_ls0738_streamA_StorageManager.dat | tee -a fix-run239785.log
+Checking run 239785:
+1 files in FILES_TRANS_NEW (File found in database and being processed by T0 system):
+        run239785_ls0738_streamA_StorageManager.dat srv-C2C07-16 0 1487999
+        /store/lustre/transfer/run239785/run239785_ls0738_streamA_StorageManager.dat srv-C2C07-16 0
+Notifying Tier0 for /store/lustre/transfer/run239785/run239785_ls0738_streamA_StorageManager.dat
+Tue Apr  7 15:00:12 2015 : RPM/CDR Configuration: starting
+Tue Apr  7 15:00:12 2015 : RPM/CDR Configuration: finished
+Tue Apr  7 15:00:12 2015: I am "SendNotification", running on srv-C2C07-16. My PID is 2718
+Tue Apr  7 15:00:12 2015: T0::Logger::Sender::  Connection established (2)
+7160 files in FILES_TRANS_INSERTED (File found in database and inserted into T0ast):
+
+# Retransfers a file in run 238752, see
+#  https://hypernews.cern.ch/HyperNews/CMS/get/smops/833.html
+sudo ./check-run.sh --runnumber=238752 --full --log --force --fix \
+    --pattern=run238752_ls0072_streamNanoDST_StorageManager.dat \
+    | tee -a hn-smops-833.log
+
 # Setup service sm on mrg 25:
 [root@mrg-c2f12-25-01 test]# service puppet stop
 ~smpro/scripts/setup_sm.sh : modified mrg-c2f13 -> mrg-c2f12
@@ -7,7 +32,6 @@
 Replace /opt/copyworker/TransferSystem_Cessy.cfg with srv-c2c06-20:/opt/copymanager/TransferSystem_Cessy.cfg
 [root@mrg-c2f12-25-01 transfertest_byhand]# mkdir -p /store/global/00/closed
 [root@mrg-c2f12-25-01 transfertest_byhand]# chmod 777 /store/global/00/closed
-
 
 # Updated the tranfer hook on the production machine (not the way to do it!)
 service puppet stop
