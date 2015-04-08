@@ -583,7 +583,7 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None, eos=False
             logger.info("Retrying `mv or xrdcp %s %s' ..." % (src, dst_path))
             if eos:
                 #do copy to eos
-                os.system("xrdcp "+str(src)+" root://eoscms.cern.ch/eos/cms/store/user/veverka/test/"+str(dst_path))
+                os.system("xrdcp "+str(src)+" root://eoscms.cern.ch//"+str(dst_path))
             else:
                 shutil.move(src, dst_path)
         else:
