@@ -18,7 +18,7 @@ from smhook.daemon import Daemon
 
 CONFIGFILE = '/opt/python/smhook/config/smhookd.conf'
 STDOUT = '/dev/null'
-STDERR = '/opt/python/smhook/smhookd.out'
+STDERR = '/dev/null'
 PIDFILE = '/var/run/smhookd.pid'
 
 #CONFIGFILE = '/opt/python/smhook/config/smhookd_test.conf'
