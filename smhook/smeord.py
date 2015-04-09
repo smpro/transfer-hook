@@ -16,15 +16,15 @@ import smhook.eor
 
 from smhook.daemon import Daemon
 
-CONFIGFILE = '/opt/python/smhook/config/smeord.conf'
-STDOUT = '/dev/null'
-STDERR = '/opt/python/smhook/smeord.out'
 PIDFILE = '/var/run/smeord.pid'
 
-#CONFIGFILE = '/opt/python/smhook/config/smeord_test.conf'
+STDOUT = '/dev/null'
+STDERR = '/dev/null'
+CONFIGFILE = '/opt/python/smhook/config/smeord.conf'
+
 #STDOUT = '/dev/null'
-#STDERR = '/store/lustre/test/smhook/smeord.out'
-#PIDFILE = '/store/lustre/test/smhook/smeord.pid'
+#STDERR = '/tmp/smeord.out'
+#CONFIGFILE = '/opt/python/smhook/config/smeord_test.conf'
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,11 @@ class Service(Daemon):
         self.delpid()
         self.running = False
     def run(self):
+        self.logger.info(
+            'Using config file(s): %s ...' % ', '.join(
+                smhook.config.config.filenames
+            )
+        )
         self.logger.debug("Calling smhook.eor.run() ...")
         try:
             smhook.eor.run()
