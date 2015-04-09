@@ -44,7 +44,7 @@ import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from optparse import OptionParser
 from subprocess import call
 
@@ -390,7 +390,7 @@ def iterate():
                     inject_file_path = os.path.join(
                         cfg.get('Output', 'inject_base'),
                         '{date}-{hostname}.log'.format(
-                            date=datetime.date.today().strftime('%Y%m%d'),
+                            date=date.today().strftime('%Y%m%d'),
                             hostname=hostname,
                         )
                     )
