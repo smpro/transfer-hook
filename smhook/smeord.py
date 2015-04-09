@@ -1,4 +1,5 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
 '''
 A simple daemon to run eor as a service.
 '''
@@ -18,10 +19,12 @@ from smhook.daemon import Daemon
 
 PIDFILE = '/var/run/smeord.pid'
 
+## Use these for production
 STDOUT = '/dev/null'
 STDERR = '/dev/null'
 CONFIGFILE = '/opt/python/smhook/config/smeord.conf'
 
+## Use these for testing
 #STDOUT = '/dev/null'
 #STDERR = '/tmp/smeord.out'
 #CONFIGFILE = '/opt/python/smhook/config/smeord_test.conf'
