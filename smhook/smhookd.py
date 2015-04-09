@@ -1,6 +1,6 @@
 #!/bin/env python
 '''
-A simple daemon to run watchAndInject as a service.
+A simple daemon to run hook as a service.
 TODO: Log the config file used.
 '''
 import sys
@@ -13,7 +13,7 @@ import logging.config
 from multiprocessing import Process
 
 import smhook.config
-import smhook.watchAndInject
+import smhook.hook
 
 from smhook.daemon import Daemon
 
@@ -41,12 +41,12 @@ class SMHookD(Daemon):
                 smhook.config.config.filenames
             )
         )
-        self.logger.debug("Calling smhook.watchAndInject.main() ...")
+        self.logger.debug("Calling smhook.hook.main() ...")
         try:
-            smhook.watchAndInject.main()
+            smhook.hook.main()
         except Exception as e:
             self.logger.critical(
-                "Exiting due to an exception in smhook.watchAndInject.main()!"
+                "Exiting due to an exception in smhook.hook.main()!"
             )
             self.logger.exception(e)
             raise e
