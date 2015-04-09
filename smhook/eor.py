@@ -168,6 +168,9 @@ def setup(cfg):
     '''
     ## Get global configurations from the config module
     myconfig = config.config
+    logger.info(
+        'Using config file(s): %s ...' % ', '.join(myconfig.filenames)
+    )
     myconfig.getlist = getlist_from_config(myconfig)
     cfg.input_path = myconfig.get('eor', 'input_path')
     cfg.store_ini_area = myconfig.get('eor', 'store_ini_area')
