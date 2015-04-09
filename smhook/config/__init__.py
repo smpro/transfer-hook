@@ -53,6 +53,14 @@ class Config(object):
 ## Config
 
 #______________________________________________________________________________
+class SMConfigParser(ConfigParser.SafeConfigParser):
+    '''
+    Adds the getlist method to the STL SafeConfigParser.
+    '''
+    def getlist(self, section, option):
+        return map(str.strip, self.get(section, option).split(','))
+
+#______________________________________________________________________________
 def init(pathname):
     '''
     Initializes the global config variable with the contents of pahtname.
@@ -101,9 +109,10 @@ def load_py(pathname):
 #______________________________________________________________________________
 def load_vanilla(pathname):
     '''
-    Parses the given config file and returns the resulting ConfigParser object.
+    Parses the given config file and returns the resulting SMConfigParser
+    object.
     '''
-    config = ConfigParser.ConfigParser()
+    config = SMConfigParser()
     config.read(pathname)
     return config
 # load_vanilla
