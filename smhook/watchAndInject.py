@@ -537,7 +537,9 @@ def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None,
     dst = os.path.join(dst, basename)
     logger.info("I would do: mv %s %s" % (src, dst))
     if eos:
-        logger.info("I woud do: cp %s %s" %(src,dst))
+        command =  ("xrdcp " + str(src) + " root://eoscms.cern.ch//" +
+            str(dst))
+        logger.info("I woud do: %s" % command)
 ## mock_move_file_to_dir()
 
 #______________________________________________________________________________
