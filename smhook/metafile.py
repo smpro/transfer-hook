@@ -167,16 +167,41 @@ class MacroMergerFile(File):
                 )
         self._parse_data()
 
+    @classmethod
+    def from_tokens(cls, dirname, run, stream, lumi,
+                    suffix='StorageManager'):
+        filename = 'run%d_ls%04d_stream%s_%s.jsn' % (
+            int(run), int(lumi), str(stream), str(suffix)
+            )
+        filepath = os.path.join(dirname, filename)
+        return cls(filepath)
+
     def _parse_data(self):
         # https://twiki.cern.ch/twiki/bin/view/CMS/FFFMetafileFormats#Jsn_Per_output_file
         self.processed         = self.data['data'][0]
         self.accepted          = self.data['data'][1]
         self.return_code_mask  = self.data['data'][2]
-        self.file_name         = self.data['data'][3]
-        self.file_size         = self.data['data'][4]
-        self.file_adler32      = self.data['data'][5]
+        self.data_file_name    = self.data['data'][3]
+        self.data_file_size    = self.data['data'][4]
+        self.data_file_adler32 = self.data['data'][5]
         self.n_files           = self.data['data'][6]
         self.n_total_processed = self.data['data'][7]
+
+    def get_data_file_atime(self):
+        '''
+        Returns the access time of the corresponding data file as an int.
+        '''
+        filename = os.path.join(self.dirname, self.data_file_name)
+        filestat = os.stat(filename)
+        return int(filestat.st_atime)
+
+    def get_data_file_mtime(self):
+        '''
+        Returns the modify time of the corresponding data file as an int.
+        '''
+        filename = os.path.join(self.dirname, self.data_file_name)
+        filestat = os.stat(filename)
+        return int(filestat.st_mtime)
 ## MacroMergerFile
 
 #______________________________________________________________________________
