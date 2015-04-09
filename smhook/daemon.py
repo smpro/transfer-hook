@@ -106,6 +106,7 @@ class Daemon(object):
 
         # Start the daemon
         self.logger.info('Starting daemon ...')
+        self.log_io_names()
         self.daemonize()
         self.logger.info('Daemon running on host {0}'.format(HOSTNAME))
         self.run()
@@ -226,3 +227,10 @@ class Daemon(object):
         daemonized by start() or restart().
         """
         pass
+
+    def log_io_names(self):
+        self.logger.info(
+            "Using PID file: `%s', STDIN: `%s', STDOUT: `%s', STDERR: `%s'" % (
+                self.pidfile, self.stdin, self.stdout, self.stderr
+            )
+        )
