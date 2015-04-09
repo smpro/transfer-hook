@@ -1,4 +1,5 @@
 #!/bin/env python
+# -*- coding: utf-8 -*-
 '''
 A simple daemon to run hook as a service.
 TODO: Log the config file used.
@@ -18,11 +19,14 @@ import smhook.hook
 from smhook.daemon import Daemon
 
 PIDFILE = '/var/run/smhookd.pid'
+KRB5_CONFIG = '/nfshome0/smpro/confidential/krb5.conf.srv-C2C03-22'
 
+## Use these for production
 STDOUT = '/dev/null'
 STDERR = '/dev/null'
 CONFIGFILE = '/opt/python/smhook/config/smhookd.conf'
 
+## Use these for testing
 #STDOUT = '/dev/null'
 #STDERR = '/tmp/smhookd.out'
 #CONFIGFILE = '/opt/python/smhook/config/smhookd_test.conf'
@@ -41,6 +45,11 @@ class SMHookD(Daemon):
                 smhook.config.config.filenames
             )
         )
+        ## Temporary hack to make xrdcp work for EvD
+        self.logger.info(
+            'Setting environment KRB5_CONFIG=%s ...' % KRB5_CONFIG
+        )
+        os.environ['KRB5_CONFIG'] = KRB5_CONFIG
         self.logger.debug("Calling smhook.hook.main() ...")
         try:
             smhook.hook.main()
