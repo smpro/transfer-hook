@@ -44,6 +44,7 @@ import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
 
+from datetime import datetime, timedelta
 from optparse import OptionParser
 from subprocess import call
 
@@ -152,6 +153,9 @@ def setup():
     global evd_pool
     global cfg
     cfg = config.config
+    logger.info(
+        'Using config file(s): %s ...' % ', '.join(cfg.filenames)
+    )
 
     _dry_run = cfg.getboolean('Misc','dry_run')
 
@@ -453,7 +457,6 @@ def mkdir(path):
 
 #______________________________________________________________________________
 def get_rundirs_and_hltkeys(path, new_path):
-    
     _run_number_min = cfg.getint('Misc','run_number_min')
     _run_number_max = cfg.getint('Misc','run_number_max')
 
@@ -480,8 +483,7 @@ def get_rundirs_and_hltkeys(path, new_path):
             )
         )
     logger.debug(pprint.pformat(runnumbers))
-    logger.info('HLT keys: ' + format_hltkeys(hltkeys))
-    logger.debug('HLT keys: ' + pprint.pformat(hltkeys))
+    logger.debug('HLT keys: ' + format_hltkeys(hltkeys))
     return rundirs, hltkeys
 ## get_rundirs_and_hltkeys()
 
@@ -517,6 +519,20 @@ def monitor_rates(jsn_file):
     try:
         logger.info('Inserting %s in WBM ...' % basename)
         monitorRates.monitorRates(fname)
+        delay = get_time_since_modification(fname)
+        max_delay = timedelta(
+            seconds = cfg.getfloat('Misc', 'seconds_for_wbm_injection')
+        )
+        if delay < max_delay:
+            logger.info(
+                'Inserted {0} in WBM with a delay of {1}.'.format(fname, delay)
+            )
+        else:
+            logger.warning(
+                'Inserted {0} in WBM with too large of a delay: {1}!'.format(
+                    fname, delay
+                )
+            )
     except cx_Oracle.IntegrityError:
         logger.warning('DB record for %s already present!' %  basename)
 ## monitor_rates
@@ -747,6 +763,15 @@ def invert(mapping):
     return inverse_mapping
 ## invert_mapping
 
+#______________________________________________________________________________
+def get_time_since_modification(filename):
+    '''
+    Returns the timedelta object giving the time since the last modification
+    of the file given by filename.
+    '''
+    m_time_stamp = int(os.stat(filename).st_mtime)
+    m_utc_date_time = datetime.utcfromtimestamp(m_time_stamp)
+    return datetime.utcnow() - m_utc_date_time
 
 #______________________________________________________________________________
 if __name__ == '__main__':
