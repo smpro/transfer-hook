@@ -53,12 +53,17 @@ class Config(object):
 ## Config
 
 #______________________________________________________________________________
-class SMConfigParser(ConfigParser.SafeConfigParser):
+class SMConfigParser(ConfigParser.SafeConfigParser, object):
     '''
     Adds the getlist method to the STL SafeConfigParser.
+    Remembers the list of successfully parsed config files.
     '''
     def getlist(self, section, option):
         return map(str.strip, self.get(section, option).split(','))
+    def read(self, filenames):
+        if not hasattr(self, 'filenames'):
+            self.filenames = []
+        self.filenames.extend(super(SMConfigParser, self).read(filenames))
 
 #______________________________________________________________________________
 def init(pathname):
@@ -107,13 +112,13 @@ def load_py(pathname):
 
 
 #______________________________________________________________________________
-def load_vanilla(pathname):
+def load_vanilla(pathnames):
     '''
     Parses the given config file and returns the resulting SMConfigParser
     object.
     '''
     config = SMConfigParser()
-    config.read(pathname)
+    config.read(pathnames)
     return config
 # load_vanilla
 
