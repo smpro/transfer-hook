@@ -202,6 +202,11 @@ def iterate():
         'Output', 'maximum_tier0_transfer_file_size_in_bytes'
     )
 
+    max_dqm_transfer_file_size = cfg.getint(
+        'Output', 'maximum_dqm_transfer_file_size_in_bytes'
+    )
+
+
     hostname = socket.gethostname()
 
     new_path = get_new_path(path, new_path_base)
@@ -288,13 +293,24 @@ def iterate():
                 if streamName in _streams_to_dqm:
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(dat_file, scratch_rundir)
-                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
-                    dat_file = dat_file.replace(rundir, scratch_rundir)
-                    args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
-                    dqm_pool.apply_async(move_files, args)
+                    if (fileSize > max_dqm_transfer_file_size):
+                        logger.warning(
+                            "`{0}' too large ({1} > {2})! ".format(
+                                dat_file, fileSize, max_dqm_transfer_file_size
+                                ) +
+                            "Moving it to bad area with the suffix `TooLarge' ..."
+                            )
+                        maybe_move(jsn_file, new_rundir_bad, suffix='TooLarge')
+                        maybe_move(dat_file, new_rundir_bad, suffix='TooLarge')
+                    else:
+                        maybe_move(jsn_file, scratch_rundir)
+                        maybe_move(dat_file, scratch_rundir)
+                        jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                        dat_file = dat_file.replace(rundir, scratch_rundir)
+                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
+                        dqm_pool.apply_async(move_files, args)
                     continue
+
                 if streamName in _streams_to_ecal:
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
@@ -315,6 +331,7 @@ def iterate():
                             evd_eosrundir]
                     evd_pool.apply_async(copy_move_files, args)
                     continue
+
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
