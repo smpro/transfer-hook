@@ -2,23 +2,12 @@
 # -*- coding: utf-8 -*-
 '''
 TODO:
-   * Include lumi bookkeeping. (first prototype done 2014/10/09)
-   * Notify Tier0 about the open runs, insert runs with open status flag
    * Add checksums
-   * Automate the CMSSW version retrieval (done 2014/12/08)
-   * Use the logging module for logging
-   * Turn this into a deamon service
    * Puppet-ize
    * pip-ify
-   * Move to using the log file as the transfer test instead inject*.pl
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
    * Only process each JSON file once. Move both the JSON and data to a new
      location first. Then inject it in the transfer.
-   * Move MiniEoR and bad files in the transfer area
-   * Make sure to move the MiniEoR files after the meta data files to
-     prevent closing the run with wrongly low lumi count. The EOR
-     needs all the meta data files to do the bookkeeping right.
-     see https://hypernews.cern.ch/HyperNews/CMS/get/smops/804.html
 '''
 
 import cx_Oracle
