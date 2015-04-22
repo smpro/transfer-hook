@@ -13,8 +13,8 @@ import smhook.config
 
 logger = logging.getLogger(__name__)
 # Load Config file
-myconfig = os.path.join(smhook.config.DIR, '.db_integration_config.py')
-#myconfig = os.path.join(smhook.config.DIR, '.db_production_config.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_integration_config.py')
+myconfig = os.path.join(smhook.config.DIR, '.db_production_config.py')
 logger.info('Using config: %s' % myconfig)
 execfile(myconfig)
 
