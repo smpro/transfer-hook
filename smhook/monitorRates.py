@@ -73,13 +73,15 @@ def monitorRates(jsndata_file):
 
 		# Retrieve the mapping between HLT path index, HLT path name, HLT path ID
 		pathname_query="""
-			select B.SEQUENCENB, A.NAME, A.PATHID 
-				from CMS_HLT.PATHS A, CMS_HLT.CONFIGURATIONPATHASSOC B, CMS_WBM.RUNSUMMARY C
-				where
-					A.PATHID = B.PATHID
-					and B.CONFIGID = C.HLTKEY
-					and C.RUNNUMBER = {0}
-			order by B.SEQUENCENB
+                        select D.ORD, A.NAME, E.PATHID 
+                                from CMS_HLT_GDR.U_PATHS A, CMS_HLT_GDR.U_PATHIDS E, CMS_HLT_GDR.U_PATHID2CONF D, CMS_WBM.RUNSUMMARY C, CMS_HLT_GDR.U_CONFVERSIONS B 
+                                where 
+                                        A.ID = E.ID_PATH
+                                        and E.ID = D.ID_PATHID
+                                        and D.ID_CONFVER = B.ID
+                                        and B.CONFIGID = C.HLTKEY
+                                        and C.RUNNUMBER = {0}
+                        order by D.ORD
 		"""
 		read_cursor=cxn_db_to_read.cursor()
 		read_cursor.execute(pathname_query.format(str(run_number)))
