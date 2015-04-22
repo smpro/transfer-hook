@@ -13,8 +13,10 @@ import smhook.config
 
 logger = logging.getLogger(__name__)
 # Load Config file
-#execfile('.db_integration_config.py')
-execfile(os.path.join(smhook.config.DIR, '.db_production_config.py'))
+myconfig = os.path.join(smhook.config.DIR, '.db_integration_config.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_production_config.py')
+logger.info('Using config: %s' % myconfig)
+execfile(myconfig)
 
 # Supply this method with a FULL PATH to a .jsndata file to read it and put the HLT or L1 rates inside into the database.
 # The jsndata needs the .ini descriptor files to be there or this will fail
