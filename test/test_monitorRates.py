@@ -1,6 +1,5 @@
 import logging
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 import os.path
 import smhook.monitorRates as rates
