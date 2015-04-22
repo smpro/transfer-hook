@@ -1,5 +1,4 @@
 # Exclude the items below
-- .rsync-filter
 - .git
 - logs
 - bak

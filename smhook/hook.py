@@ -40,12 +40,12 @@ from subprocess import call
 from smhook.runinfo import RunInfo
 from smhook.config import Config
 
-__author__     = 'Lavinia Darlea, Jan Veverka'
+__author__     = 'Lavinia Darlea, Jan Veverka, Zeynep Demiragli'
 __copyright__  = 'Unknown'
 __credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
 
 __licence__    = 'Unknonw'
-__version__    = '0.2.3'
+__version__    = '0.2.4'
 __maintainer__ = 'Jan Veverka'
 __email__      = 'veverka@mit.edu'
 __status__     = 'Development'
@@ -140,6 +140,7 @@ def setup():
     global ecal_pool
     global dqm_pool
     global evd_pool
+    global lookarea_pool
     global cfg
     cfg = config.config
     logger.info(
@@ -157,9 +158,10 @@ def setup():
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
-    ecal_pool = ThreadPool(4)
-    dqm_pool = ThreadPool(4)
-    evd_pool = ThreadPool(4)
+    ecal_pool     = ThreadPool(4)
+    dqm_pool      = ThreadPool(4)
+    evd_pool      = ThreadPool(4)
+    lookarea_pool = ThreadPool(4)
 ## setup()
 
 #______________________________________________________________________________
@@ -168,6 +170,7 @@ def iterate():
     _scratch_base = cfg.get('Output','scratch_base')
     _dqm_base = cfg.get('Output','dqm_base')
     _ecal_base = cfg.get('Output','ecal_base')
+    _lookarea_base = cfg.get('Output','lookarea_base')
     _evd_base = cfg.get('Output','evd_base')
     _evd_eosbase = cfg.get('Output','evd_eosbase')
 
@@ -182,6 +185,7 @@ def iterate():
     _streams_to_ecal      = cfg.getlist('Streams','streams_to_ecal'     )
     _streams_to_evd       = cfg.getlist('Streams','streams_to_evd'      )
     _streams_to_dqm       = cfg.getlist('Streams','streams_to_dqm'      )
+    _streams_to_lookarea  = cfg.getlist('Streams','streams_to_lookarea' )
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
 
@@ -221,6 +225,9 @@ def iterate():
         evd_rundir       = os.path.join(_evd_base   , rundir_basename)
         evd_rundir_open  = os.path.join(_evd_base   , rundir_basename, 'open')
         evd_eosrundir    = os.path.join(_evd_eosbase, rundir_basename)
+        lookarea_rundir_open = os.path.join(_lookarea_base  , rundir_basename,
+                                            'open')
+        lookarea_rundir      = os.path.join(_lookarea_base  , rundir_basename)
         run_key = runinfo.get_run_key(run_number)
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
@@ -309,6 +316,16 @@ def iterate():
                     dat_file = dat_file.replace(rundir, scratch_rundir)
                     args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
                     ecal_pool.apply_async(move_files, args)
+                    continue
+                if streamName in _streams_to_lookarea:
+                    ## TODO: Use some other temporary directory instead of
+                    ## scratch
+                    maybe_move(jsn_file, scratch_rundir)
+                    maybe_move(dat_file, scratch_rundir)
+                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace(rundir, scratch_rundir)
+                    args = [dat_file, jsn_file, lookarea_rundir_open, lookarea_rundir]
+                    lookarea_pool.apply_async(move_files, args)
                     continue
                 if streamName in _streams_to_evd:
                     maybe_move(jsn_file, scratch_rundir)
