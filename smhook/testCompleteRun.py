@@ -1,21 +1,23 @@
 #!/usr/bin/env python
-import os, time, sys, getopt, fcntl
-import shutil
-import json
 import glob
-import multiprocessing
-from multiprocessing.pool import ThreadPool
+import getopt
 import logging
-import thread
-import datetime
-import fileinput
+import os.path
 import socket
-from macroeor import is_run_complete
+import sys
+
+from smhook.macroeor import is_run_complete
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format=r'%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    datefmt='%y-%m-%d %H:%M:%S',
+)
 
 def doCompleteRun(paths_to_watch, completeMergingThreshold, nLoopsMax):
-   streamsToExclude = ["DQM", "Error","DQMCalibration",
-   "DQMHistograms","EcalCalibration","EventDisplay",
-   "HLTRates","L1Rates"]
+   streamsToExclude = ["DQM", "Error", "DQMCalibration",
+       "DQMHistograms", "EcalCalibration", "EventDisplay",
+       "HLTRates", "L1Rates", "EvDOutput", "EvDOutput2", "LookArea"]
    storeIniArea = "/store/lustre/mergeMacro"
    nLoops = 0
    while nLoops < nLoopsMax:
@@ -58,7 +60,7 @@ for opt, arg in opts:
    if opt == "--nLoopsMax":
       nLoopsMax = arg
    if opt == "--threshold":
-      completeMergingThreshold = arg
+      completeMergingThreshold = float(arg)
 
 if not os.path.exists(paths_to_watch):
    msg = "paths_to_watch folder Not Found: %s" % paths_to_watch

@@ -16,7 +16,6 @@ def is_run_complete(
     """
     Defines if a run is complete.
     """
-
     theMergeMiniFolder  = "/store/lustre/mergeBU"
     theMergeMacroFolder = "/store/lustre/mergeMacro"
 
@@ -185,8 +184,15 @@ def is_run_complete(
     if numberMiniEoRFiles > 0:
         # Check if the number of bus per Stream coming from the ini files is 
         # consistent with the number of miniEoRFiles.
-        for stream,nbus in iniIDict.items():
+        for stream, nbus in iniIDict.items():
             if len(nbus) != numberMiniEoRFiles:
+                ## TODO: Test and enable this logger.info call:
+                # logger.info(
+                #    'Run %s ' % theRunNumber.replace('run', '') +
+                #    'is incomplete because nbus = %d ' % nbus +
+                #    'and numberMiniEoRFiles = %d ' % numberMiniEoRFiles +
+                #    'differ for stream %s!' % stream
+                # )
                 isComplete = False
         # Check if the number of Streams coming from the ini files is 
         # consistent with the number of merged Streams.
@@ -200,6 +206,20 @@ def is_run_complete(
                 if streamName in eventsBadDict:
                     sumEvents = sumEvents + eventsBadDict[streamName][0]
                 if(sumEvents < eventsBuilt * completeMergingThreshold):
+                    message = 'Run %(run)s is incomplete because ' + \
+                        'sumEvents = %(sum)d is less than ' + \
+                        'eventsBuilt * completeMergingThreshold = ' + \
+                        '%(nbuilt)d * %(threshold)g = %(rhs).1f ' + \
+                        'for stream %(stream)s'
+                    substitutions = dict(
+                        run    = theRunNumber.replace('run', ''),
+                        sum = sumEvents,
+                        nbuilt = eventsBuilt,
+                        threshold = float(completeMergingThreshold),
+                        rhs = float(eventsBuilt * completeMergingThreshold),
+                        stream = streamName,
+                        )
+                    logger.info(message % substitutions)
                     isComplete = False
                 elif(sumEvents > eventsBuilt):
                     isComplete = False
@@ -228,6 +248,11 @@ def is_run_complete(
                         )
 
     else:
+        ## TODO: Test and enable this logger.info call:
+        # logger.info(
+        #     'Run %s ' % theRunNumber.replace('run', '') +
+        #     'is incomplete because there are no MiniEoR files!'
+        # )
         isComplete = False
 
     logger.info(

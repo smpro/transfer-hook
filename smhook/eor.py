@@ -185,9 +185,9 @@ def setup(cfg):
     )
     cfg.runs_first = myconfig.getint('eor', 'runs_first')
     cfg.runs_last = myconfig.getint('eor', 'runs_last')
-    streams_to_exclude = []
+    cfg.streams_to_exclude = []
     for stream_list in myconfig.getlist('eor', 'streams_to_exclude'):
-        streams_to_exclude.extend(
+        cfg.streams_to_exclude.extend(
             myconfig.getlist('Streams', stream_list)
         )
     bookkeeper._dry_run = cfg.general_dryrun
