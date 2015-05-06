@@ -222,6 +222,14 @@ def iterate(cfg):
             continue
         if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info('Closing run %d ...' % run.number)
+        ## Further conditions below rely on the knowledge of time_since_stop.
+        ## Let's first make sure that time_since_stop is actually known to
+        ## to prevent comparison in the further conditions from crashing.
+        elif time_since_stop is None:
+            message = 'Run {0} stop time is unknown and it is NOT the ' + \
+                'last run, which is {1}!'
+            logger.warning(message.format(run.number, runs[-1].number))
+            continue
         elif time_since_stop > cfg.time_to_wait_for_completion:
             message = ('Run {0} INCOMPLETE FOR TOO LONG: {1}, closing ' +
                 'it brute force!').format(run.number, time_since_stop)
@@ -263,7 +271,7 @@ def get_runs(cfg):
             runs.append(run)
         except ValueError:
             logger.debug("Skipping `%s'." % dirname)
-    return runs
+    return sorted(runs, key=lambda run: run.number)
 # get_runs
 
 
