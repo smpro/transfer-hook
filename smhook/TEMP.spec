@@ -5,7 +5,7 @@ Version:        1
 Release:        1%{?dist}
 Summary:        Simple RPM used to setup the storage manager hook (python code)
 
-Requires:       cms_sm_copyworker cms_sm_copymanager cms_sm_injectworker
+Requires:       cms_sm_copyworker cms_sm_copymanager cms_sm_injectworker cx_Oracle
 Group:          CMS/System
 License:        GPL
 URL:            https://github.com/smpro/transfer-hook/tree/master/TEMP
