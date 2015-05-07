@@ -23,7 +23,7 @@ This RPM installs the transfer system hook (python) and configuraton files.
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/python/
-tar -xf TEMP.tgz -C $RPM_BUILD_ROOT/opt/python/
+tar -xf MYDIR/TEMP.tgz -C $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 install -m 755 TEMPd $RPM_BUILD_ROOT/etc/init.d     
 
