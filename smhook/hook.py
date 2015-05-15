@@ -207,7 +207,7 @@ def iterate():
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
     for rundir in rundirs:
         logger.debug("Inspecting `%s' ..." % rundir)
-        jsns = glob.glob(os.path.join(rundir, '*.jsn'))
+        jsns = sorted(glob.glob(os.path.join(rundir, '*.jsn')))
         if not jsns:
             continue
         rundir_basename = os.path.basename(rundir)
@@ -447,7 +447,7 @@ def iterate():
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
-        for fname in glob.glob(os.path.join(rundir_bad, '*.jsn')):
+        for fname in sorted(glob.glob(os.path.join(rundir_bad, '*.jsn'))):
             try:
                 jsn = metafile.File(fname)
                 if jsn.type == metafile.Type.MacroMerger:
@@ -484,7 +484,7 @@ def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
     rundirs, runs, hltkeymap = [], [], {}
-    for rundir in sorted(glob.glob(os.path.join(path, 'run*'))):
+    for rundir in sorted(glob.glob(os.path.join(path, 'run*')), reverse=True):
         run_number = get_run_number(rundir)
         if run_number < _run_number_min or _run_number_max < run_number:
             continue
