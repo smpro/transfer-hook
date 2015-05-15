@@ -328,8 +328,8 @@ def iterate():
                     lookarea_pool.apply_async(move_files, args)
                     continue
                 if streamName in _streams_to_evd:
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(dat_file, scratch_rundir)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
+                    maybe_move(dat_file, scratch_rundir, force_overwrite=True)
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
                     dat_file = dat_file.replace(rundir, scratch_rundir)
                     # Dima said they don't need the open area
@@ -524,14 +524,17 @@ def get_cmssw_version(run_number):
     _old_cmssw_version = cfg.get('Misc','old_cmssw_version')
     current_cmssw_version = _old_cmssw_version
     ## Sort the first_run -> new_cmssw_version map by the first_run
-    sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
-                             key=lambda x: x[0])
-    for first_run, new_cmssw_version in sorted_rv_pairs:
-        if first_run <= run_number:
-            current_cmssw_version = new_cmssw_version
-        else:
-            break
+    ##Zeynep's Hack Just so that the Run continues- To BE CORRECTED
+    ##sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
+    ##                         key=lambda x: x[0])
+    ##for first_run, new_cmssw_version in sorted_rv_pairs:
+    ##    if first_run <= run_number:
+    ##        current_cmssw_version = new_cmssw_version
+    ##    else:
+    ##        break
+    current_cmssw_version = "UNKNOWN"
     return current_cmssw_version
+    
 ## get_cmssw_version()
 
 
