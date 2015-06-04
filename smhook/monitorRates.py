@@ -18,10 +18,7 @@ import smhook.config
 #myconfig = os.path.join(smhook.config.DIR, '.db_integration_config.py')
 myconfig = os.path.join(smhook.config.DIR, '.db_production_config.py')
 debug=False
-
 logger = logging.getLogger(__name__)
-print __name__
-
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
 	ch = logging.StreamHandler()
@@ -150,8 +147,7 @@ def monitorRates(jsndata_file):
 	# run230852_ls0000_streamL1Rates_mrg-c2f13-37-01.ini
 	# If the INI file is not there, this function will crash
 
-	#ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_StorageManager.ini'
-	ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_'+raw_pieces[3]+'.ini'
+	ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_StorageManager.ini'
 	ini_path = os.path.join(json_dir, 'open', ini_filename)
 	if stream=='HLTRates':
 		try:
@@ -289,23 +285,12 @@ def monitorRates(jsndata_file):
 			logger.exception(e)
 			return False
 		# Check if the L1 rates are split by type ( backwards compatibility )
-		jsd_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'.jsd'
-		#jsd_path = os.path.join(json_dir, 'open', jsd_filename)
-		jsd_path = os.path.join(json_dir, jsd_filename)
-		try:
-			L1_descriptor=open(jsd_path).read()
-		except (OSError, IOError) as e:
-			logger.error("Error finding or opening jsd file: `%s'" % jsd_path)
-			logger.exception(e)
-			return False
-		L1_types=json.loads(L1_descriptor)
 		L1_names=json.loads(L1_json)
-			
 		L1_rates={}
 		L1_rates['EVENTCOUNT'] 				= rates['data'][0][0]
 		L1_rates['L1_DECISION'] 			= rates['data'][1]
 		L1_rates['L1_TECHNICAL'] 			= rates['data'][2]
-		if len(L1_types['data'])>4:
+		if len(rates['data'])>4:
 			L1_rates['L1_DECISION_PHYSICS']		= rates['data'][3] # NEW LINES -DGH
 			L1_rates['L1_TECHNICAL_PHYSICS']	= rates['data'][4]
 			L1_rates['L1_DECISION_CALIBRATION']	= rates['data'][5]
@@ -316,7 +301,7 @@ def monitorRates(jsndata_file):
 		L1_rates['mod_datetime']			= str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
 		
 		# Insert L1 rates into the database
-		if len(L1_types['data'])>4:
+		if len(rates['data'])>4:
 			query="""
 				INSERT INTO {0} (
 					RUNNUMBER,
@@ -359,7 +344,7 @@ def monitorRates(jsndata_file):
 					MODIFICATIONTIME,
 					EVENTCOUNT,
 					DECISION_ARRAY,
-					TECHNICAL_ARRAY,
+					TECHNICAL_ARRAY
 				) VALUES (
 					{1}, {2}, {3}, {4}, {5}, {6}
 				)
@@ -372,7 +357,7 @@ def monitorRates(jsndata_file):
 				"TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
 				L1_rates['EVENTCOUNT'],
 				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')' # VARRAY(1,2,3,4,...N)
 			)		
 		write_cursor.execute(query)
 		cxn_db_to_write.commit()
