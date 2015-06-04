@@ -17,11 +17,13 @@ import smhook.config
 
 #myconfig = os.path.join(smhook.config.DIR, '.db_integration_config.py')
 myconfig = os.path.join(smhook.config.DIR, '.db_production_config.py')
+debug=False
 
 logger = logging.getLogger(__name__)
+print __name__
 
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
-if __name__ == "__main__":
+if debug == True:
 	ch = logging.StreamHandler()
 	ch.setLevel(logging.DEBUG)
 	logger.addHandler(ch)
@@ -156,8 +158,8 @@ def monitorRates(jsndata_file):
 			HLT_json=open(ini_path).read()
 		except (OSError, IOError) as e:
 			logger.error("Error finding or opening ini file: `%s'" % ini_path)
-                        logger.exception(e)
-                        return False
+			logger.exception(e)
+			return False
 		HLT_names=json.loads(HLT_json)
 		HLT_rates={}
 		i=0
@@ -284,57 +286,94 @@ def monitorRates(jsndata_file):
 			L1_json=open(ini_path).read()
 		except (OSError, IOError) as e:
 			logger.error("Error finding or opening ini file: `%s'" % ini_path)
-                        logger.exception(e)
-                        return False
+			logger.exception(e)
+			return False
+		# Check if the L1 rates are split by type ( backwards compatibility )
+		jsd_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'.jsd'
+		#jsd_path = os.path.join(json_dir, 'open', jsd_filename)
+		jsd_path = os.path.join(json_dir, jsd_filename)
+		try:
+			L1_descriptor=open(jsd_path).read()
+		except (OSError, IOError) as e:
+			logger.error("Error finding or opening jsd file: `%s'" % jsd_path)
+			logger.exception(e)
+			return False
+		L1_types=json.loads(L1_descriptor)
 		L1_names=json.loads(L1_json)
+			
 		L1_rates={}
 		L1_rates['EVENTCOUNT'] 				= rates['data'][0][0]
 		L1_rates['L1_DECISION'] 			= rates['data'][1]
 		L1_rates['L1_TECHNICAL'] 			= rates['data'][2]
-		L1_rates['L1_DECISION_PHYSICS']		= rates['data'][3] # NEW LINES -DGH
-		L1_rates['L1_TECHNICAL_PHYSICS']	= rates['data'][4]
-		L1_rates['L1_DECISION_CALIBRATION']	= rates['data'][5]
-		L1_rates['L1_TECHNICAL_CALIBRATION']= rates['data'][6]
-		L1_rates['L1_DECISION_RANDOM'] 		= rates['data'][7]
-		L1_rates['L1_TECHNICAL_RANDOM'] 	= rates['data'][8]
+		if len(L1_types['data'])>4:
+			L1_rates['L1_DECISION_PHYSICS']		= rates['data'][3] # NEW LINES -DGH
+			L1_rates['L1_TECHNICAL_PHYSICS']	= rates['data'][4]
+			L1_rates['L1_DECISION_CALIBRATION']	= rates['data'][5]
+			L1_rates['L1_TECHNICAL_CALIBRATION']= rates['data'][6]
+			L1_rates['L1_DECISION_RANDOM'] 		= rates['data'][7]
+			L1_rates['L1_TECHNICAL_RANDOM'] 	= rates['data'][8]
 		# Here we record the file modification time of the jsndata file for book keeping purposes
 		L1_rates['mod_datetime']			= str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
 		
 		# Insert L1 rates into the database
-		query="""
-			INSERT INTO {0} (
-				RUNNUMBER,
-				LSNUMBER,
-				MODIFICATIONTIME,
-				EVENTCOUNT,
-				DECISION_ARRAY,
-				DECISION_ARRAY_PHYSICS,
-				DECISION_ARRAY_CALIBRATION,
-				DECISION_ARRAY_RANDOM,
-				TECHNICAL_ARRAY,
-				TECHNICAL_ARRAY_PHYSICS,
-				TECHNICAL_ARRAY_CALIBRATION,
-				TECHNICAL_ARRAY_RANDOM
-			) VALUES (
-				{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}
+		if len(L1_types['data'])>4:
+			query="""
+				INSERT INTO {0} (
+					RUNNUMBER,
+					LSNUMBER,
+					MODIFICATIONTIME,
+					EVENTCOUNT,
+					DECISION_ARRAY,
+					DECISION_ARRAY_PHYSICS,
+					DECISION_ARRAY_CALIBRATION,
+					DECISION_ARRAY_RANDOM,
+					TECHNICAL_ARRAY,
+					TECHNICAL_ARRAY_PHYSICS,
+					TECHNICAL_ARRAY_CALIBRATION,
+					TECHNICAL_ARRAY_RANDOM
+				) VALUES (
+					{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}
+				)
+			"""
+			# The join operations below simply format the rates arrays so that they may be inserted into the DB.
+			query=query.format(
+				L1_rates_db,
+				run_number,
+				int(ls[2:]),
+				"TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+				L1_rates['EVENTCOUNT'],
+				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
+				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_PHYSICS']))+')',
+				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_CALIBRATION']))+')',
+				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_RANDOM']))+')',
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_PHYSICS']))+')',
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_CALIBRATION']))+')',
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_RANDOM']))+')'
 			)
-		"""
-		# The join operations below simply format the rates arrays so that they may be inserted into the DB.
-		query=query.format(
-			L1_rates_db,
-			run_number,
-			int(ls[2:]),
-			"TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-			L1_rates['EVENTCOUNT'],
-			decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-			decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_PHYSICS']))+')',
-			decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_CALIBRATION']))+')',
-			decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_RANDOM']))+')',
-			technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
-			technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_PHYSICS']))+')',
-			technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_CALIBRATION']))+')',
-			technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_RANDOM']))+')'
-		)
+		else: # backwards compatible
+			query="""
+				INSERT INTO {0} (
+					RUNNUMBER,
+					LSNUMBER,
+					MODIFICATIONTIME,
+					EVENTCOUNT,
+					DECISION_ARRAY,
+					TECHNICAL_ARRAY,
+				) VALUES (
+					{1}, {2}, {3}, {4}, {5}, {6}
+				)
+			"""
+			# The join operations below simply format the rates arrays so that they may be inserted into the DB.
+			query=query.format(
+				L1_rates_db,
+				run_number,
+				int(ls[2:]),
+				"TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+				L1_rates['EVENTCOUNT'],
+				decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
+				technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
+			)		
 		write_cursor.execute(query)
 		cxn_db_to_write.commit()
 		return True
