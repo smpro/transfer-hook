@@ -1,14 +1,14 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
-Name:           TEMP
-Version:        1
-Release:        1%{?dist}
+Name:           smhook
+Version:        __VERSION__
+Release:        __RELEASE__%{?dist}
 Summary:        Simple RPM used to setup the storage manager hook (python code)
 
 Requires:       cms_sm_copyworker cms_sm_copymanager cms_sm_injectworker cx_Oracle
 Group:          CMS/System
 License:        GPL
-URL:            https://github.com/smpro/transfer-hook/tree/master/TEMP
+URL:            https://github.com/smpro/transfer-hook/tree/master/smhook
 Source0:        %{name}.tgz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -16,25 +16,28 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 This RPM installs the transfer system hook (python) and configuraton files. 
 
 %prep
-%setup -q -n TEMP
+%setup -q -n smhook
 
 %build
 
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/python/
-tar -xf MYDIR/TEMP.tgz -C $RPM_BUILD_ROOT/opt/python/
+tar -xf MYDIR/smhook.tgz -C $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
-install -m 755 TEMPd $RPM_BUILD_ROOT/etc/init.d     
+install -m 755 smhookd $RPM_BUILD_ROOT/etc/init.d     
+install -m 755 smeord $RPM_BUILD_ROOT/etc/init.d     
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%files -f files.list
+%files -f ../../SPECS/files.list
 %defattr(-,root,root,-)
 %doc
-/etc/init.d/TEMPd
-/opt/python/smhook/TEMPd
+/etc/init.d/smhookd
+/opt/python/smhook/smhookd
+/etc/init.d/smeord
+/opt/python/smhook/smeord
 
 %post
 su - smpro -c "cat ~smpro/confidential/.db_int2r_cred.py" > /opt/python/smhook/config/.db_int2r_cred.py
@@ -49,19 +52,30 @@ su - smpro -c "cat ~smpro/confidential/.db_runinfo_cred.py" > /opt/python/smhook
 chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
 su - smpro -c "cat ~smpro/confidential/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
 chmod 400 /opt/python/smhook/config/.smpro_cern_cred
-chkconfig --add TEMPd
+chkconfig --add smhookd
+chkconfig --add smeord
+if test -e /etc/init.d/smhookd; then
+  /etc/init.d/smhookd restart >/dev/null 2>&1
+fi
+if test -e /etc/init.d/smeord; then
+  /etc/init.d/smeord restart >/dev/null 2>&1
+fi
 
 %preun
-if test -e /etc/init.d/TEMPd; then
-  /etc/init.d/TEMPd stop
+if test -e /etc/init.d/smhookd; then
+  /etc/init.d/smhookd stop >/dev/null 2>&1
+fi
+if test -e /etc/init.d/smeord; then
+  /etc/init.d/smeord stop >/dev/null 2>&1
 fi
 
 %postun
-chkconfig --del TEMPd
+chkconfig --del smhookd
+chkconfig --del smeord
 if [ "$1" = "0" ]; then
-    rm -rf /opt/python/TEMP/config/.db*
-    rm -rf /opt/python/TEMP/config/.sm*
-    rm -rf /opt/python/TEMP/
+    rm -rf /opt/python/smhook/config/.db*
+    rm -rf /opt/python/smhook/config/.sm*
+    rm -rf /opt/python/smhook/
 fi
 
 %changelog
