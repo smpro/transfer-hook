@@ -2,12 +2,7 @@
 # -*- coding: utf-8 -*-
 '''
 TODO:
-   * Add checksums
-   * Puppet-ize
-   * pip-ify
    * Query the DB more efficiently similar to ~/smpro/scripts/checkRun.pl
-   * Only process each JSON file once. Move both the JSON and data to a new
-     location first. Then inject it in the transfer.
 '''
 
 import cx_Oracle
@@ -40,24 +35,8 @@ from subprocess import call
 from smhook.runinfo import RunInfo
 from smhook.config import Config
 
-__author__     = 'Lavinia Darlea, Jan Veverka, Zeynep Demiragli'
-__copyright__  = 'Unknown'
-__credits__    = ['Dirk Hufnagel', 'Guillelmo Gomez-Ceballos']
-
-__licence__    = 'Unknonw'
-__version__    = '0.2.4'
-__maintainer__ = 'Jan Veverka'
-__email__      = 'veverka@mit.edu'
-__status__     = 'Development'
-
 #from Logging import getLogger
 logger = logging.getLogger(__name__)
-
-
-## Defualt is False, set this to True if you want to re-transfer.
-
-#_db_config = '.db.int2r.stomgr_w.cfg.py' # integration
-#_db_config = '/opt/transfers/.db.rcms.stomgr_w.cfg.py' # production
 
 
 #______________________________________________________________________________

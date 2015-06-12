@@ -23,16 +23,6 @@ TODO:
   * Load db config in a separate method
 '''
 
-__author__     = 'Jan Veverka'
-__copyright__  = 'Unknown'
-__credits__    = ['Hannes Sakulin', 'Dirk Hufnagel', 'Lavinia Darlea',
-                  'Guillelmo Gomez-Ceballos', 'Remi Mommsen']
-__licence__    = 'Unknonw'
-__version__    = '0.1.3'
-__maintainer__ = 'Jan Veverka'
-__email__      = 'veverka@mit.edu'
-__status__     = 'Development'
-
 import glob
 import imp
 import json
@@ -51,16 +41,11 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 _dry_run = False
-# Integration DB, will not be read by Tier0
-#_db_config = '.db.int2r.stomgr_w.cfg.py'
 
 # Production DB, will be read and processed by Tier0
 _db_config = os.path.join(config.DIR, '.db_rcms_cred.py')
 
-
-# _input_dir = '/store/lustre/mergeMacro'
 _input_dir = '/store/lustre/transfer'
-#_input_dir = '/store/lustre/transfer_minidaq'
 _run_number = 229781
 ## List of streams that should be ignored by the Tier0
 _excluded_streams = ['EventDisplay', 'DQMHistograms', 'DQM', 'DQMCalibration',

@@ -6,31 +6,11 @@ Detects the macromerger end-of-run and reacts to it by closing the given run.
 Jan Veverka, 13 November 2014, veverka@mit.edu
 
 USAGE:
-    ./eor.py eor.cfg
+    service smeord start
 
 TODO:
-    * Move sleep -> snooze to react to SIGTERM quickly
-    * Change all the dependent packages from relative imports to absolute ones
-    * Use rotating log files
-    * Turn this into a deamon service
-    * Avoid inspecting directories that have not changed
-    * Factor out the call to isCompleteRun to merger
-    * Add protection against missing MiniEoR files; options include:
-        * Add the total sum over all BUs of the processed number of events 
-          from upstream in the MiniEoR file
-        * Obtain the list of BUs from somewhere and make sure we have
-          all the MiniEoR files.
-    * Factor out the Run class into a separate file
-'''
 
-__author__     = 'Jan Veverka'
-__copyright__  = 'Unknown'
-__credits__    = []
-__licence__    = 'Unknonw'
-__version__    = '0.1.1'
-__maintainer__ = 'Jan Veverka'
-__email__      = 'veverka@mit.edu'
-__status__     = 'Development'
+'''
 
 import ConfigParser
 import glob
