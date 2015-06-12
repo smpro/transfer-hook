@@ -174,6 +174,9 @@ def iterate():
     _evd_base = cfg.get('Output','evd_base')
     _evd_eosbase = cfg.get('Output','evd_eosbase')
 
+    _checksum_status = cfg.getboolean('Misc','checksum_status')
+    setup_label=cfg.get('Input','setup_label')
+
     db_config = cfg.get('Bookkeeping', 'db_config')
     new_path_base = cfg.get('Output', 'new_path_base')
     db_cred = config.load(db_config)
@@ -245,6 +248,9 @@ def iterate():
                     'Bookkeeping for run %d already open!' % run_number
                 )
         appversion = runinfo.get_cmssw_version(run_number)
+        if appversion == 'UNKNOWN':
+            appversion = get_cmssw_version(run_number)
+        #hlt_key = hltkeys[run_number]
         hlt_key = runinfo.get_hlt_key(run_number)
         # Sort JSON files by filename, implying also by lumi.
         jsns.sort()
@@ -278,7 +284,13 @@ def iterate():
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
+                if ( _checksum_status ):
+                    checksum_int = int(settings['data'][5]) 
+                    checksum = format(checksum_int, 'x').zfill(8)    #making sure it is 8 digits
+                else:
+                    checksum = 0
                 dat_file = os.path.join(rundir, fileName)
+                logger.info("The hex format checksum of the file {0} is {1} ".format(dat_file, checksum))
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
                 if streamName in _streams_to_postpone:
@@ -373,14 +385,14 @@ def iterate():
                         '--LUMISECTION'  , lumiSection,
                         '--PATHNAME'     , rundir,
                         '--HOSTNAME'     , hostname,
-                        '--SETUPLABEL'   , 'Data',
+                        '--SETUPLABEL'   , setup_label,
                         '--STREAM'       , streamName,
                         '--INSTANCE'     , 1,
                         '--SAFETY'       , 0,
                         '--APPVERSION'   , appversion,
                         '--APPNAME'      , 'CMSSW',
                         '--TYPE'         , 'streamer',
-                        '--CHECKSUM'     , 0,
+                        '--CHECKSUM'     , checksum,
                         '--CHECKSUMIND'  , 0,
                     ]
                     args_close = [
@@ -396,7 +408,7 @@ def iterate():
                         '--LUMISECTION' , lumiSection,
                         '--PATHNAME'    , new_rundir,
                         '--HOSTNAME'    , hostname,
-                        '--SETUPLABEL'  , 'Data',
+                        '--SETUPLABEL'  , setup_label,
                         '--STREAM'      , streamName,
                         '--INSTANCE'    , 1,
                         '--SAFETY'      , 0,
@@ -404,7 +416,7 @@ def iterate():
                         '--APPNAME'     , 'CMSSW',
                         '--TYPE'        , 'streamer',
                         '--DEBUGCLOSE'  , 2,
-                        '--CHECKSUM'    , 0,
+                        '--CHECKSUM'    , checksum,
                         '--CHECKSUMIND' , 0,
                     ]
                     inject_file_path = os.path.join(
@@ -513,6 +525,26 @@ def get_run_number(rundir):
     run_token = rundir.split('_')[0]
     return int(os.path.basename(run_token).replace('run', ''))
 ## get_run_number
+
+
+#______________________________________________________________________________
+def get_cmssw_version(run_number):
+
+    _old_cmssw_version = cfg.get('Misc','old_cmssw_version')
+    current_cmssw_version = _old_cmssw_version
+    ## Sort the first_run -> new_cmssw_version map by the first_run
+    ##Zeynep's Hack Just so that the Run continues- To BE CORRECTED
+    ##sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
+    ##                         key=lambda x: x[0])
+    ##for first_run, new_cmssw_version in sorted_rv_pairs:
+    ##    if first_run <= run_number:
+    ##        current_cmssw_version = new_cmssw_version
+    ##    else:
+    ##        break
+    current_cmssw_version = "UNKNOWN"
+    return current_cmssw_version
+    
+## get_cmssw_version()
 
 
 #______________________________________________________________________________

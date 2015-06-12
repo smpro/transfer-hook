@@ -22,12 +22,11 @@ PIDFILE = '/var/run/smeord.pid'
 ## Use these for production
 STDOUT = '/dev/null'
 STDERR = '/dev/null'
-CONFIGFILE = '/opt/python/smhook/config/smeord.conf'
+if os.path.exists("/opt/python/smhook/config/smeord_priority.conf"):
+        CONFIGFILE = '/opt/python/smhook/config/smeord_priority.conf'
+else:
+    CONFIGFILE = '/opt/python/smhook/config/smeord.conf'
 
-## Use these for testing
-#STDOUT = '/dev/null'
-#STDERR = '/tmp/smeord.out'
-#CONFIGFILE = '/opt/python/smhook/config/smeord_test.conf'
 
 logger = logging.getLogger(__name__)
 

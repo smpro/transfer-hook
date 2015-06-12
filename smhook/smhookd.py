@@ -10,6 +10,7 @@ import socket
 import signal
 import logging
 import logging.config
+import os.path
 
 from multiprocessing import Process
 
@@ -24,12 +25,10 @@ KRB5_CONFIG = '/nfshome0/smpro/confidential/krb5.conf.srv-C2C03-22'
 ## Use these for production
 STDOUT = '/dev/null'
 STDERR = '/dev/null'
-CONFIGFILE = '/opt/python/smhook/config/smhookd.conf'
-
-## Use these for testing
-#STDOUT = '/dev/null'
-#STDERR = '/tmp/smhookd.out'
-#CONFIGFILE = '/opt/python/smhook/config/smhookd_test.conf'
+if os.path.exists("/opt/python/smhook/config/smhookd_priority.conf"):
+        CONFIGFILE = '/opt/python/smhook/config/smhookd_priority.conf'
+else:
+    CONFIGFILE = '/opt/python/smhook/config/smhookd.conf'
 
 logger = logging.getLogger(__name__)
 

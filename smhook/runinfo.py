@@ -174,7 +174,11 @@ class RunInfo(object):
             result = self.cursor.next()[0]
         except StopIteration:
             result = 'UNKNOWN'
-        result = result.strip()
+        try:
+            result = result.strip()
+        except Exception:
+            result = 'UNKNOWN'
+        self.logger.debug('Result is {0} ...'.format(result))
         self.logger.debug("Received `{0}'".format(result))
         return result
 

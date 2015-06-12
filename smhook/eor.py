@@ -195,8 +195,14 @@ def setup(cfg):
     #bookkeeper._db_config = '.db.int2r.stomgr_w.cfg.py'
     ## Production DB, will be read by Tier0
     bookkeeper._db_config = myconfig.get('eor', 'db_config_path')
-    logging.debug("Using `%s' for DB credentials ..." % bookkeeper._db_config)
+    logger.debug("Using `%s' for DB credentials ..." % bookkeeper._db_config)
     bookkeeper.setup()
+    bookkeeper._input_dir = cfg.input_path
+    bookkeeper._excluded_streams = cfg.streams_to_exclude
+    bookkeeper.setup()
+    logger.debug("Using %s for input directory ..." % bookkeeper._input_dir)
+    logger.debug("Using %s for streams to exclude ..." % bookkeeper._excluded_streams)
+
     if not cfg.json_suffix:
         cfg.json_suffix = socket.gethostname()
     cfg.time_to_wait_for_completion = timedelta(
@@ -222,14 +228,6 @@ def iterate(cfg):
             continue
         if run.is_complete2(cfg.streams_to_exclude, cfg.store_ini_area):
             logger.info('Closing run %d ...' % run.number)
-        ## Further conditions below rely on the knowledge of time_since_stop.
-        ## Let's first make sure that time_since_stop is actually known to
-        ## to prevent comparison in the further conditions from crashing.
-        elif time_since_stop is None:
-            message = 'Run {0} stop time is unknown and it is NOT the ' + \
-                'last run, which is {1}!'
-            logger.warning(message.format(run.number, runs[-1].number))
-            continue
         elif time_since_stop > cfg.time_to_wait_for_completion:
             message = ('Run {0} INCOMPLETE FOR TOO LONG: {1}, closing ' +
                 'it brute force!').format(run.number, time_since_stop)
@@ -271,7 +269,7 @@ def get_runs(cfg):
             runs.append(run)
         except ValueError:
             logger.debug("Skipping `%s'." % dirname)
-    return sorted(runs, key=lambda run: run.number)
+    return runs
 # get_runs
 
 
