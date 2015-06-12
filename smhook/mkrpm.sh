@@ -12,7 +12,7 @@ rpmdev-setuptree
 cd ~/rpmbuild/SOURCES/
 git clone git@github.com:smpro/transfer-hook.git
 cd transfer-hook
-git checkout rpmdevel
+git checkout devel
 
 #Get list of files in smhook
 for i in `find smhook -type f`; do 
