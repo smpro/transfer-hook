@@ -27,11 +27,11 @@ The transfers are using multiple machines the mapping is:
 Transfer system has multiple components running on each machine.
 To check the the status of the system do:
 
-   service copyworker status
-   service injectworker status
-   service notifyworker status
-   service smhookd status
-   service smeord status
+    service copyworker status
+    service injectworker status
+    service notifyworker status
+    service smhookd status
+    service smeord status
 
 Inspect the progress of the transfer hook and of the transfer system:
 
