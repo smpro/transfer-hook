@@ -18,64 +18,33 @@ Checkout the code.
 
 ## Transfer Recipes
 
-Setup the transfers:
+The transfers are using multiple machines the mapping is:
+    
+    srv-c2c07-16 --> Minidaq (minidaq configurations to be used)
+    mrg-c2f12-25 --> CDaq (cdaq configuration to be used)
+    mrg-c2f12-20 --> Testing (test configuration to be used)
 
-    ssh srv-c2c07-16
-    sudo su -
-    service sm status
-    cd /opt/transferTests
+Transfer system has multiple components running on each machine.
+To check the the status of the system do:
 
-Sync the code with a repository at P5 that has access to github:
-
-    rsync -avvF ~veverka/daq/mwgr/transferTest/ .
-
-Start logging the progress by listing the number of transferred files and
-errors.  This is done every 10 seconds by default:
-
-    nohup ./digest-copyworker-log.sh >& progress.log &
-
-Edit `watchAndInject.py` to customize the settings like:
-
-  * the range of run numbers to consider,
-  * streams to exclude,
-  * output path (differs for mini DAQ and Global data taking)
-  * etc.
-
-Then, launch the transfers:
-
-    nohup ./watchAndInject.py -p /store/lustre/mergeMacro >& transfer.log &
+   service copyworker status
+   service injectworker status
+   service notifyworker status
+   service smhookd status
+   service smeord status
 
 Inspect the progress of the transfer hook and of the transfer system:
 
-    tail transfer.log
-    tail progress.log
-
-Get a summary of the transfer hook log file:
-
-    ./digest-transfer-hook-log.sh transfer.log
-
-The output should look something like this:
-
-```bash
-echo 'Transferred files'; echo 'Count Run';  grep injectFileIntoTransferSystem.pl transfer_minidaq.log |  grep -v -- --check |  awk '{print $9}' |  grep -E '[[:digit:]{6}]' |  sort |  uniq -c
-Transferred files
-Count Run
-     68 227914
-    102 227921
-    102 227927
-    120 227931
-     10 227944
-     82 227951
-   4518 227957
-```
+    tail /var/log/smhook.log
+    tail /var/log/smeor.log
 
 ## Bookkeeping Recipes
 
 Setup the environment:
 
-    ssh srv-c2c07-16
+    ssh mrg-c2f12-25-01
     sudo su -
-    cd /opt/transferTests
+    cd /opt/python/smhook
 
 Get the list of all the runs to bookkeep:
 
@@ -113,7 +82,8 @@ The output should look like this:
 Created `runs_to_bk_2.dat'
 ```
 
-Edit bookkeeper.py to customize the bookkeeper settings:
+Edit bookkeeper.py to customize the bookkeeper settings (this is done automatically
+through the config file through eor in the production):
 
 ```python
 ## This should point to the output directory of the transfer hook
@@ -134,23 +104,12 @@ nohup ./bookkeeper.py $(cat runs_to_bk_2.dat) >& bkeep_2.log &
 
 #RPM Recipe
 
-This recipe will be automatized by a bash wrapper but for the time being
-the steps are documented here.
+To build an RPM, commit the changes you have done on git branch devel.
+The wrapper to be used is under smhook directory. All you have to do is:
 
-You need to start with the following command:
-    rpmdev-setuptree
+    ./mkrpm.sh
 
-This creates all the relevant directories/sub directories that needs to
-exist to be able to build an RPM. You then go into the 
-SPEC folder, I run the following command:
-
-    rpmdev-newspec	
-
-This will create you a template spec file, you can rename it/edit it. The 
-spec file used in this RPM is in git. You need to also copy a .tgz of the 
-source code under the SOURCE directory. Lastly to build the RPM execute 
-the following command:
-    
-    rpmbuild -ba smhook.spec
+This wrapper relies on the TEMP.spec file located in the same directory.
+When you run this command, you will end up with an rpm under: ~/SMHOOK_RPM/xxxx
 
 Voila, that's it!
