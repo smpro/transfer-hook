@@ -254,7 +254,7 @@ def iterate():
                 settings_textI = open(jsn_file, "r").read()
                 try:
                     settings = json.loads(settings_textI)
-                except:
+                except ValueError:
                     logger.warning("The json file %s is corrupted!" % jsn_file)
                     maybe_move(jsn_file, new_rundir_bad, suffix='Corrupted')
                     continue
