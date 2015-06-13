@@ -252,7 +252,12 @@ def iterate():
                         maybe_move(jsn_file, new_rundir, force_overwrite=True)
                     continue
                 settings_textI = open(jsn_file, "r").read()
-                settings = json.loads(settings_textI)
+                try:
+                    settings = json.loads(settings_textI)
+                except:
+                    logger.warning("The json file %s is corrupted!" % jsn_file)
+                    maybe_move(jsn_file, new_rundir_bad, suffix='Corrupted')
+                    continue
                 if len(settings['data']) < 5:
                     logger.warning("Failed to parse `%s'!" % jsn_file)
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
