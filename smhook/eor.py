@@ -64,8 +64,8 @@ def run():
     cfg = get_config()
     setup(cfg)
     logger.info(
-        "Start closing runs between %d and %d in `%s' ..." % (
-            cfg.runs_first, cfg.runs_last, cfg.input_path
+        "Start closing runs upto %d in `%s' ..." % (
+            cfg.runs_last, cfg.input_path
         )
     )
     iteration = 0
@@ -107,7 +107,6 @@ class Config(object):
         #self.logging_level = logging.INFO
         #self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
         #                       r'%(message)s')
-        self.runs_first = 233749 ## Begin of CRUZET Feb 2015
         self.runs_last  = 300000
         #self.store_ini_area = '/store/lustre/mergeMacro'
         self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
@@ -163,7 +162,6 @@ def setup(cfg):
     cfg.hours_to_wait_for_completion = myconfig.getfloat(
         'eor', 'hours_to_wait_for_completion'
     )
-    cfg.runs_first = myconfig.getint('eor', 'runs_first')
     cfg.runs_last = myconfig.getint('eor', 'runs_last')
     cfg.streams_to_exclude = []
     for stream_list in myconfig.getlist('eor', 'streams_to_exclude'):
@@ -233,13 +231,13 @@ def get_runs(cfg):
         logger.debug("Inspecting `%s' ..." % dirname)
         try:
             run = Run(dirname, cfg.json_suffix)
-            if cfg.runs_first and run.number < cfg.runs_first:
-                logger.debug('Skipping run %d < %d because it is outside '
-                              'of the range.' % (run.number, cfg.runs_first))
+            filename = os.path.join(dirname,'*ls0000*TransferEoR*.jsn')
+            if glob.glob(os.path.join(dirname,'*ls0000*TransferEoR*.jsn')):
+                logger.debug('Skipping run because Transfer EoR exists')
                 continue
             if cfg.runs_last and run.number > cfg.runs_last:
                 logger.debug('Skipping run %d > %d because it is outside '
-                              'of the range.' % (run.number, cfg.runs_first))
+                              'of the range.' % (run.number, cfg.runs_last))
                 continue
             if run.is_closed():
                 logger.debug('Skipping run %d because it is already closed.' %

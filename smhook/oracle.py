@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 import cx_Oracle
 import logging
-import imp
+import os
 import getopt,sys,os,fcntl
+
+import config as config
 
 logger = logging.getLogger(__name__)
 
@@ -12,17 +14,18 @@ _db_config = '.db.conf.py'
 _db_config = '.db.int2r.stomgr_tier0_r.cfg.py'
 _db_config = '.db.int2r.stomgr_w.cfg.py'
 _db_config = '.db.rcms.stomgr_w.cfg.py'
+_db_config = '.db_rcms_cred.py'
 
-valid = ['run_number=', 'stream_name=', 'help']  
-usage =  "Usage: oracle.py --run_number=<run_number>\n" 
+valid = ['run_number=', 'stream_name=', 'help']
+usage =  "Usage: oracle.py --run_number=<run_number>\n"
 usage += "                          --stream_name=<0>\n"
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],'',valid)
 except getopt.GetoptError, ex:
     print usage
-    print str(ex) 
-    sys.exit(1) 
+    print str(ex)
+    sys.exit(1)
 
 for opt, arg in opts:
     if opt == "--help":
@@ -32,6 +35,7 @@ for opt, arg in opts:
         run_number = arg
     if opt == "--stream_name":
         stream_name = arg
+
 
 #______________________________________________________________________________
 def main():
@@ -51,7 +55,7 @@ def setup():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s in %(module)s: %(message)s')
     logger.debug("Loading DB config `%s'" % _db_config)
-    cfg = imp.load_source('db_config', _db_config)
+    cfg = config.load(os.path.join(config.DIR, _db_config))
     _db_user = cfg.db_user
     _db_pwd = cfg.db_pwd
     _db_sid = cfg.db_sid
@@ -60,20 +64,11 @@ def setup():
 
 #______________________________________________________________________________
 def dump_queries(cursor):
-    # dump_runs2(cursor)
-    #dump_runs(cursor)
-    # dump_open_runs(cursor)
-    # dump_streams2(cursor)
-    # dump_closed_lumis_and_filecount(cursor,
-    #                                stream='A', runnumber=231309)
-    # dump_closed_lumis_and_filecount(cursor,
-    #                                stream='NanoDST', runnumber=231309)
+
     dump_closed_lumis_and_filecount(
         cursor, stream=str(stream_name), runnumber=int(run_number)
-    )
+        )
     dump_closed_runs(cursor, int(run_number))
-    # dump_closed_runs(cursor, 231024)
-    # dump_closed_runs(cursor, 231027)
 ## dump_queries
 
 

@@ -32,6 +32,10 @@ def is_run_complete(
 
     theStoreIniArea = os.path.join(storeIniArea, theRunNumber)
 
+    if not os.path.isdir(theStoreIniArea):
+        logger.warning("Ini file folder {0} is not found, skipping the run".format(theStoreIniArea))
+        return
+
     # reading the list of files in the given folder
     after = dict([(f, None) for f in os.listdir(theStoreIniArea)])
     afterStringIniNoSorted = [f for f in after]
