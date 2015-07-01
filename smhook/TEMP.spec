@@ -51,7 +51,7 @@ chmod 400 /opt/python/smhook/config/.db_rcms_cred.py
 su - smpro -c "cat ~smpro/confidential/.db_runinfo_cred.py" > /opt/python/smhook/config/.db_runinfo_cred.py
 chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
 su - smpro -c "cat ~smpro/confidential/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
-chmod 400 /opt/python/smhook/config/.smpro_cern_cred
+chmod 444 /opt/python/smhook/config/.smpro_cern_cred
 chkconfig --add smhookd
 chkconfig --add smeord
 if test -e /etc/init.d/smhookd; then
