@@ -65,10 +65,6 @@ def is_run_complete(
     afterStringSMNoSorted = [f for f in after]
     afterStringSM = sorted(afterStringSMNoSorted, reverse=False)
 
-    lastLumiBU = -1
-    eventsInputBUs_noLastLS = 0
-    eventsLostBUs_noLastLS = 0
-    eventsTotalRun_noLastLS = -1
     numberMiniEoRFiles = 0
     eventsInputBUs = 0
     eventsInputFUs = 0
@@ -76,7 +72,6 @@ def is_run_complete(
     numberBoLSFiles = 0
     eventsTotalRun = 0
     eventsIDict = dict()
-    eventsIDict_noLastLS = dict()
 
     # We try to get the last LS number first
     for nb in range(0, len(afterStringSM)):
@@ -85,11 +80,6 @@ def is_run_complete(
 
         if "bad" in settingsLS:
             continue
-
-        if ("MiniEoR" in afterStringSM[nb]):
-            if 'lastLumiBU' in settingsLS:
-                if(lastLumiBU < int(settingsLS["lastLumiBU"])):
-                    lastLumiBU = int(settingsLS["lastLumiBU"])
 
     for nb in range(0, len(afterStringSM)):
 
@@ -102,29 +92,11 @@ def is_run_complete(
             numberMiniEoRFiles += 1
             eventsInputBUs += int(settingsLS["eventsInputBU"])
             eventsInputFUs += int(settingsLS["eventsInputFU"])
-            ## Backward compatibility: old verstions didn't track eventsLostBU
-            ## Switch to the new version happened around run 234647
-            if 'eventsLostBU' in settingsLS:
-                eventsLostBUs += int(settingsLS["eventsLostBU"])
+            eventsLostBUs += int(settingsLS["eventsLostBU"])
             numberBoLSFiles = numberBoLSFiles + \
                 int(settingsLS["numberBoLSFiles"])
             if(eventsTotalRun < int(settingsLS["eventsTotalRun"])):
                 eventsTotalRun = int(settingsLS["eventsTotalRun"])
-
-             ## Switch to the new version happened around run run235918
-            if 'eventsInputBU_noLastLS' in settingsLS:
-                if lastLumiBU == int(settingsLS["lastLumiBU"]):
-                    eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU_noLastLS"])
-                    eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU_noLastLS"])
-
-                    if(eventsTotalRun_noLastLS < int(settingsLS["eventsTotalRun_noLastLS"])):
-                        eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun_noLastLS"])
-                else:
-                    eventsInputBUs_noLastLS += int(settingsLS["eventsInputBU"])
-                    eventsLostBUs_noLastLS  += int(settingsLS["eventsLostBU"])
-
-                    if(eventsTotalRun_noLastLS < int(settingsLS["eventsTotalRun"])):
-                        eventsTotalRun_noLastLS = int(settingsLS["eventsTotalRun"])
 
         else:
             eventsInput = int(settingsLS["data"][0])
@@ -142,10 +114,6 @@ def is_run_complete(
 
             fillDictionary(key,eventsIDict,eventsInput)
 
-            # A way to decode the last LS
-            if int(fileNameString[1].replace("ls","")) != lastLumiBU:
-                fillDictionary(key,eventsIDict_noLastLS,eventsInput)
-
     # Analyzing bad area
     theInputDataBadFolder = theInputDataFolder + "/bad"
     # reading the list of files in the given folder
@@ -155,8 +123,7 @@ def is_run_complete(
         afterBad = {}
     afterStringBad = [f for f in afterBad]
 
-    eventsBadDict          = dict()
-    eventsBadDict_noLastLS = dict()
+    eventsBadDict = dict()
 
     for nb in range(0, len(afterStringBad)):
         if not afterStringBad[nb].endswith(".jsn"):
@@ -173,16 +140,10 @@ def is_run_complete(
         key = (fileNameString[2])
 
         fillDictionary(key,eventsBadDict,eventsInput)
-        
-        # A way to decode the last LS
-        if int(fileNameString[1].replace("ls","")) != lastLumiBU:
-
-            fillDictionary(key,eventsBadDict_noLastLS,eventsInput)
 
     # Analyzing the information
     isComplete = True
-    eventsBuilt          = eventsTotalRun          - eventsLostBUs
-    eventsBuilt_noLastLS = eventsTotalRun_noLastLS - eventsLostBUs_noLastLS
+    eventsBuilt = eventsTotalRun - eventsLostBUs
 
     # Need at least one MiniEoRFile to be completed
     if numberMiniEoRFiles > 0:
@@ -233,24 +194,6 @@ def is_run_complete(
                        )
                     )
 
-            # Only go if it is still false
-            # eventsTotalRun_noLastLS to keep background compatibility
-            if isComplete == False and eventsTotalRun_noLastLS >= 0:
-                isComplete = True
-                for streamName in eventsIDict_noLastLS:
-                    sumEvents = eventsIDict_noLastLS[streamName][0]
-                    if streamName in eventsBadDict_noLastLS.keys():
-                        sumEvents = sumEvents + eventsBadDict_noLastLS[streamName][0]
-                    if(sumEvents < eventsBuilt_noLastLS * completeMergingThreshold):
-                        isComplete = False
-                    elif(sumEvents > eventsBuilt_noLastLS):
-                        isComplete = False
-                        logger.warning(
-                           "sumEvents > eventsBuilt_noLastLS!: {0} > {1}".format(
-                            sumEvents,eventsBuilt_noLastLS
-                           )
-                        )
-
     else:
         ## TODO: Test and enable this logger.info call:
         # logger.info(
@@ -296,13 +239,7 @@ def is_run_complete(
                 'eventsBuilt': eventsBuilt,
                 'eventsLostBUs': eventsLostBUs,
                 'numberMiniEoRFiles': numberMiniEoRFiles,
-                'isComplete': isComplete,
-                'eventsInputBUs_noLastLS': eventsInputBUs_noLastLS,
-                'eventsLostBUs_noLastLS': eventsLostBUs_noLastLS,
-                'eventsTotalRun_noLastLS': eventsTotalRun_noLastLS,
-                'eventsStreamInput_noLastLS': eventsIDict_noLastLS,
-                'eventsStreamBadInput_noLastLS': eventsBadDict_noLastLS,
-                'eventsBuilt_noLastLS': eventsBuilt_noLastLS
+                'isComplete': isComplete
             },
             sort_keys=True, indent=4
         )
