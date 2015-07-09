@@ -100,15 +100,8 @@ class Config(object):
         self.seconds_to_delay_run_closure = 60
         self.hours_to_wait_for_completion = 2.0
         self.json_suffix = None
-        #self.input_path = '/store/lustre/transfer'
         self.input_path = '/opt/transfers/mock_directory/transfer'
-        ## Set to None for logging to STDOUT
-        #self.logging_filename = 'eor.log'
-        #self.logging_level = logging.INFO
-        #self.logging_format = (r'%(asctime)s %(name)s %(levelname)s: '
-        #                       r'%(message)s')
         self.runs_last  = 300000
-        #self.store_ini_area = '/store/lustre/mergeMacro'
         self.store_ini_area = '/opt/transfers/mock_directory/mergeMacro'
         self.streams_to_exclude = _streams_to_exclude
         if filename:
@@ -119,23 +112,12 @@ class Config(object):
         parser = ConfigParser.ConfigParser()
         parser.read(self.filename)
         self.input_path = parser.get('Input', 'path')
-        #self.logging_filename = parser.get('Logging', 'filename')
-        #self.logging_level = getattr(logging, parser.get('Logging', 'level'))
-        #self.logging_format = parser.get('Logging', 'format', True)
     ## _parse_config_file
 ## Config
 
 
 #_______________________________________________________________________________
 def get_config():
-    # if len(sys.argv) == 1:
-    #     return Config()
-    # elif len(sys.argv) == 2:
-    #     return Config(sys.argv[1])
-    # else:
-    #     logger.critical("Invalid args: %s" % str(sys.argv))
-    #     print_usage()
-    #     sys.exit(1)
     return Config()
 ## get_config
 

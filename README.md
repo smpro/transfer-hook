@@ -21,8 +21,8 @@ Checkout the code.
 The transfers are using multiple machines the mapping is:
     
     srv-c2c07-16 --> Minidaq (minidaq configurations to be used)
-    mrg-c2f12-25 --> CDaq (cdaq configuration to be used)
-    mrg-c2f12-20 --> Testing (test configuration to be used)
+    mrg-c2f12-20 --> CDaq (cdaq configuration to be used)
+    mrg-c2f12-25 --> Testing (test configuration to be used)
 
 Transfer system has multiple components running on each machine.
 To check the the status of the system do:
@@ -42,7 +42,7 @@ Inspect the progress of the transfer hook and of the transfer system:
 
 Setup the environment:
 
-    ssh mrg-c2f12-25-01
+    ssh mrg-c2f12-20-01
     sudo su -
     cd /opt/python/smhook
 

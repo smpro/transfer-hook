@@ -28,12 +28,13 @@ import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
 
+from smhook.runinfo import RunInfo
 from datetime import datetime, timedelta, date
 from optparse import OptionParser
 from subprocess import call
 
-from smhook.runinfo import RunInfo
-from smhook.config import Config
+
+
 
 #from Logging import getLogger
 logger = logging.getLogger(__name__)
@@ -137,10 +138,10 @@ def setup():
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
-    ecal_pool     = ThreadPool(4)
-    dqm_pool      = ThreadPool(4)
-    evd_pool      = ThreadPool(4)
-    lookarea_pool = ThreadPool(4)
+    ecal_pool     = ThreadPool(5)
+    dqm_pool      = ThreadPool(5)
+    evd_pool      = ThreadPool(5)
+    lookarea_pool = ThreadPool(5)
 ## setup()
 
 #______________________________________________________________________________
@@ -228,8 +229,8 @@ def iterate():
                 )
         appversion = runinfo.get_cmssw_version(run_number)
         if appversion == 'UNKNOWN':
-            appversion = get_cmssw_version(run_number)
-        #hlt_key = hltkeys[run_number]
+            logger.warning('The CMSSW version is UNKNOWN for run %d' %run_number)
+
         hlt_key = runinfo.get_hlt_key(run_number)
         # Sort JSON files by filename, implying also by lumi.
         jsns.sort()
@@ -473,13 +474,12 @@ def mkdir(path):
 
 #______________________________________________________________________________
 def get_rundirs_and_hltkeys(path, new_path):
-    _run_number_min = cfg.getint('Misc','run_number_min')
     _run_number_max = cfg.getint('Misc','run_number_max')
 
     rundirs, runs, hltkeymap = [], [], {}
     for rundir in sorted(glob.glob(os.path.join(path, 'run*')), reverse=True):
         run_number = get_run_number(rundir)
-        if run_number < _run_number_min or _run_number_max < run_number:
+        if _run_number_max < run_number:
             continue
         new_rundir = os.path.join(new_path, rundir)
         if eor.Run(new_rundir).is_closed():
@@ -510,27 +510,6 @@ def get_run_number(rundir):
     return int(os.path.basename(run_token).replace('run', ''))
 ## get_run_number
 
-
-#______________________________________________________________________________
-def get_cmssw_version(run_number):
-
-    _old_cmssw_version = cfg.get('Misc','old_cmssw_version')
-    current_cmssw_version = _old_cmssw_version
-    ## Sort the first_run -> new_cmssw_version map by the first_run
-    ##Zeynep's Hack Just so that the Run continues- To BE CORRECTED
-    ##sorted_rv_pairs = sorted(_first_run_to_new_cmssw_version_map.items(),
-    ##                         key=lambda x: x[0])
-    ##for first_run, new_cmssw_version in sorted_rv_pairs:
-    ##    if first_run <= run_number:
-    ##        current_cmssw_version = new_cmssw_version
-    ##    else:
-    ##        break
-    current_cmssw_version = "UNKNOWN"
-    return current_cmssw_version
-    
-## get_cmssw_version()
-
-
 #______________________________________________________________________________
 def monitor_rates(jsn_file):
     fname = jsn_file + 'data'
@@ -555,7 +534,6 @@ def monitor_rates(jsn_file):
     except cx_Oracle.IntegrityError:
         logger.warning('DB record for %s already present!' %  basename)
 ## monitor_rates
-
 
 #______________________________________________________________________________
 def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None,
