@@ -506,8 +506,7 @@ def get_rundirs_and_hltkeys(path, new_path):
 
 #______________________________________________________________________________
 def get_run_number(rundir):
-    run_token = rundir.split('_')[0]
-    return int(os.path.basename(run_token).replace('run', ''))
+    return int(os.path.basename(rundir).replace('run', ''))
 ## get_run_number
 
 #______________________________________________________________________________
