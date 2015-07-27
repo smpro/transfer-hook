@@ -21,7 +21,7 @@ from smhook.daemon import Daemon
 
 PIDFILE = '/var/run/smhookd.pid'
 KRB5_CONFIG = '/nfshome0/smpro/confidential/krb5.conf.srv-C2C03-22'
-
+EOS_MGM_URL='root://eoscms.cern.ch'
 ## Use these for production
 STDOUT = '/dev/null'
 STDERR = '/dev/null'
@@ -49,6 +49,10 @@ class SMHookD(Daemon):
             'Setting environment KRB5_CONFIG=%s ...' % KRB5_CONFIG
         )
         os.environ['KRB5_CONFIG'] = KRB5_CONFIG
+        self.logger.info(
+            'Setting environment EOS_MGM_URL=%s ...' % EOS_MGM_URL
+        )
+        os.environ['EOS_MGM_URL'] = EOS_MGM_URL
         self.logger.debug("Calling smhook.hook.main() ...")
         try:
             smhook.hook.main()

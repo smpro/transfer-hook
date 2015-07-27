@@ -2,7 +2,7 @@
 
 # Usage: ./mkrpm.sh
 
-VERSION=1.0
+VERSION=1.1
 RELEASE=2
 
 echo 'You are trying to build an RPM for smhook version:',$VERSION,' and release: '$RELEASE   
@@ -12,11 +12,11 @@ rpmdev-setuptree
 cd ~/rpmbuild/SOURCES/
 git clone git@github.com:smpro/transfer-hook.git
 cd transfer-hook
-git checkout devel
+git checkout pdt
 
 #Get list of files in smhook
 for i in `find smhook -type f`; do 
-    if [ $i != 'smhook/mkrpm.sh' ] && [ $i != 'smhook/TEMP.spec' ] && [ $i != 'smhook/config/smeord_priority.conf' ] && [ $i != 'smhook/config/smhookd_priority.conf' ]; then 
+    if [ $i != 'smhook/mkrpm.sh' ] && [ $i != 'smhook/TEMP.spec' ] && [ $i != 'smhook/config/smhookd_priority.conf' ]; then 
 	echo $i >> files_TEMP.list; 
     fi
 done
@@ -26,7 +26,7 @@ sed -e "s/__VERSION__/$VERSION/g" ~/rpmbuild/SOURCES/transfer-hook/smhook/TEMP.s
 sed -e "s/__RELEASE__/$RELEASE/g" TEMP_$VERSION.spec > TEMP_$VERSION$RELEASE.spec
 sed -e "s\MYDIR\~/rpmbuild/SOURCES/\g" TEMP_$VERSION$RELEASE.spec > smhook.spec
 
-tar --exclude='TEMP.spec' --exclude='mkrpm.sh' --exclude='smhookd_priority.conf' --exclude='smeord_priority.conf' -cvzf smhook.tgz smhook
+tar --exclude='TEMP.spec' --exclude='mkrpm.sh' --exclude 'smhook_priority.conf' -cvzf smhook.tgz smhook
 mv ~/rpmbuild/SOURCES/transfer-hook/smhook.tgz ../
 mv ~/rpmbuild/SOURCES/transfer-hook/files.list  ~/rpmbuild/SPECS  
 mv ~/rpmbuild/SOURCES/transfer-hook/smhook.spec ~/rpmbuild/SPECS
