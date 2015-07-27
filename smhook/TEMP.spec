@@ -24,15 +24,15 @@ This RPM installs the transfer system hook (python) and configuraton files.
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/store/detectordata/
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_bril         
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_csc          
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_dt           
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_ecal         
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_hcal         
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_rpc          
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_pixel
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_strip
-mkdir $RPM_BUILD_ROOT/store/detectordata/dpg_trigger      
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_bril         
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_csc          
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_dt           
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_ecal         
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_hcal         
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_rpc          
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_pixel
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_strip
+mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_trigger      
 
 tar -xf MYDIR/smhook.tgz -C $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
