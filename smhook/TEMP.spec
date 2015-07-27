@@ -23,16 +23,6 @@ This RPM installs the transfer system hook (python) and configuraton files.
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/python/
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_bril         
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_csc          
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_dt           
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_ecal         
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_hcal         
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_rpc          
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_pixel
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_tracker_strip
-mkdir -p $RPM_BUILD_ROOT/store/detectordata/dpg_trigger      
 
 tar -xf MYDIR/smhook.tgz -C $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
@@ -61,6 +51,16 @@ chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
 su - smpro -c "cat ~smpro/confidential/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
 chmod 444 /opt/python/smhook/config/.smpro_cern_cred
 chkconfig --add smhookd
+mkdir -p /store/detectordata/dpg_bril         
+mkdir -p /store/detectordata/dpg_csc          
+mkdir -p /store/detectordata/dpg_dt           
+mkdir -p /store/detectordata/dpg_ecal         
+mkdir -p /store/detectordata/dpg_hcal         
+mkdir -p /store/detectordata/dpg_rpc          
+mkdir -p /store/detectordata/dpg_tracker_pixel
+mkdir -p /store/detectordata/dpg_tracker_strip
+mkdir -p /store/detectordata/dpg_trigger      
+
 if test -e /etc/init.d/smhookd; then
   /etc/init.d/smhookd restart >/dev/null 2>&1
 fi
