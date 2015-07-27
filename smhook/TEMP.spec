@@ -60,6 +60,8 @@ mkdir -p /store/detectordata/dpg_rpc
 mkdir -p /store/detectordata/dpg_tracker_pixel
 mkdir -p /store/detectordata/dpg_tracker_strip
 mkdir -p /store/detectordata/dpg_trigger      
+mkdir -p /store/detectordata/pdt_safety     
+mkdir -p /store/detectordata/pdt_trash      
 
 if test -e /etc/init.d/smhookd; then
   /etc/init.d/smhookd restart >/dev/null 2>&1
