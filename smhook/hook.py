@@ -687,7 +687,7 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 			logger.info("Overwriting `%s'" % dst_path)
 		else:
 			raise RuntimeError, "Destination file `%s' exists!" % dst_path
-	max_retries=cfg.get('Misc','max_retries')
+	max_retries=cfg.getint('Misc','max_retries')
 	n_retries=0
 	while n_retries < max_retries:
 		try:
