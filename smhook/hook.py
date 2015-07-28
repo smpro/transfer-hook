@@ -695,7 +695,7 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 				# do copy to eos
 				# need to improve eos error handling
 				cmd_cp_to_eos =  ("xrdcp " + str(src) + " root://eoscms.cern.ch//" + str(dst_path))
-				logger.info("Running '{0}' (try # {1}) ...".format(cmd_cp_to_eos,n_retries+1))
+				logger.info("Running '{0}' (try # {1} / {2}) ...".format(cmd_cp_to_eos,n_retries+1, max_retries))
 				result=os.popen(cmd_cp_to_eos).read()
 				#if result[0:5]=='error':
 				#	raise ValueError('eos error')				
@@ -715,7 +715,7 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 			else:
 				if src_checksum: # then verify the checksums:
 					cmd_cp="cp {0} {1}".format(src, dst_path)
-					logger.info("Running '{0}' (try # {1}) ...".format(cmd_cp,n_retries+1))
+					logger.info("Running '{0}' (try # {1} / {2}) ...".format(cmd_cp,n_retries+1, max_retries))
 					os.system(cmd_cp)
 					dst_checksum = format(get_positive_checksum(dst_path),'x').zfill(8)
 					if dst_checksum == src_checksum:
