@@ -481,7 +481,7 @@ def iterate_main_data():
 			except ValueError:
 				logger.warning("Illegal filename `%s'!" % fname)
 	connection.close()
-## iterate_private_data()
+## iterate_main_data()
    
 #______________________________________________________________________________
 def iterate_private_data():
@@ -522,12 +522,12 @@ def iterate_private_data():
 			EOS_dir = os.path.join( cfg.get('Private_Data_Symlinks', symlink), 'run'+str(runnumber))
 			dat_file = os.path.join(path, dpg_dir, fileName)
 
-			# Move stuff to trash dir
-			trash_subdir=os.path.join(trash_dir,symlink,'run'+str(runnumber))
-			maybe_move(jsn_file, trash_subdir, force_overwrite=True)
-			maybe_move(dat_file, trash_subdir, force_overwrite=True, suffix=None, eos=False, src_checksum=checksum)
-			jsn_file=os.path.join(trash_subdir,os.path.split(jsn_file)[1])
-			dat_file=os.path.join(trash_subdir,os.path.split(dat_file)[1])
+			# Move stuff to safety dir
+			# trash_subdir=os.path.join(trash_dir,symlink,'run'+str(runnumber))
+			maybe_move(jsn_file, safety_subdir, force_overwrite=True)
+			maybe_move(dat_file, safety_subdir, force_overwrite=True)
+			jsn_file=os.path.join(safety_subdir,os.path.split(jsn_file)[1])
+			dat_file=os.path.join(safety_subdir,os.path.split(dat_file)[1])
 
 			# Now copy to eos and move to the aux dirs if desired
 			aux_path = cfg.get('Private_Data_Auxiliary_Destinations','aux_path_'+symlink)
