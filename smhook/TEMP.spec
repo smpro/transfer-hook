@@ -1,6 +1,6 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
-Name:           smhook
+Name:           smhookPDT
 Version:        __VERSION__
 Release:        __RELEASE__%{?dist}
 Summary:        Simple RPM used to setup the storage manager hook (python code)
@@ -16,7 +16,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 This RPM installs the transfer system hook (python) and configuraton files. 
 
 %prep
-%setup -q -n smhook
+%setup -q -n smhookPDT
 
 %build
 
@@ -24,7 +24,7 @@ This RPM installs the transfer system hook (python) and configuraton files.
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/opt/python/
 
-tar -xf MYDIR/smhook.tgz -C $RPM_BUILD_ROOT/opt/python/
+tar -xf MYDIR/smhookPDT.tgz -C $RPM_BUILD_ROOT/opt/python/
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 install -m 755 smhookd $RPM_BUILD_ROOT/etc/init.d     
 
