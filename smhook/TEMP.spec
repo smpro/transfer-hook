@@ -16,7 +16,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 This RPM installs the transfer system hook (python) and configuraton files. 
 
 %prep
-%setup -q -n smhookPDT
+%setup -q -n smhook
 
 %build
 
