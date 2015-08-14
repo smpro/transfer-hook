@@ -36,6 +36,9 @@ class Driver(object):
         ('hlt_key'      , 'HLT Key'      ),
         ('stop_time'    , 'Stop Time'    ),
         ('start_time'   , 'Start Time'   ),
+        ('active_bus'   , 'Active BUs'   ),
+        ('failed_bus'   , 'Failed BUs'   ),
+        ('triggers'     , 'Triggers'     ),
     ]
     def __init__(self, cfg=_driver_defaults):
         self.logger = logging.getLogger(type(self).__module__ + '.' +
@@ -102,6 +105,9 @@ class RunInfo(object):
             ('new_cmssw_version', 'CMS.DAQ:CMSSW_VERSION'       ),
             ('stop_time'        , 'CMS.LVL0:STOP_TIME%'         ),
             ('start_time'       , 'CMS.LVL0:START_TIME%'        ),
+            ('active_bus'       , 'CMS.DAQ:NB_ACTIVE_BUS_INRUN' ),
+            ('failed_bus'       , 'CMS.DAQ:NB_FAILED_BUS_INRUN' ),
+            ('triggers'         , 'CMS.DAQ:NB_TRIGGERS'         ),
         ]:
             getter_name      = 'get_' + name
             list_getter_name = 'get_' + name + 's'

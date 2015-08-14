@@ -2,8 +2,14 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
-import os
+#import os
 import shutil
+import os.path
+
+from smhook.runinfo import RunInfo 
+#import smhook.runinfo as RunInfo 
+global runinfo
+runinfo = RunInfo(os.path.join('/opt/python/smhook/config', '.db.omds.runinfo_r.cfg.py')) 
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +22,7 @@ def is_run_complete(
     """
     Defines if a run is complete.
     """
+    nbu = 0
     theMergeMiniFolder  = "/store/lustre/mergeBU"
     theMergeMacroFolder = "/store/lustre/mergeMacro"
 
@@ -140,7 +147,6 @@ def is_run_complete(
         key = (fileNameString[2])
 
         fillDictionary(key,eventsBadDict,eventsInput)
-        fillDictionary(key,eventsIDict,eventsInput)
 
     # Analyzing the information
     isComplete = True
@@ -151,24 +157,40 @@ def is_run_complete(
         # Check if the number of bus per Stream coming from the ini files is 
         # consistent with the number of miniEoRFiles.
         for stream, nbus in iniIDict.items():
+            nbu = len(nbus)
             if len(nbus) != numberMiniEoRFiles:
-                ## TODO: Test and enable this logger.info call:
-                # logger.info(
-                #    'Run %s ' % theRunNumber.replace('run', '') +
-                #    'is incomplete because nbus = %d ' % nbus +
-                #    'and numberMiniEoRFiles = %d ' % numberMiniEoRFiles +
-                #    'differ for stream %s!' % stream
-                # )
+                logger.info(
+                    'Run %s ' % theRunNumber.replace('run', '') +
+                    'is incomplete because nbus = %d ' % int(nbu) +
+                    'and numberMiniEoRFiles = %d ' % int(numberMiniEoRFiles) +
+                    'differ for stream %s!' % stream
+                    )
+                logger.info('Expected number of bus from the ini files are inconsistent, checking run info..')
+                run_number = int (theRunNumber.replace('run', ''))
+                if (runinfo.get_active_bus(run_number)) is not 'UNKNOWN':
+                    nbu = runinfo.get_active_bus(run_number)
+                logger.info('The expected number of bu from the run info is %s' % nbu)
+            if int(nbu) != int(numberMiniEoRFiles):
+                logger.info('nbus = %d ' % int(nbu) +
+                            'and numberMiniEoRFiles = %d ' % int(numberMiniEoRFiles) 
+                            )
                 isComplete = False
         # Check if the number of Streams coming from the ini files is 
         # consistent with the number of merged Streams.
         if len(iniIDict.keys()) != len(eventsIDict.keys()) and eventsBuilt > 0:
+            logger.info(
+                'Run %s ' % theRunNumber.replace('run', '') +
+                'is incomplete because expected number of streams = %d ' % len(iniIDict.keys()) +
+                'and observed number of streams = %d ' % len(eventsIDict.keys()) +
+                'differ')
             isComplete = False
-
+            
         # Only go if it is still true
         if isComplete == True:
             for streamName in eventsIDict:                
                 sumEvents = eventsIDict[streamName][0]
+                if streamName in eventsBadDict:
+                    sumEvents = sumEvents + eventsBadDict[streamName][0]
                 if(sumEvents < eventsBuilt * completeMergingThreshold):
                     message = 'Run %(run)s is incomplete because ' + \
                         'sumEvents = %(sum)d is less than ' + \
@@ -194,25 +216,31 @@ def is_run_complete(
                     )
 
     else:
-        ## TODO: Test and enable this logger.info call:
-        # logger.info(
-        #     'Run %s ' % theRunNumber.replace('run', '') +
-        #     'is incomplete because there are no MiniEoR files!'
-        # )
+        logger.info(
+            'Run %s ' % theRunNumber.replace('run', '') +
+            'is incomplete because there are no MiniEoR files!')
         isComplete = False
 
     logger.info(
-        "run/events/completion: {0} {1} {2} {3} {4}".format(
-            theInputDataFolder, eventsInputBUs, eventsInputFUs,
-            numberBoLSFiles, isComplete
-        )
+                'Run {0} has {1} expected BU, {2} Observed BU, {3} Total Events, {4} Lost Events, {5} Stream, and completion is {6}'
+                .format(
+                theRunNumber.replace('run', ''), nbu, numberMiniEoRFiles,
+                eventsTotalRun, eventsLostBUs, len(eventsIDict),
+                isComplete)
     )
-    if 'streamA' in iniIDict:
-        logger.debug(
-            "numberMiniEoRFiles/streamAfile: ".format(
-                numberMiniEoRFiles, len(iniIDict["streamA"])
-            )
-        )
+    if len(eventsIDict) > 0:
+        for stream in iniIDict:
+            logger.info(
+                "Input Stream {0} has {1} Events".format(
+                    stream, eventsIDict[stream]
+                    )
+                )
+            logger.debug(
+                "numberMiniEoRFiles/stream: ".format(
+                    numberMiniEoRFiles, len(iniIDict[stream])
+                    )
+                )
+            break
 
     # Deleting input folders, make sure you know what you are doing
     # It will not delete anything for now, just testing
