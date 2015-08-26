@@ -188,12 +188,28 @@ def iterate():
     new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
+
+    # check if there are any stream directories 
+    check_rundirs = []  
     for rundir in rundirs:
-        logger.debug("Inspecting `%s' ..." % rundir)
+        if not (glob.glob(os.path.join(rundir, 'stream*'))): 
+            rundir = rundir  
+            check_rundirs.append(rundir)    
+        else:
+            for streamdir in glob.glob(os.path.join(rundir, 'stream*')):  
+                check_rundirs.append(streamdir)  
+
+    for rundir in check_rundirs:
+        logger.info("Inspecting `%s' ..." % rundir)
         jsns = sorted(glob.glob(os.path.join(rundir, '*.jsn')))
         if not jsns:
             continue
-        rundir_basename = os.path.basename(rundir)
+
+        if 'stream' in rundir:
+            rundir_basename = os.path.basename(os.path.dirname(rundir)) 
+        else:
+            rundir_basename = os.path.basename(rundir) 
+
         run_number = int(rundir_basename.replace('run', ''))
         logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
