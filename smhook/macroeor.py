@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
-#import os
+import glob
 import shutil
 import os.path
 
@@ -43,16 +43,17 @@ def is_run_complete(
         logger.warning("Ini file folder {0} is not found, skipping the run".format(theStoreIniArea))
         return
 
-    # reading the list of files in the given folder
-    after = dict([(f, None) for f in os.listdir(theStoreIniArea)])
-    afterStringIniNoSorted = [f for f in after]
-    afterStringIni = sorted(afterStringIniNoSorted, reverse=False)
+    check_rundirs = []  
+    check_rundirs.append(theStoreIniArea)    
+    for streamdir in glob.glob(os.path.join(theStoreIniArea, 'stream*')):  
+    	check_rundirs.append(streamdir)  
 
     iniIDict = dict()
-
-    for nb in range(0, len(afterStringIni)):
-        if afterStringIni[nb].endswith(".ini"):
-            fileIniString = afterStringIni[nb].split('_')
+    for rundir in check_rundirs:
+        logger.info("Inspecting `%s' ..." % rundir)
+        jsns = sorted(glob.glob(os.path.join(rundir, '*.ini')))
+        for jsn_file in jsns:
+            fileIniString = jsn_file.split('_')
             key = (fileIniString[2])
 
             if "DQM" in key:

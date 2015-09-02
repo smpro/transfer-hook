@@ -189,6 +189,32 @@ def iterate():
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
 
+    # Just for the MiniEoR files
+    for rundir in rundirs:
+        logger.info("Inspecting `%s' for EoR searching..." % rundir)
+        jsns = sorted(glob.glob(os.path.join(rundir, '*EoR*.jsn')))
+        if not jsns:
+            continue
+
+        rundir_basename  = os.path.basename(rundir) 
+        run_number       = int(rundir_basename.replace('run', ''))
+        new_rundir       = os.path.join(new_path    , rundir_basename)
+        scratch_rundir   = os.path.join(scratch_path, rundir_basename)
+
+        jsns.sort()
+        run_key = runinfo.get_run_key(run_number)
+        for jsn_file in jsns:
+            if ('BoLS'  not in jsn_file and
+                'EoLS'  not in jsn_file and
+                'index' not in jsn_file and
+		'EoR' in jsn_file):
+                if run_key == 'TIER0_TRANSFER_OFF':
+                    maybe_move(jsn_file, scratch_rundir,
+                	       force_overwrite=True)
+                else:
+                    maybe_move(jsn_file, new_rundir, force_overwrite=True)
+                continue
+  
     # check if there are any stream directories 
     check_rundirs = []  
     for rundir in rundirs:
@@ -250,8 +276,6 @@ def iterate():
         hlt_key = runinfo.get_hlt_key(run_number)
         # Sort JSON files by filename, implying also by lumi.
         jsns.sort()
-        # Move the EoR files (ls0000) to the end.
-        jsns.sort(key=lambda x: 'EoR' in x)
         logger.info(
             "Processing {count} JSON file(s) in `{folder}':\n".format(
                 count=len(jsns), folder=rundir
@@ -261,13 +285,7 @@ def iterate():
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
-                if 'EoR' in jsn_file:
-                    if run_key == 'TIER0_TRANSFER_OFF':
-                        maybe_move(jsn_file, scratch_rundir,
-                                   force_overwrite=True)
-                    else:
-                        maybe_move(jsn_file, new_rundir, force_overwrite=True)
-                    continue
+
                 settings_textI = open(jsn_file, "r").read()
                 try:
                     settings = json.loads(settings_textI)
