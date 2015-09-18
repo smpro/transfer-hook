@@ -509,11 +509,42 @@ def iterate_private_data():
 			continue
 		for jsn_file in jsns:
 			safety_subdir=os.path.join(safety_dir,dpg_base)
-			jsn_info=parse_jsn_file(jsn_file, safety_subdir)
-			if jsn_info:
-				[runnumber, lumiSection, streamName, eventsNumber, fileName, fileSize, checksum, symlink] = jsn_info
+			#jsn_info=parse_jsn_file(jsn_file, safety_subdir)
+			#if jsn_info:
+			#	[runnumber, lumiSection, streamName, eventsNumber, fileName, fileSize, checksum, symlink] = jsn_info
+			#else:
+			#	continue
+			settings_textI = open(jsn_file, "r").read()
+			try:
+				settings = json.loads(settings_textI)
+			except ValueError:
+				logger.warning("The json file %s is corrupted!" % jsn_file)
+				maybe_move(jsn_file, safety_subdir, suffix='Corrupted', force_overwrite=True)
+				return False
+			if len(settings['data']) != 10:
+				logger.warning("Failed to parse `%s' (malformed) not enough or too many entries in 'data'!" % jsn_file)
+				maybe_move(jsn_file, safety_subdir, suffix='Malformed', force_overwrite=True)
+				return False
+			eventsNumber = int(settings['data'][1])
+			fileName = str(settings['data'][3])
+			fileSize = int(settings['data'][4])
+			
+			# get info from required file name format
+			try:
+				runnumber = int(fileName.split('_')[0].strip('run'))
+				lumiSection = int(fileName.split('_')[1].strip('ls'))
+				streamName = str(fileName.split('_')[2].split('stream')[1])
+			except ValueError:
+				logger.warning("The json file %s has improper name format and cannot be processed" % jsn_file)
+				maybe_move(jsn_file, safety_subdir, suffix='BadName', force_overwrite=True)
+				return False
+			if ( _checksum_status ):
+				checksum_int = int(settings['data'][5]) 
+				checksum = format(checksum_int, 'x').zfill(8)	#making sure it is 8 digits
 			else:
-				continue
+				checksum = 0
+			symlink = str(settings['data'][9])
+
 			# Make sure the symlink is legit
 			if symlink not in valid_pdt_symlinks:
 				logger.warning("{0} contains a symlink not accounted for in configuration mapping. Moving it to {1}".format(jsn_file, safety_dir))
