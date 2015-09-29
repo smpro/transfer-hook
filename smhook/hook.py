@@ -331,8 +331,12 @@ def iterate():
                         maybe_move(dat_file, scratch_rundir)
                         jsn_file = jsn_file.replace(rundir, scratch_rundir)
                         dat_file = dat_file.replace(rundir, scratch_rundir)
-                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
-                        dqm_pool.apply_async(move_files, args)
+ 
+                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir]
+                        dqm_pool.apply_async(double_p5_location, args)
+
+                        #args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
+                        #dqm_pool.apply_async(move_files, args)
                     continue
 
                 if streamName in _streams_to_ecal:
@@ -345,16 +349,16 @@ def iterate():
                     args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
                     ecal_pool.apply_async(move_files, args)
                     continue
-                if streamName in _streams_to_lookarea:
+                #if streamName in _streams_to_lookarea:
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(dat_file, scratch_rundir)
-                    jsn_file = jsn_file.replace(rundir, scratch_rundir)
-                    dat_file = dat_file.replace(rundir, scratch_rundir)
-                    args = [dat_file, jsn_file, lookarea_rundir_open, lookarea_rundir]
-                    lookarea_pool.apply_async(move_files, args)
-                    continue
+                #    maybe_move(jsn_file, scratch_rundir)
+                #    maybe_move(dat_file, scratch_rundir)
+                #    jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                #    dat_file = dat_file.replace(rundir, scratch_rundir)
+                #    args = [dat_file, jsn_file, lookarea_rundir_open, lookarea_rundir]
+                #    lookarea_pool.apply_async(move_files, args)
+                #    continue
                 if streamName in _streams_to_evd:
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=True)
@@ -570,7 +574,7 @@ def monitor_rates(jsn_file):
 
 #______________________________________________________________________________
 def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None,
-                          eos=False):
+                          eos=False,move=False):
     '''
     Prints a message about how it would move the file src to the directory dst
     if this was for real.
@@ -590,7 +594,7 @@ def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None,
 
 #______________________________________________________________________________
 def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
-                     eos=False):
+                     eos=False, move=True):
     '''
     Moves the file src to the directory dst_dir. Creates dst_dir if it doesn't
     exist.
@@ -625,8 +629,13 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
             logger.info("Running `%s' ..." % command)
             os.system(command)
         else:
-            logger.info("Running `mv %s %s' ..." % (src, dst_path))
-            shutil.move(src, dst_path)
+            if move:
+                logger.info("Running `mv %s %s' ..." % (src, dst_path))
+                shutil.move(src, dst_path)
+            else:
+                logger.info("Running `cp %s %s' ..." % (src, dst_path))
+                shutil.copy(src, dst_path)
+
     except IOError as error:
         if error.errno == 2 and error.filename == dst_path:
             ## Directory dst_dir doesn't seem to exist. Let's create it.
@@ -644,8 +653,13 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
                 logger.info("Running `%s' ..." % command)
                 os.system(command)
             else:
-                logger.info("Running `mv %s %s' ..." % (src, dst_path))
-                shutil.move(src, dst_path)
+                if move:
+                    logger.info("Running `mv %s %s' ..." % (src, dst_path))
+                    shutil.move(src, dst_path)
+                else:
+                    logger.info("Running `cp %s %s' ..." % (src, dst_path))
+                    shutil.copy(src, dst_path)
+                    
         else:
             logger.error(
                 "errno: %d, filename: %s, message: %s" % (
@@ -671,6 +685,27 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
 ## move_files()
 
 #______________________________________________________________________________
+def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir):
+    try:
+        #first copy to open area dst1
+        maybe_move(datFile, copy_rundir_open, force_overwrite=False, suffix=None, eos=False, move=False)
+        maybe_move(jsnFile, copy_rundir_open, force_overwrite=False, suffix=None, eos=False, move=False)
+        #then move to the final area for dst1
+        maybe_move(os.path.join(copy_rundir_open,os.path.basename(datFile)),copy_rundir)
+        maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir)
+
+        #then move to open area dst2
+        maybe_move(datFile, move_rundir_open)
+        maybe_move(jsnFile, move_rundir_open)
+        # then move to the final area
+        maybe_move(os.path.join(move_rundir_open,os.path.basename(datFile)),move_rundir)
+        maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir)
+    except Exception as e:
+        logger.exception(e)
+
+## double_p5_location()
+
+#______________________________________________________________________________
 def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir,
                     final_eosrundir):
     try:
@@ -691,9 +726,6 @@ def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir,
     except Exception as e:
         logger.exception(e)
 ## copy_move_files()
-
-
-
 
 #______________________________________________________________________________
 def log_and_exec(args, print_output=False):
