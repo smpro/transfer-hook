@@ -191,7 +191,7 @@ def iterate():
 
     # Just for the MiniEoR files
     for rundir in rundirs:
-        logger.info("Inspecting `%s' for EoR searching..." % rundir)
+        logger.debug("Inspecting `%s' for EoR searching..." % rundir)
         jsns = sorted(glob.glob(os.path.join(rundir, '*EoR*.jsn')))
         if not jsns:
             continue
@@ -226,7 +226,7 @@ def iterate():
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
-        logger.info("Inspecting `%s' ..." % rundir)
+        logger.debug("Inspecting `%s' ..." % rundir)
         jsns = sorted(glob.glob(os.path.join(rundir, '*.jsn')))
         if not jsns:
             continue

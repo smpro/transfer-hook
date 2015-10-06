@@ -139,7 +139,20 @@ def monitorRates(jsndata_file):
 	except (OSError, IOError) as e:
 		logger.error('Error finding or opening jsndata file: "'+jsndata_file+'"')
 		return False
-	rates=json.loads(rates_json)
+
+	try:
+		rates=json.loads(rates_json)
+	except (ValueError) as e:
+		#check json
+		jsn_file = jsndata_file.strip('data')
+		settings_textI = open(jsn_file).read()
+		settings = json.loads(settings_textI)
+		#check the eventsNumber
+		if int(settings['data'][1]) == 0:
+			return
+		else:
+			logger.error('The jsndata is not readable but you gave me a json with events!')
+			return False
 
 	# Get the ini in the directory with rates corresponding to specified run number, lumi section, and HLT|L1
 	# The correspondence might look like:
