@@ -172,6 +172,9 @@ def iterate():
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
 
+    _special_streams  = cfg.getlist('Streams','special_streams' )
+    _run_special_streams = cfg.getboolean('Misc','run_special_streams')
+
     _renotify = cfg.getboolean('Misc','renotify')
 
     max_tier0_transfer_file_size = cfg.getint(
@@ -297,11 +300,11 @@ def iterate():
                     logger.warning("Failed to parse `%s'!" % jsn_file)
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
+                inputEvents = int(settings['data'][0])
                 eventsNumber = int(settings['data'][1])
                 fileName = str(settings['data'][3])
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
-                #streamName = str(fileName.split('_')[2].strip('stream'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
                 if ( _checksum_status ):
                     checksum_int = int(settings['data'][5]) 
@@ -310,10 +313,21 @@ def iterate():
                     checksum = 0
                 dat_file = os.path.join(rundir, fileName)
                 logger.info("The hex format checksum of the file {0} is {1} ".format(dat_file, checksum))
+
+                ### This is a protection for bubbles
+                overwrite = False
+                if (inputEvents == 0):
+                    overwrite = True
+
+                ## This is an xor operation to split the streams into 2 machines.
+                ## Explicitly the operation is:
+                ## if ((streamName in _special_streams and not _run_special_streams) or (streamName not in _special_streams and _run_special_streams)):
+                if (streamName in _special_streams != _run_special_streams):
+                    logger.debug("This file {0} is ignored according to the configuration of this machine".format(dat_file))
+                    continue
+
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
-                if streamName in _streams_to_postpone:
-                    continue
                 if streamName in _streams_to_dqm:
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
@@ -324,41 +338,30 @@ def iterate():
                                 ) +
                             "Moving it to bad area with the suffix `TooLarge' ..."
                             )
-                        maybe_move(jsn_file, new_rundir_bad, suffix='TooLarge')
-                        maybe_move(dat_file, new_rundir_bad, suffix='TooLarge')
+                        maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
+                        maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     else:
-                        maybe_move(jsn_file, scratch_rundir)
-                        maybe_move(dat_file, scratch_rundir)
+                        maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
+                        maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                         jsn_file = jsn_file.replace(rundir, scratch_rundir)
                         dat_file = dat_file.replace(rundir, scratch_rundir)
  
-                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir]
+                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,overwrite]
                         dqm_pool.apply_async(double_p5_location, args)
 
-                        #args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir]
-                        #dqm_pool.apply_async(move_files, args)
                     continue
 
                 if streamName in _streams_to_ecal:
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(dat_file, scratch_rundir)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
+                    maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
                     dat_file = dat_file.replace(rundir, scratch_rundir)
-                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir]
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir,overwrite]
                     ecal_pool.apply_async(move_files, args)
                     continue
-                #if streamName in _streams_to_lookarea:
-                    ## TODO: Use some other temporary directory instead of
-                    ## scratch
-                #    maybe_move(jsn_file, scratch_rundir)
-                #    maybe_move(dat_file, scratch_rundir)
-                #    jsn_file = jsn_file.replace(rundir, scratch_rundir)
-                #    dat_file = dat_file.replace(rundir, scratch_rundir)
-                #    args = [dat_file, jsn_file, lookarea_rundir_open, lookarea_rundir]
-                #    lookarea_pool.apply_async(move_files, args)
-                #    continue
+
                 if streamName in _streams_to_evd:
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=True)
@@ -366,15 +369,15 @@ def iterate():
                     dat_file = dat_file.replace(rundir, scratch_rundir)
                     # Dima said they don't need the open area
                     args = [dat_file, jsn_file, evd_rundir_open, evd_rundir,
-                            evd_eosrundir]
+                            evd_eosrundir,overwrite]
                     evd_pool.apply_async(copy_move_files, args)
                     continue
 
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
-                    maybe_move(jsn_file, scratch_rundir)
-                    maybe_move(dat_file, scratch_rundir)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
+                    maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                     continue
                 if (fileSize > max_tier0_transfer_file_size):
                     logger.warning(
@@ -383,13 +386,13 @@ def iterate():
                         ) +
                         "Moving it to bad area with the suffix `TooLarge' ..."
                     )
-                    maybe_move(jsn_file, new_rundir_bad, suffix='TooLarge')
-                    maybe_move(dat_file, new_rundir_bad, suffix='TooLarge')
+                    maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
+                    maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     continue
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
-                maybe_move(dat_file, new_rundir)
-                maybe_move(jsn_file, new_rundir)
+                maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
@@ -484,8 +487,8 @@ def iterate():
                 jsn = metafile.File(fname)
                 if jsn.type == metafile.Type.MacroMerger:
                     dat_path = jsn.path.replace('.jsn', '.dat')
-                    maybe_move(jsn.path, new_rundir_bad)
-                    maybe_move(dat_path, new_rundir_bad)
+                    maybe_move(jsn.path, new_rundir_bad, force_overwrite=overwrite)
+                    maybe_move(dat_path, new_rundir_bad, force_overwrite=overwrite)
             except ValueError:
                 logger.warning("Illegal filename `%s'!" % fname)
     connection.close()
@@ -670,36 +673,36 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 ## move_file_to_dir()
 
 #______________________________________________________________________________
-def move_files(datFile, jsnFile, final_rundir_open, final_rundir):
+def move_files(datFile, jsnFile, final_rundir_open, final_rundir, overwrite):
     try:
         # first move to open area
-        maybe_move(datFile, final_rundir_open)
-        maybe_move(jsnFile, final_rundir_open)
+        maybe_move(datFile, final_rundir_open, force_overwrite=overwrite)
+        maybe_move(jsnFile, final_rundir_open, force_overwrite=overwrite)
         # then move to the final area
         maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)),
-                   final_rundir)
+                   final_rundir, force_overwrite=overwrite)
         maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
-                   final_rundir)
+                   final_rundir, force_overwrite=overwrite)
     except Exception as e:
         logger.exception(e)
 ## move_files()
 
 #______________________________________________________________________________
-def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir):
+def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir, overwrite):
     try:
         #first copy to open area dst1
-        maybe_move(datFile, copy_rundir_open, force_overwrite=False, suffix=None, eos=False, move=False)
-        maybe_move(jsnFile, copy_rundir_open, force_overwrite=False, suffix=None, eos=False, move=False)
+        maybe_move(datFile, copy_rundir_open, force_overwrite=overwrite, suffix=None, eos=False, move=False)
+        maybe_move(jsnFile, copy_rundir_open, force_overwrite=overwrite, suffix=None, eos=False, move=False)
         #then move to the final area for dst1
-        maybe_move(os.path.join(copy_rundir_open,os.path.basename(datFile)),copy_rundir)
-        maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir)
+        maybe_move(os.path.join(copy_rundir_open,os.path.basename(datFile)),copy_rundir,force_overwrite=overwrite)
+        maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir,force_overwrite=overwrite)
 
         #then move to open area dst2
-        maybe_move(datFile, move_rundir_open)
-        maybe_move(jsnFile, move_rundir_open)
+        maybe_move(datFile, move_rundir_open,force_overwrite=overwrite)
+        maybe_move(jsnFile, move_rundir_open,force_overwrite=overwrite)
         # then move to the final area
-        maybe_move(os.path.join(move_rundir_open,os.path.basename(datFile)),move_rundir)
-        maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir)
+        maybe_move(os.path.join(move_rundir_open,os.path.basename(datFile)),move_rundir,force_overwrite=overwrite)
+        maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir,force_overwrite=overwrite)
     except Exception as e:
         logger.exception(e)
 
@@ -707,20 +710,20 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
 
 #______________________________________________________________________________
 def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir,
-                    final_eosrundir):
+                    final_eosrundir,overwrite):
     try:
         # first copy or move to the final area with the eos parameter
-        maybe_move(datFile, final_eosrundir,eos=True)
-        maybe_move(jsnFile, final_eosrundir,eos=True)
+        maybe_move(datFile, final_eosrundir,force_overwrite=overwrite, eos=True)
+        maybe_move(jsnFile, final_eosrundir,force_overwrite=overwrite, eos=True)
 
         # first move to open area in the nfs
-        maybe_move(datFile, final_rundir_open,eos=False)
-        maybe_move(jsnFile, final_rundir_open,eos=False)
+        maybe_move(datFile, final_rundir_open,force_overwrite=overwrite,eos=False)
+        maybe_move(jsnFile, final_rundir_open,force_overwrite=overwrite,eos=False)
         # then move to the final area in the nfs
         maybe_move(os.path.join(final_rundir_open,os.path.basename(datFile)),
-                   final_rundir,eos=False)
+                   final_rundir,force_overwrite=overwrite,eos=False)
         maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
-                   final_rundir,eos=False)
+                   final_rundir,force_overwrite=overwrite,eos=False)
         #maybe_move(datFile, final_rundir,eos=False)
         #maybe_move(jsnFile, final_rundir,eos=False)
     except Exception as e:
