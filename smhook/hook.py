@@ -321,9 +321,9 @@ def iterate():
 
                 ## This is an xor operation to split the streams into 2 machines.
                 ## Explicitly the operation is:
-                ## if ((streamName in _special_streams and not _run_special_streams) or (streamName not in _special_streams and _run_special_streams)):
-                if (streamName in _special_streams != _run_special_streams):
-                    logger.debug("This file {0} is ignored according to the configuration of this machine".format(dat_file))
+                if ((streamName in _special_streams and not _run_special_streams) or (streamName not in _special_streams and _run_special_streams)):
+                #if (streamName in _special_streams != _run_special_streams):
+                    logger.info("This file {0} is ignored according to the configuration of this machine".format(dat_file))
                     continue
 
                 if streamName in _streams_with_scalers:
