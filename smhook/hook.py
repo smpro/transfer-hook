@@ -185,39 +185,41 @@ def iterate():
         'Output', 'maximum_dqm_transfer_file_size_in_bytes'
     )
 
-
     hostname = socket.gethostname()
 
     new_path = get_new_path(path, new_path_base)
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
 
-    # Just for the MiniEoR files
-    for rundir in rundirs:
-        logger.debug("Inspecting `%s' for EoR searching..." % rundir)
-        jsns = sorted(glob.glob(os.path.join(rundir, '*EoR*.jsn')))
-        if not jsns:
-            continue
-
-        rundir_basename  = os.path.basename(rundir) 
-        run_number       = int(rundir_basename.replace('run', ''))
-        new_rundir       = os.path.join(new_path    , rundir_basename)
-        scratch_rundir   = os.path.join(scratch_path, rundir_basename)
-
-        jsns.sort()
-        run_key = runinfo.get_run_key(run_number)
-        for jsn_file in jsns:
-            if ('BoLS'  not in jsn_file and
-                'EoLS'  not in jsn_file and
-                'index' not in jsn_file and
-		'EoR' in jsn_file):
-                if run_key == 'TIER0_TRANSFER_OFF':
-                    maybe_move(jsn_file, scratch_rundir,
-                	       force_overwrite=True)
-                else:
-                    maybe_move(jsn_file, new_rundir, force_overwrite=True)
+    if _run_special_streams == True:
+        # Just for the MiniEoR files
+        for rundir in rundirs:
+            logger.debug("Inspecting `%s' for EoR searching..." % rundir)
+            jsns = sorted(glob.glob(os.path.join(rundir, '*EoR*.jsn')))
+            if not jsns:
                 continue
-  
+
+            rundir_basename  = os.path.basename(rundir) 
+            run_number       = int(rundir_basename.replace('run', ''))
+            new_rundir       = os.path.join(new_path    , rundir_basename)
+            scratch_rundir   = os.path.join(scratch_path, rundir_basename)
+
+            jsns.sort()
+            run_key = runinfo.get_run_key(run_number)
+            for jsn_file in jsns:
+                if ('BoLS'  not in jsn_file and
+                    'EoLS'  not in jsn_file and
+                    'index' not in jsn_file and
+                    'EoR' in jsn_file):
+                    if run_key == 'TIER0_TRANSFER_OFF':
+                        maybe_move(jsn_file, scratch_rundir,
+                                   force_overwrite=True)
+                    else:
+                        maybe_move(jsn_file, new_rundir, force_overwrite=True)    
+                    continue
+    else:
+        logger.info("The other machine is moving the miniEoR files so I will ignore")
+
     # check if there are any stream directories 
     check_rundirs = []  
     for rundir in rundirs:
@@ -229,7 +231,14 @@ def iterate():
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
-        logger.debug("Inspecting `%s' ..." % rundir)
+        logger.info("Inspecting `%s' ..." % rundir)
+        logger.debug("Base name for the rundir is: %s " % os.path.basename(rundir))
+        stream_basename = os.path.basename(rundir)
+        stream_basename = stream_basename.replace('stream','')
+        if ((stream_basename in _special_streams and not _run_special_streams) or (stream_basename not in _special_streams and _run_special_streams)):
+            logger.info("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+            continue
+
         jsns = sorted(glob.glob(os.path.join(rundir, '*.jsn')))
         if not jsns:
             continue
@@ -289,7 +298,11 @@ def iterate():
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
 
-                settings_textI = open(jsn_file, "r").read()
+                try:
+                    settings_textI = open(jsn_file, "r").read()
+                except IOError:
+                    logger.warning("The json file %s is moved by the other machine!" % jsn_file)
+                    continue
                 try:
                     settings = json.loads(settings_textI)
                 except ValueError:
