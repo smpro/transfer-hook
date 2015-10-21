@@ -139,7 +139,7 @@ def setup():
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
     ecal_pool     = ThreadPool(5)
-    dqm_pool      = ThreadPool(5)
+    dqm_pool      = ThreadPool(10)
     evd_pool      = ThreadPool(5)
     lookarea_pool = ThreadPool(5)
 ## setup()
