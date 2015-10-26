@@ -138,10 +138,10 @@ def setup():
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
-    ecal_pool     = ThreadPool(5)
-    dqm_pool      = ThreadPool(10)
-    evd_pool      = ThreadPool(5)
-    lookarea_pool = ThreadPool(5)
+    ecal_pool     = ThreadPool(4)
+    dqm_pool      = ThreadPool(5)
+    evd_pool      = ThreadPool(4)
+    lookarea_pool = ThreadPool(4)
 ## setup()
 
 #______________________________________________________________________________
@@ -531,7 +531,11 @@ def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
     rundirs, runs, hltkeymap = [], [], {}
-    for rundir in sorted(glob.glob(os.path.join(path, 'run*')), reverse=True):
+    full_list = sorted(glob.glob(os.path.join(path, 'run*')), reverse=True)
+
+    #for rundir in sorted(glob.glob(os.path.join(path, 'run*')), reverse=True):
+    for nf in range(0, min(len(full_list),50)):
+        rundir = full_list[nf]
         run_number = get_run_number(rundir)
         if _run_number_max < run_number:
             continue
