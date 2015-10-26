@@ -231,11 +231,11 @@ def is_run_complete(
     )
     if len(eventsIDict) > 0:
         for stream in iniIDict:
-            logger.info(
-                "Input Stream {0} has {1} Events".format(
-                    stream, eventsIDict[stream]
-                    )
-                )
+            #logger.info(
+            #    "Input Stream {0} has {1} Events".format(
+            #        stream, eventsIDict[stream]
+            #        )
+            #    )
             logger.debug(
                 "numberMiniEoRFiles/stream: ".format(
                     numberMiniEoRFiles, len(iniIDict[stream])
