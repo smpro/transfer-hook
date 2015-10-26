@@ -191,7 +191,7 @@ def iterate():
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
 
-    if _run_special_streams == True:
+    if _run_special_streams == False:
         # Just for the MiniEoR files
         for rundir in rundirs:
             logger.debug("Inspecting `%s' for EoR searching..." % rundir)
@@ -231,12 +231,12 @@ def iterate():
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
-        logger.info("Inspecting `%s' ..." % rundir)
+        logger.debug("Inspecting `%s' ..." % rundir)
         logger.debug("Base name for the rundir is: %s " % os.path.basename(rundir))
         stream_basename = os.path.basename(rundir)
         stream_basename = stream_basename.replace('stream','')
         if ((stream_basename in _special_streams and not _run_special_streams) or (stream_basename not in _special_streams and _run_special_streams)):
-            logger.info("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+            logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
             continue
 
         jsns = sorted(glob.glob(os.path.join(rundir, '*.jsn')))
