@@ -181,7 +181,9 @@ def iterate(cfg):
             logger.info('Stopping loop over runs ...')
             break
         time_since_stop = run.time_since_stop()
-        if run.number == runs[-1].number and not time_since_stop:
+        logger.info('Time since stop is {0}'.format(time_since_stop))
+        #if run.number == runs[-1].number and not time_since_stop:
+        if run.number == runs[0].number and not time_since_stop:
             ## This is the last known run and looking at RunInfo,
             ## it hasn't stopped yet.
             logger.info('Run {0} is ongoing ...'.format(run.number))
@@ -208,8 +210,10 @@ def iterate(cfg):
 def get_runs(cfg):
     runs = []
     dirnames = glob.glob(os.path.join(cfg.input_path, 'run*'))
-    dirnames.sort()
-    for dirname in dirnames:
+    dirnames.sort(reverse=True)
+    #for dirname in dirnames:
+    for nf in range(0, min(len(dirnames),50)):
+        dirname = dirnames[nf]
         logger.debug("Inspecting `%s' ..." % dirname)
         try:
             run = Run(dirname, cfg.json_suffix)
