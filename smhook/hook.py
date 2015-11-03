@@ -314,6 +314,10 @@ def iterate():
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
                 inputEvents = int(settings['data'][0])
+
+                if inputEvents == 0:
+                    continue
+
                 eventsNumber = int(settings['data'][1])
                 fileName = str(settings['data'][3])
                 fileSize = int(settings['data'][4])
