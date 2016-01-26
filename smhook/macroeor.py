@@ -51,7 +51,9 @@ def is_run_complete(
     iniIDict = dict()
     for rundir in check_rundirs:
         logger.info("Inspecting `%s' ..." % rundir)
-        jsns = sorted(glob.glob(os.path.join(rundir, '*.ini')))
+        jsn_parts = [rundir,'data','*.ini']
+        #jsns = sorted(glob.glob(os.path.join(rundir, '*.ini')))
+        jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
         for jsn_file in jsns:
             fileIniString = jsn_file.split('_')
             key = (fileIniString[2])
