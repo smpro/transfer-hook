@@ -46,12 +46,13 @@ execfile(myconfig)
 # However in this row are two Varrays containing 128 (64) bits for the algo (technical) for the trigger rates,
 # accomplishing in 1 row what the HLT rates table does with many rows.
 
-def monitorRates(jsndata_file):
+def monitorRates(jsndata_file,rates_jsn_file):
 	# This takes the full path of a .jsndata file as parameter
 	# Any other call of this function is inappropriate and will just not work!
 	# e.g. jsndata_file='/store/lustre/mergeMiniDAQMacro/run230852/run230852_ls0110_streamHLTRates_mrg-c2f13-37-01.jsndata'
 
 	# Do some filename handling to get info about the run, stream, LS
+	jsn_file = rates_jsn_file
 	json_dir=os.path.dirname(jsndata_file) 
 	jsndata_filename=os.path.basename(jsndata_file)
 	file_raw, file_ext = os.path.splitext(jsndata_filename)
@@ -144,7 +145,6 @@ def monitorRates(jsndata_file):
 		rates=json.loads(rates_json)
 	except (ValueError) as e:
 		#check json
-		jsn_file = jsndata_file.strip('data')
 		settings_textI = open(jsn_file).read()
 		settings = json.loads(settings_textI)
 		#check the eventsNumber

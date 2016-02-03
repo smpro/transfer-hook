@@ -3,7 +3,7 @@
 # Usage: ./mkrpm.sh
 
 VERSION=1.0
-RELEASE=12
+RELEASE=13
 
 echo 'You are trying to build an RPM for smhook version:',$VERSION,' and release: '$RELEASE   
 

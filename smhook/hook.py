@@ -248,10 +248,8 @@ def iterate():
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
-        logger.info("Inspecting `%s' ..." % rundir)
-        logger.info("Base name for the rundir is: %s " % os.path.basename(rundir))
-        #logger.debug("Inspecting `%s' ..." % rundir)
-        #logger.debug("Base name for the rundir is: %s " % os.path.basename(rundir))
+        logger.debug("Inspecting `%s' ..." % rundir)
+        logger.debug("Base name for the rundir is: %s " % os.path.basename(rundir))
         stream_basename = os.path.basename(rundir)
         stream_basename = stream_basename.replace('stream','')
         if ((stream_basename in _special_streams and not _run_special_streams) or (stream_basename not in _special_streams and _run_special_streams)):
@@ -263,7 +261,7 @@ def iterate():
         #jsns = sorted(glob.glob(os.path.join(rundir,'*.jsn')))
         jsn_parts = [rundir,'jsns','*.jsn']
         jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
-        logger.info("The list of jsns are %s "  %jsns)
+        logger.debug("The list of jsns are %s "  %jsns)
         if not jsns:
             continue
 
@@ -393,8 +391,9 @@ def iterate():
                         maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                         maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                         jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                        jsn_file = jsn_file.replace('jsns/','')
                         dat_file = dat_file.replace(rundir, scratch_rundir)
- 
+                        dat_file = dat_file.replace('data/','')
                         args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,fileSize,overwrite]
                         dqm_pool.apply_async(double_p5_location, args)
                         
@@ -576,6 +575,8 @@ def mkdir(path):
 def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
+    _run_number_max = 99999999999
+
     rundirs, runs, hltkeymap = [], [], {}
     full_list = sorted(glob.glob(os.path.join(path, 'run*')), reverse=True)
 
@@ -615,10 +616,11 @@ def get_run_number(rundir):
 #______________________________________________________________________________
 def monitor_rates(jsn_file):
     fname = jsn_file + 'data'
+    fname = fname.replace('/jsns/','/data/')
     basename = os.path.basename(fname)
     try:
         logger.info('Inserting %s in WBM ...' % basename)
-        monitorRates.monitorRates(fname)
+        monitorRates.monitorRates(fname,jsn_file)
         delay = get_time_since_modification(fname)
         max_delay = timedelta(
             seconds = cfg.getfloat('Misc', 'seconds_for_wbm_injection')
