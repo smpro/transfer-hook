@@ -422,8 +422,11 @@ def iterate():
                 if streamName in _streams_to_evd:
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=True)
+
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    jsn_file = jsn_file.replace('jsns/','')
                     dat_file = dat_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace('data/','')
 
                     args = [dat_file, jsn_file, evd_rundir_open, evd_rundir,
                             evd_eosrundir,overwrite]
