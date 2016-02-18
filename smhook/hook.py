@@ -165,6 +165,7 @@ def iterate():
 
     path = cfg.get('Input', 'path')
     _scratch_base = cfg.get('Output','scratch_base')
+    _error_base = cfg.get('Output','error_base')
     _dqm_base = cfg.get('Output','dqm_base')
     _ecal_base = cfg.get('Output','ecal_base')
     _lookarea_base = cfg.get('Output','lookarea_base')
@@ -277,6 +278,7 @@ def iterate():
         rundir_bad       = os.path.join(rundir      , 'bad')
         new_rundir_bad   = os.path.join(new_rundir  , 'bad')
         scratch_rundir   = os.path.join(scratch_path, rundir_basename)
+        error_rundir     = os.path.join(_error_base , rundir_basename)
         dqm_rundir_open  = os.path.join(_dqm_base   , rundir_basename, 'open')
         dqm_rundir       = os.path.join(_dqm_base   , rundir_basename)
         ecal_rundir_open = os.path.join(_ecal_base  , rundir_basename, 'open')
@@ -358,6 +360,11 @@ def iterate():
                 infoEoLS_1 = int(settings['data'][6])
                 infoEoLS_2 = int(settings['data'][7])
 
+                destination = str(settings['data'][9])
+
+                if 'Error' in fileName:
+                    errorFiles = filter(None,fileName.split(","))
+                    
                 dat_parts = [rundir,'data',fileName]
                 #dat_file = os.path.join(rundir, fileName)
                 dat_file = os.path.join(*dat_parts)
@@ -376,6 +383,15 @@ def iterate():
 
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
+
+                if destination in "ErrorArea":
+                    maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
+                    for nfile in range(0, len(errorFiles)):
+                        dat_parts = [rundir, 'data',errorFiles[nfile]]
+                        dat_file = os.path.join(*dat_parts)
+                        maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
+                    continue
+
                 if streamName in _streams_to_dqm:
                     ## TODO: Use some other temporary directory instead of scrach
                     if (fileSize > max_dqm_transfer_file_size):
