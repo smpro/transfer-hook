@@ -203,6 +203,10 @@ def iterate():
         'Output', 'maximum_dqm_transfer_file_size_in_bytes'
     )
 
+    max_lookarea_transfer_file_size = cfg.getint(
+        'Output', 'maximum_lookarea_transfer_file_size_in_bytes'
+    )
+
     hostname = socket.gethostname()
 
     new_path = get_new_path(path, new_path_base)
@@ -361,8 +365,9 @@ def iterate():
                 infoEoLS_2 = int(settings['data'][7])
 
                 destination = str(settings['data'][9])
-
+                logger.info("Destination in the jsn file {0} is {1}".format(jsn_file,destination))
                 if 'Error' in fileName:
+
                     errorFiles = filter(None,fileName.split(","))
                     
                 dat_parts = [rundir,'data',fileName]
@@ -384,7 +389,7 @@ def iterate():
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
 
-                if destination in "ErrorArea":
+                if destination == "ErrorArea":
                     maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     for nfile in range(0, len(errorFiles)):
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
@@ -410,7 +415,7 @@ def iterate():
                         jsn_file = jsn_file.replace('jsns/','')
                         dat_file = dat_file.replace(rundir, scratch_rundir)
                         dat_file = dat_file.replace('data/','')
-                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,fileSize,overwrite]
+                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,fileSize,max_lookarea_transfer_file_size,overwrite]
                         dqm_pool.apply_async(double_p5_location, args)
                         
                         #Elastic Monitor for DQM:
@@ -428,9 +433,11 @@ def iterate():
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
-                    maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
+                    maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)                                                            
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
+                    jsn_file = jsn_file.replace('jsns/','')
                     dat_file = dat_file.replace(rundir, scratch_rundir)
+                    dat_file = dat_file.replace('data/','')                                        
                     args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir,overwrite]
                     ecal_pool.apply_async(move_files, args)
                     continue
@@ -771,7 +778,7 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir, overwrite):
 ## move_files()
 
 #______________________________________________________________________________
-def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir, fileSize, overwrite):
+def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir, fileSize, max_lookarea, overwrite):
     try:
         #first copy to open area dst1
         maybe_move(datFile, copy_rundir_open, force_overwrite=overwrite, suffix=None, eos=False, move=False)
@@ -781,7 +788,7 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
         maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir,force_overwrite=overwrite)
 
         # copying to lookarea only if the file size is less than 2 GB 
-        if (fileSize < 2147483648):
+        if (fileSize < max_lookarea):
         #then move to open area dst2
             maybe_move(datFile, move_rundir_open,force_overwrite=overwrite)
             maybe_move(jsnFile, move_rundir_open,force_overwrite=overwrite)
