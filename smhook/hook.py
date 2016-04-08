@@ -24,6 +24,7 @@ from multiprocessing.pool import ThreadPool
 
 import smhook.bookkeeper as bookkeeper
 import smhook.monitorRates as monitorRates
+import smhook.fileQualityControl as fileQualityControl
 import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
