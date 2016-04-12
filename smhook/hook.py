@@ -351,6 +351,8 @@ def iterate():
                 eventsNumber = int(settings['data'][1])
                 errorEvents = int(settings['data'][2])
                 fileName = str(settings['data'][3])
+                if fileName == "":
+                    continue
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
@@ -389,7 +391,7 @@ def iterate():
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
 
-                if destination == "ErrorArea":
+                if destination == "ErrorArea" or "Error" in streamName:
                     maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     for nfile in range(0, len(errorFiles)):
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
