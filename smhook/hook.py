@@ -274,7 +274,7 @@ def iterate():
         #recovery files live under /recovery directory
         recovery_parts = [rundir, 'recovery', '*.jsn']
         recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
-        for recovery_jsn in recovery_dir:
+        for recovery_jsn in recovery_jsns:
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
