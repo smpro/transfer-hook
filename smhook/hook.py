@@ -301,7 +301,7 @@ def iterate():
                     logger.warning("There are 0 input events in this jsn %s" % jsn_file)
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
-				fileQualityControl.fileQualityControl( fileName, eventsNumber, eventsNumber, 0,0,0,eventsNumber,True ) 
+				fileQualityControl.fileQualityControl(recovery_jsn, fileName, eventsNumber, eventsNumber, 0,0,0,eventsNumber,True ) 
                 logger.info("File quality control: recorded all events built as lost due to oversize and moved to scratch (file %s)" % fileName)
                 maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
 				
@@ -453,12 +453,12 @@ def iterate():
                             "Moving it to bad area with the suffix `TooLarge' ..."
                             )
                         logger.info("File quality control: recorded all events built as lost due to oversize (file %s)" % fileName)
-						fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+						fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                         maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     else:
                         logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-						fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+						fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                         maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                         jsn_file = jsn_file.replace(rundir, scratch_rundir)
@@ -483,7 +483,7 @@ def iterate():
                     ## TODO: Use some other temporary directory instead of
                     ## scratch
                     logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-					fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+					fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)                                                            
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
@@ -496,7 +496,7 @@ def iterate():
 
                 if streamName in _streams_to_evd:
                     logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-					fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+					fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=True)
 
@@ -514,7 +514,7 @@ def iterate():
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
                     logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-					fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+					fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                     continue
@@ -527,12 +527,12 @@ def iterate():
                     )
 			        events_lost_oversized=events_built
                     logger.info("File quality control: recorded all events built as lost due to oversize and moved to bad area (file %s)" % fileName)
-					fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+					fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     continue
                 logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-				fileQualityControl.fileQualityControl(fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+				fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
                 maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
