@@ -352,6 +352,8 @@ def iterate():
                 errorEvents = int(settings['data'][2])
                 fileName = str(settings['data'][3])
                 if fileName == "":
+                    logger.warning("There are no filenames specified in this jsn %s" % jsn_file)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
