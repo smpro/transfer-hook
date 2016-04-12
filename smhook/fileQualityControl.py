@@ -28,22 +28,19 @@ execfile(myconfig)
 #############################
 # fileQualityControl        #
 #############################
-# This function takes a jsndata_file and several argument then inserts or updates the relevant information in the database
+# This function takes a full path to a json file, the filename of a data file, and several numeric arguments then inserts or updates the relevant information in the database
+# The number of events built is greater than or equal to number of events lost.
 # The database configuration is taken from smhook.config
 
 def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
 	events_lost = events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized
 	# This inserts the information in the database
 	file_raw, file_ext = os.path.splitext(jsndata_file)
-	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji!
+	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji! C-('_' Q)
 	run_number=raw_pieces[0][3:] # 123456
 	ls=raw_pieces[1] # ls1234
-	stream=raw_pieces[2][6:] # HLTRates | L1Rates
+	stream=raw_pieces[2][6:] 
 	machine=raw_pieces[3]
-	
-	#if stream != "HLTRates" and stream != "L1Rates":
-	#	logger.error('Unrecognized rate stream: '+raw_pieces[2])
-	#	return False
 	
 	# Establish DB connections
 	try:
@@ -58,10 +55,7 @@ def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksu
 			return False
 	cursor=cxn_db.cursor()
 	query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+jsndata_file+"'"
-	print db_sid
-	print db_user
-	print db_pwd
-	print query
+	# See if there is an existing row
 	cursor.execute(query)
 	if(is_good_ls):
 		is_good_ls=1
@@ -105,6 +99,7 @@ def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksu
 		cursor.execute(query)
 		cxn_db.commit()
 	else:
+		# Update the existing row
 		query="""
 			UPDATE CMS_STOMGR.FILE_QUALITY_CONTROL SET
 				RUNNUMBER              = {1},
