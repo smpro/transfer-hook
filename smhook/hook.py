@@ -246,14 +246,11 @@ def iterate():
     # check if there are any stream directories 
     check_rundirs = []  
     for rundir in rundirs:
-        logger.info("Checking rundir %s" % rundir)
         if not (glob.glob(os.path.join(rundir, 'stream*'))): 
             rundir = rundir  
             check_rundirs.append(rundir)    
-            logger.info("Appending dir %s " % rundir)
         else:
             for streamdir in glob.glob(os.path.join(rundir, 'stream*')):  
-                logger.info("Appending dir %s " % streamdir)
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
@@ -330,7 +327,7 @@ def iterate():
                     maybe_move(recovery_jsn, scratch_rundir, force_overwrite=True)
                     continue
                 fileQualityControl.fileQualityControl(recovery_jsn, fileName, eventsNumber, 0,0,0,eventsNumber,True ) 
-                logger.info("File quality control: recorded all events built as lost due to oversize and moved jsn to scratch (file %s)" % fileName)
+                logger.info("File quality control: recorded all events built as lost due to oversize and moved jsn to scratch (jsn file {0}, data file {1})".format(recovery_jsn, fileName))
                 maybe_move(recovery_jsn, scratch_rundir, force_overwrite=True)
         
         if not jsns:
@@ -433,13 +430,13 @@ def iterate():
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
 
-                if destination == "ErrorArea":
+                if destination == "ErrorArea" and 'Error' in fileName:
                     maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     # NEed to handle file quality control for cmssw errors
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
