@@ -386,6 +386,10 @@ def iterate():
                 eventsNumber = int(settings['data'][1])
                 errorEvents = int(settings['data'][2]) # BU/FU crash
                 fileName = str(settings['data'][3])
+                if fileName == "":
+                    logger.warning("There are no filenames specified in this jsn %s" % jsn_file)
+                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
+                    continue
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
                 streamName = str(fileName.split('_')[2].split('stream')[1])
@@ -408,7 +412,8 @@ def iterate():
 
                 destination = str(settings['data'][9])
                 logger.info("Destination in the jsn file {0} is {1}".format(jsn_file,destination))
-                if 'Error' in fileName:
+
+                if destination == "ErrorArea" or "Error" in streamName:
                     errorFiles = filter(None,fileName.split(","))
                     
                 dat_parts = [rundir,'data',fileName]
@@ -430,7 +435,7 @@ def iterate():
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
 
-                if destination == "ErrorArea" and 'Error' in fileName:
+                if destination == "ErrorArea" or "Error" in streamName:
                     maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     # NEed to handle file quality control for cmssw errors
                     for nfile in range(0, len(errorFiles)):
