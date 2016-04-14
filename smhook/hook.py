@@ -246,11 +246,14 @@ def iterate():
     # check if there are any stream directories 
     check_rundirs = []  
     for rundir in rundirs:
+        logger.info("Checking rundir %s" % rundir)
         if not (glob.glob(os.path.join(rundir, 'stream*'))): 
             rundir = rundir  
             check_rundirs.append(rundir)    
+            logger.info("Appending dir %s " % rundir)
         else:
             for streamdir in glob.glob(os.path.join(rundir, 'stream*')):  
+                logger.info("Appending dir %s " % streamdir)
                 check_rundirs.append(streamdir)  
 
     for rundir in check_rundirs:
@@ -268,44 +271,7 @@ def iterate():
         jsn_parts = [rundir,'jsns','*.jsn']
         jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
         logger.debug("The list of jsns are %s "  %jsns)
-        if not jsns:
-            continue
         
-        #recovery files live under /recovery directory
-        recovery_parts = [rundir, 'recovery', '*.jsn']
-        recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
-        for recovery_jsn in recovery_jsns:
-            if ('BoLS' not in jsn_file and
-                'EoLS' not in jsn_file and
-                'index' not in jsn_file):
-
-                try:
-                    settings_textI = open(jsn_file, "r").read()
-                except IOError:
-                    logger.warning("The json file %s is moved by the other machine!" % jsn_file)
-                    continue
-                try:
-                    settings = json.loads(settings_textI)
-                except ValueError:
-                    logger.warning("The json file %s is corrupted!" % jsn_file)
-                    maybe_move(jsn_file, new_rundir_bad, suffix='Corrupted')
-                    continue
-                if len(settings['data']) < 5:
-                    logger.warning("Failed to parse `%s'!" % jsn_file)
-                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
-                    continue
-                inputEvents = int(settings['data'][0])
-                fileName = str(settings['data'][3])
-                eventsNumber = int(settings['data'][1])
-                if inputEvents == 0:
-                    logger.warning("There are 0 input events in this jsn %s" % jsn_file)
-                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
-                    continue
-                fileQualityControl.fileQualityControl(recovery_jsn, fileName, eventsNumber, eventsNumber, 0,0,0,eventsNumber,True ) 
-                logger.info("File quality control: recorded all events built as lost due to oversize and moved to scratch (file %s)" % fileName)
-                maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
-                
-
         if 'stream' in rundir:
             rundir_basename = os.path.basename(os.path.dirname(rundir)) 
         else:
@@ -333,6 +299,42 @@ def iterate():
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
+        # Handle FQC for the recovery files live under /recovery directory
+        recovery_parts = [rundir, 'recovery', '*.jsn']
+        recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
+        for recovery_jsn in recovery_jsns:
+            if ('BoLS' not in recovery_jsn and
+                'EoLS' not in recovery_jsn and
+                'index' not in recovery_jsn):
+
+                try:
+                    settings_textI = open(recovery_jsn, "r").read()
+                except IOError:
+                    logger.warning("The json file %s is moved by the other machine!" % recovery_jsn)
+                    continue
+                try:
+                    settings = json.loads(settings_textI)
+                except ValueError:
+                    logger.warning("The json file %s is corrupted!" % recovery_jsn)
+                    maybe_move(recovery_jsn, new_rundir_bad, suffix='Corrupted')
+                    continue
+                if len(settings['data']) < 5:
+                    logger.warning("Failed to parse `%s'!" % recovery_jsn)
+                    maybe_move(recovery_jsn, scratch_rundir, force_overwrite=True)
+                    continue
+                inputEvents = int(settings['data'][0])
+                fileName = str(settings['data'][3])
+                eventsNumber = int(settings['data'][1])
+                if inputEvents == 0:
+                    logger.warning("There are 0 input events in this jsn %s" % recovery_jsn)
+                    maybe_move(recovery_jsn, scratch_rundir, force_overwrite=True)
+                    continue
+                fileQualityControl.fileQualityControl(recovery_jsn, fileName, eventsNumber, 0,0,0,eventsNumber,True ) 
+                logger.info("File quality control: recorded all events built as lost due to oversize and moved jsn to scratch (file %s)" % fileName)
+                maybe_move(recovery_jsn, scratch_rundir, force_overwrite=True)
+        
+        if not jsns:
+            continue        
         if (not os.path.exists(new_rundir) and
             not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
