@@ -66,18 +66,6 @@ def monitorRates(jsndata_file,rates_jsn_file):
         logger.error('Unrecognized rate stream: '+raw_pieces[2])
         return False
     
-    # Establish DB connections
-    try:
-        cxn_db_to_write=cx_Oracle.connect(hlt_rates_db_login,write_db_pwd,write_db_sid)
-    except cx_Oracle.DatabaseError as e:
-        error, = e.args
-        if error.code == 1017:
-            logger.error('Bad credentials for database for writing rates')
-            return False
-        else:
-            logger.error('Error connecting to database for writing: %s'.format(e))
-            return False
-    write_cursor=cxn_db_to_write.cursor()
 
     # We only need the trigger tables and dataset name-ID mapping for the HLT rates:
     if stream=="HLTRates":
@@ -163,6 +151,19 @@ def monitorRates(jsndata_file,rates_jsn_file):
     ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_StorageManager.ini'
     ini_path = os.path.join(json_dir, 'open', ini_filename)
     if stream=='HLTRates':
+        # Establish DB connections for HLT
+        try:
+            cxn_db_to_write=cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args
+            if error.code == 1017:
+                logger.error('Bad credentials for database for writing rates')
+                return False
+            else:
+                logger.error('Error connecting to database for writing: %s'.format(e))
+                return False
+        write_cursor=cxn_db_to_write.cursor()
+
         try:
             HLT_json=open(ini_path).read()
         except (OSError, IOError) as e:
@@ -209,7 +210,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 )
             """
             query=query.format(
-                HLT_LS_db,
+                HLT_LS_table,
                 run_number,
                 ls[2:],
                 "TO_TIMESTAMP('"+str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
@@ -248,7 +249,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 )
             """
             query=query.format(
-                HLT_rates_db,
+                HLT_rates_table,
                 run_number,
                 int(ls[2:]),
                 path_id,
@@ -291,87 +292,167 @@ def monitorRates(jsndata_file,rates_jsn_file):
         return True
     
     elif stream=='L1Rates':
+        # Establish DB connection for L1
+        try:
+            cxn_db_to_write=cx_Oracle.connect(l1_rates_db_login,1l_rates_db_pwd,l1_rates_db_sid)
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args
+            if error.code == 1017:
+                logger.error('Bad credentials for database for writing L1 rates')
+                return False
+            else:
+                logger.error('Error connecting to database for writing: %s'.format(e))
+                return False
+        write_cursor=cxn_db_to_write.cursor()
+
         try:
             L1_json=open(ini_path).read()
         except (OSError, IOError) as e:
             logger.error("Error finding or opening ini file: `%s'" % ini_path)
             logger.exception(e)
             return False
-        # Check if the L1 rates are split by type ( backwards compatibility )
+        
         L1_names=json.loads(L1_json)
         L1_rates={}
-        L1_rates['EVENTCOUNT']                 = rates['data'][0][0]
         L1_rates['L1_DECISION']             = rates['data'][1]
-        L1_rates['L1_TECHNICAL']             = rates['data'][2]
-        if len(rates['data'])>4:
-            L1_rates['L1_DECISION_PHYSICS']        = rates['data'][3] # NEW LINES -DGH
-            L1_rates['L1_TECHNICAL_PHYSICS']    = rates['data'][4]
-            L1_rates['L1_DECISION_CALIBRATION']    = rates['data'][5]
-            L1_rates['L1_TECHNICAL_CALIBRATION']= rates['data'][6]
-            L1_rates['L1_DECISION_RANDOM']         = rates['data'][7]
-            L1_rates['L1_TECHNICAL_RANDOM']     = rates['data'][8]
-        # Here we record the file modification time of the jsndata file for book keeping purposes
+        L1_rates['L1_DECISION_PHYSICS']     = rates['data'][2]
+        L1_rates['L1_DECISION_CALIBRATION'] = rates['data'][3]
+        L1_rates['L1_DECISION_RANDOM']      = rates['data'][4]
         L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
+        # Check if the LS is already registered in the database
+        query="SELECT ID FROM {0} WHERE RUN_NUMBER={1} AND LUMI_SECTION={2}".format(L1_lumisection_id_table, run_number, int(ls[2:]))
+        write_cursor.execute(query);
         
-        # Insert L1 rates into the database
-        if len(rates['data'])>4:
-            query="""
-                INSERT INTO {0} (
-                    RUNNUMBER,
-                    LSNUMBER,
-                    MODIFICATIONTIME,
-                    EVENTCOUNT,
-                    DECISION_ARRAY,
-                    DECISION_ARRAY_PHYSICS,
-                    DECISION_ARRAY_CALIBRATION,
-                    DECISION_ARRAY_RANDOM,
-                    TECHNICAL_ARRAY,
-                    TECHNICAL_ARRAY_PHYSICS,
-                    TECHNICAL_ARRAY_CALIBRATION,
-                    TECHNICAL_ARRAY_RANDOM
-                ) VALUES (
-                    {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}
-                )
-            """
-            # The join operations below simply format the rates arrays so that they may be inserted into the DB.
-            query=query.format(
-                L1_rates_db,
+        if len(write_cursor.fetchall()) < 1:
+            # No existing row. we must now try to insert it in the L1 DB:
+            lumisection_id = "%06d_05d" % (run_number, int(ls[2:])))
+            query="INSERT INTO {0} (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('{0}', {1}, {2})".format(
+                lumisection_id,
                 run_number,
-                int(ls[2:]),
-                "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-                L1_rates['EVENTCOUNT'],
-                decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-                decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_PHYSICS']))+')',
-                decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_CALIBRATION']))+')',
-                decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_RANDOM']))+')',
-                technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
-                technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_PHYSICS']))+')',
-                technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_CALIBRATION']))+')',
-                technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_RANDOM']))+')'
+                int(ls[2:]))
             )
-        else: # backwards compatible
-            query="""
-                INSERT INTO {0} (
-                    RUNNUMBER,
-                    LSNUMBER,
-                    MODIFICATIONTIME,
-                    EVENTCOUNT,
-                    DECISION_ARRAY,
-                    TECHNICAL_ARRAY
-                ) VALUES (
-                    {1}, {2}, {3}, {4}, {5}, {6}
+        else:
+            lumisection_id = write_cursor.fetchall()[0][0]
+
+        # Retrieve the IDs for the different types of L1 rates from the lookup table
+        write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT"))
+        try:
+            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT"))
+            l1_all_rates_result = write_cursor.fetchall()
+            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_PHYSICS"))
+            l1_physics_rates_result = write_cursor.fetchall()
+            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_CALIBRATION"))
+            l1_calibration_rates_result = write_cursor.fetchall()
+            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_RANDOM"))
+            l1_random_rates_result = write_cursor.fetchall()
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args
+            logger.error('Error with database while looking up the ID for the L1 rate types: %s'.format(e))
+            return False
+        if len(l1_all_rates_result) < 1 or len(l1_physics_rates_result) < 1 or len(l1_calibration_rates_result) < 1 or len(l1_random_rates_result) < 1:
+            logger.error("One of the necessary ID's for the L1 rate types does not exist. Someone changed the database!")
+            return False
+        # Create a dict that we loop over for inserting the 2048 rate numbers in the db 512 at a time
+        l1_rate_type_dict = {
+          'L1_DECISION'             : l1_all_rates_result[0][0],
+          'L1_DECISION_PHYSICS'     : l1_physics_rates_result[0][0],
+          'L1_DECISION_CALIBRATION' : l1_calibration_rates_result[0][0],
+          'L1_DECISION_RANDOM'      : l1__rates_result[0][0]
+        }
+
+        for l1_rate_type_name, l1_rate_type_id in l1_rate_type_dict:
+            # assume algo_indexing runs from 1 to 512, could be wrong
+            algo_index=1
+            for algo_count in L1_rates[l1_rate_type_name]:
+                query = "INSERT INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
+                    L1_rates_table,
+                    algo_index,
+                    algo_count,                   
+                    algo_rate,
+                    lumisection_id
                 )
-            """
-            # The join operations below simply format the rates arrays so that they may be inserted into the DB.
-            query=query.format(
-                L1_rates_db,
-                run_number,
-                int(ls[2:]),
-                "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-                L1_rates['EVENTCOUNT'],
-                decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-                technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')' # VARRAY(1,2,3,4,...N)
-            )        
+                write_cursor.execute(query)
+                cxn_db_to_write.commit()
+                algo_index=algo_index+1
+
+            
+
+        # OLD CODE FOLLOWS
+        ## Check if the L1 rates are split by type ( backwards compatibility )
+        #L1_names=json.loads(L1_json)
+        #L1_rates={}
+        #L1_rates['EVENTCOUNT']                 = rates['data'][0][0]
+        #L1_rates['L1_DECISION']             = rates['data'][1]
+        #L1_rates['L1_TECHNICAL']             = rates['data'][2]
+        #if len(rates['data'])>4:
+        #    L1_rates['L1_DECISION_PHYSICS']        = rates['data'][3] # NEW LINES -DGH
+        #    L1_rates['L1_TECHNICAL_PHYSICS']    = rates['data'][4]
+        #    L1_rates['L1_DECISION_CALIBRATION']    = rates['data'][5]
+        #    L1_rates['L1_TECHNICAL_CALIBRATION']= rates['data'][6]
+        #    L1_rates['L1_DECISION_RANDOM']         = rates['data'][7]
+        #    L1_rates['L1_TECHNICAL_RANDOM']     = rates['data'][8]
+        ## Here we record the file modification time of the jsndata file for book keeping purposes
+        #L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
+        #
+        ## Insert L1 rates into the database
+        #if len(rates['data'])>4:
+        #    query="""
+        #        INSERT INTO {0} (
+        #            RUNNUMBER,
+        #            LSNUMBER,
+        #            MODIFICATIONTIME,
+        #            EVENTCOUNT,
+        #            DECISION_ARRAY,
+        #            DECISION_ARRAY_PHYSICS,
+        #            DECISION_ARRAY_CALIBRATION,
+        #            DECISION_ARRAY_RANDOM,
+        #            TECHNICAL_ARRAY,
+        #            TECHNICAL_ARRAY_PHYSICS,
+        #            TECHNICAL_ARRAY_CALIBRATION,
+        #            TECHNICAL_ARRAY_RANDOM
+        #        ) VALUES (
+        #            {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}
+        #        )
+        #    """
+        #    # The join operations below simply format the rates arrays so that they may be inserted into the DB.
+        #    query=query.format(
+        #        L1_rates_db,
+        #        run_number,
+        #        int(ls[2:]),
+        #        "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+        #        L1_rates['EVENTCOUNT'],
+        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
+        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_PHYSICS']))+')',
+        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_CALIBRATION']))+')',
+        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_RANDOM']))+')',
+        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
+        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_PHYSICS']))+')',
+        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_CALIBRATION']))+')',
+        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_RANDOM']))+')'
+        #    )
+        #else: # backwards compatible
+        #    query="""
+        #        INSERT INTO {0} (
+        #            RUNNUMBER,
+        #            LSNUMBER,
+        #            MODIFICATIONTIME,
+        #            EVENTCOUNT,
+        #            DECISION_ARRAY,
+        #            TECHNICAL_ARRAY
+        #        ) VALUES (
+        #            {1}, {2}, {3}, {4}, {5}, {6}
+        #        )
+        #    """
+        #    # The join operations below simply format the rates arrays so that they may be inserted into the DB.
+        #    query=query.format(
+        #        L1_rates_db,
+        #        run_number,
+        #        int(ls[2:]),
+        #        "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+        #        L1_rates['EVENTCOUNT'],
+        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
+        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')' # VARRAY(1,2,3,4,...N)
+        #    )        
         write_cursor.execute(query)
         cxn_db_to_write.commit()
         return True
