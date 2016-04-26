@@ -17,7 +17,7 @@ import smhook.config
 
 myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
 #myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-debug=False
+debug=True
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
@@ -294,7 +294,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
     elif stream=='L1Rates':
         # Establish DB connection for L1
         try:
-            cxn_db_to_write=cx_Oracle.connect(l1_rates_db_login,1l_rates_db_pwd,l1_rates_db_sid)
+            cxn_db_to_write=cx_Oracle.connect(l1_rates_db_login, l1_rates_db_pwd, l1_rates_db_sid)
         except cx_Oracle.DatabaseError as e:
             error, = e.args
             if error.code == 1017:
@@ -319,20 +319,25 @@ def monitorRates(jsndata_file,rates_jsn_file):
         L1_rates['L1_DECISION_CALIBRATION'] = rates['data'][3]
         L1_rates['L1_DECISION_RANDOM']      = rates['data'][4]
         L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
+        
         # Check if the LS is already registered in the database
         query="SELECT ID FROM {0} WHERE RUN_NUMBER={1} AND LUMI_SECTION={2}".format(L1_lumisection_id_table, run_number, int(ls[2:]))
         write_cursor.execute(query);
-        
-        if len(write_cursor.fetchall()) < 1:
+        result=write_cursor.fetchall()
+        if len(result) < 1:
             # No existing row. we must now try to insert it in the L1 DB:
-            lumisection_id = "%06d_05d" % (run_number, int(ls[2:])))
-            query="INSERT INTO {0} (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('{0}', {1}, {2})".format(
+            lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
+            query="INSERT INTO %s (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('%s', %d, %d)" % (
+                L1_lumisection_id_table, 
                 lumisection_id,
-                run_number,
-                int(ls[2:]))
+                int(run_number),
+                int(ls[2:])
             )
+            write_cursor.execute(query)
+            cxn_db_to_write.commit()
+
         else:
-            lumisection_id = write_cursor.fetchall()[0][0]
+            lumisection_id = result[0][0]
 
         # Retrieve the IDs for the different types of L1 rates from the lookup table
         write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT"))
@@ -357,25 +362,30 @@ def monitorRates(jsndata_file,rates_jsn_file):
           'L1_DECISION'             : l1_all_rates_result[0][0],
           'L1_DECISION_PHYSICS'     : l1_physics_rates_result[0][0],
           'L1_DECISION_CALIBRATION' : l1_calibration_rates_result[0][0],
-          'L1_DECISION_RANDOM'      : l1__rates_result[0][0]
+          'L1_DECISION_RANDOM'      : l1_random_rates_result[0][0]
         }
-
-        for l1_rate_type_name, l1_rate_type_id in l1_rate_type_dict:
+        print l1_rate_type_dict
+        for l1_rate_type_name in l1_rate_type_dict:
+            scaler_type = l1_rate_type_dict[l1_rate_type_name]
             # assume algo_indexing runs from 1 to 512, could be wrong
             algo_index=1
             for algo_count in L1_rates[l1_rate_type_name]:
-                query = "INSERT INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
+                algo_rate = algo_count / (3564 * 2**18 / 40078970.0)
+                query = "REPLACE INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
                     L1_rates_table,
                     algo_index,
                     algo_count,                   
                     algo_rate,
+                    scaler_type,
                     lumisection_id
                 )
+                print query
+                logger.debug(query)
                 write_cursor.execute(query)
-                cxn_db_to_write.commit()
                 algo_index=algo_index+1
-
-            
+        cxn_db_to_write.commit()
+        cxn_db_to_write.close()
+        return True
 
         # OLD CODE FOLLOWS
         ## Check if the L1 rates are split by type ( backwards compatibility )
