@@ -15,8 +15,8 @@ import smhook.config
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
 
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
 #myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
+myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 debug=False
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
