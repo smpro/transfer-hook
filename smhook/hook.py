@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, date
 from optparse import OptionParser
 from subprocess import call
 
+import requests
 
 #from Logging import getLogger
 logger = logging.getLogger(__name__)
@@ -992,13 +993,13 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnect
            logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
            logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
            monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId,data=json.dumps(transferMonitorDict),timeout=1)
-           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
+           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           log.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
-           log.error(monitorResponse.raise_for_status())
+           logger.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
+           logger.error(monitorResponse.raise_for_status())
            if connectionAttempts > maxConnectionAttempts:
-               log.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
+               logger.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
                break
            else:
                connectionAttempts+=1
@@ -1012,13 +1013,13 @@ def esMonitorMapping(esServerUrl,esIndexName):
    try:
       checkIndexResponse=requests.get(esServerUrl+'/'+esIndexName+'/_stats/_shards/')
       if '_shards' in json.loads(checkIndexResponse.text):
-         log.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
+         logger.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
          indexExists = True
       else:
-         log.info('did not find existing index '+esIndexName)
+         logger.info('did not find existing index '+esIndexName)
          indexExists = False
    except requests.exceptions.ConnectionError as e:
-      log.error('esMonitorMapping: Could not connect to ElasticSearch database!')
+      logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
    if indexExists:
       # if the index already exists, we put the mapping in the index for redundancy purposes:
       # JSON follows:
@@ -1027,7 +1028,7 @@ def esMonitorMapping(esServerUrl,esIndexName):
             '_all'          :{'enabled':False},  
             '_timestamp'    :{'enabled':True},
             'properties' : {
-               'fm_date'       :{'type':'date'},
+               'fm_date'       :{'type':'date','format' : 'epoch_millislldateOptionalTime'},
                'id'            :{'type':'string','index' : 'not_analyzed'}, #run+appliance+stream+ls
                'appliance'     :{'type':'string','index' : 'not_analyzed'},
                'host'          :{'type':'string','index' : 'not_analyzed'}, 
@@ -1041,9 +1042,11 @@ def esMonitorMapping(esServerUrl,esIndexName):
          }
       }
       try:
+         logger.info('esMonitorMapping: ' + esServerUrl+'/'+esIndexName+'/_mapping/transfer')
+         logger.info('esMonitorMapping: ' + json.dumps(transfer_mapping))
          putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/transfer',data=json.dumps(transfer_mapping))
       except requests.exceptions.ConnectionError as e:
-         log.error('esMonitorMapping: Could not connect to ElasticSearch database!')
+         logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
 #______________________________________________________________________________                                                                                                                                                     
                                                                                                   
 if __name__ == '__main__':
