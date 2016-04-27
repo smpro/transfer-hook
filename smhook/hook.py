@@ -262,13 +262,13 @@ def iterate():
             isStreamPhysics    = isStreamDQMExpress == False and ("Physics" in stream_basename or "HI" in stream_basename)
         
             if  (_stream_type == "onlyDQMExpress" and isStreamDQMExpress == False): 
-                logger.info("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
             elif(_stream_type == "onlyPhysics" and isStreamPhysics == False): 
-                logger.info("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
             elif(_stream_type == "noDQMExpressPhysics" and (isStreamDQMExpress == True or isStreamPhysics == True)): 
-                logger.info("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
         
         #now jsns live under /jsns directory
