@@ -379,8 +379,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
         }
         for l1_rate_type_name in l1_rate_type_dict:
             scaler_type = l1_rate_type_dict[l1_rate_type_name]
-            # assume algo_indexing runs from 1 to 512, could be wrong
-            algo_index=1
+            algo_index=0 #indexing starts from 0
             for algo_count in L1_rates[l1_rate_type_name]:
                 algo_rate = algo_count / (3564 * 2**18 / 40078970.0)
                 query = "INSERT INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
