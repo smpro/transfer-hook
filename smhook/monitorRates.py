@@ -17,7 +17,7 @@ import smhook.config
 
 myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
 #myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-debug=True
+debug=False
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
@@ -197,7 +197,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
         # Before we put the rates in the DB, we will need see if the LS is indexed in the DB
         # If it isn't, we create a row in the table of LS
         # Currently most of the fields are set to 0 because I am grossly misinformed
-        query="SELECT RUNNUMBER FROM "+HLT_LS_db+" WHERE LSNUMBER="+ls[2:]+" AND RUNNUMBER="+run_number
+        query="SELECT RUNNUMBER FROM "+HLT_LS_table+" WHERE LSNUMBER="+ls[2:]+" AND RUNNUMBER="+run_number
         write_cursor.execute(query)
         if len(write_cursor.fetchall()) < 1:
             # No existing row. we must now try to insert:
@@ -306,6 +306,18 @@ def monitorRates(jsndata_file,rates_jsn_file):
         write_cursor=cxn_db_to_write.cursor()
 
         try:
+            cxn_db_to_read=cx_Oracle.connect(l1_rate_type_db_login, l1_rate_type_db_pwd, l1_rate_type_db_sid)
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args
+            if error.code == 1017:
+                logger.error('Bad credentials for database for reading L1 rate types')
+                return False
+            else:
+                logger.error('Error connecting to database for reading: %s'.format(e))
+                return False
+        read_cursor=cxn_db_to_read.cursor()
+
+        try:
             L1_json=open(ini_path).read()
         except (OSError, IOError) as e:
             logger.error("Error finding or opening ini file: `%s'" % ini_path)
@@ -321,35 +333,36 @@ def monitorRates(jsndata_file,rates_jsn_file):
         L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
         
         # Check if the LS is already registered in the database
-        query="SELECT ID FROM {0} WHERE RUN_NUMBER={1} AND LUMI_SECTION={2}".format(L1_lumisection_id_table, run_number, int(ls[2:]))
-        write_cursor.execute(query);
-        result=write_cursor.fetchall()
-        if len(result) < 1:
-            # No existing row. we must now try to insert it in the L1 DB:
-            lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
-            query="INSERT INTO %s (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('%s', %d, %d)" % (
-                L1_lumisection_id_table, 
-                lumisection_id,
-                int(run_number),
-                int(ls[2:])
-            )
-            write_cursor.execute(query)
-            cxn_db_to_write.commit()
+        # Currently not needed.
+        #query="SELECT ID FROM {0} WHERE RUN_NUMBER={1} AND LUMI_SECTION={2}".format(L1_lumisection_id_table, run_number, int(ls[2:]))
+        #write_cursor.execute(query);
+        #result=write_cursor.fetchall()
+        #if len(result) < 1 and False:
+        #    # No existing row. we must now try to insert it in the L1 DB:
+        #    lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
+        #    query="INSERT INTO %s (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('%s', %d, %d)" % (
+        #        L1_lumisection_id_table, 
+        #        lumisection_id,
+        #        int(run_number),
+        #        int(ls[2:])
+        #    )
+        #    write_cursor.execute(query)
+        #    cxn_db_to_write.commit()
 
-        else:
-            lumisection_id = result[0][0]
+        #else:
+        #    lumisection_id = result[0][0]
+        lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
 
         # Retrieve the IDs for the different types of L1 rates from the lookup table
-        write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT"))
         try:
-            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT"))
-            l1_all_rates_result = write_cursor.fetchall()
-            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_PHYSICS"))
-            l1_physics_rates_result = write_cursor.fetchall()
-            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_CALIBRATION"))
-            l1_calibration_rates_result = write_cursor.fetchall()
-            write_cursor.execute("SELECT TYPE FROM %s WHERE NAME='%s'" % (L1_scaler_names_table, "POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_RANDOM"))
-            l1_random_rates_result = write_cursor.fetchall()
+            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT') FROM DUAL")
+            l1_all_rates_result = read_cursor.fetchall()
+            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_PHYSICS') FROM DUAL")
+            l1_physics_rates_result = read_cursor.fetchall()
+            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_CALIBRATION') FROM DUAL")
+            l1_calibration_rates_result = read_cursor.fetchall()
+            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_RANDOM') FROM DUAL")
+            l1_random_rates_result = read_cursor.fetchall()
         except cx_Oracle.DatabaseError as e:
             error, = e.args
             logger.error('Error with database while looking up the ID for the L1 rate types: %s'.format(e))
@@ -364,14 +377,13 @@ def monitorRates(jsndata_file,rates_jsn_file):
           'L1_DECISION_CALIBRATION' : l1_calibration_rates_result[0][0],
           'L1_DECISION_RANDOM'      : l1_random_rates_result[0][0]
         }
-        print l1_rate_type_dict
         for l1_rate_type_name in l1_rate_type_dict:
             scaler_type = l1_rate_type_dict[l1_rate_type_name]
             # assume algo_indexing runs from 1 to 512, could be wrong
             algo_index=1
             for algo_count in L1_rates[l1_rate_type_name]:
                 algo_rate = algo_count / (3564 * 2**18 / 40078970.0)
-                query = "REPLACE INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
+                query = "INSERT INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
                     L1_rates_table,
                     algo_index,
                     algo_count,                   
@@ -379,7 +391,6 @@ def monitorRates(jsndata_file,rates_jsn_file):
                     scaler_type,
                     lumisection_id
                 )
-                print query
                 logger.debug(query)
                 write_cursor.execute(query)
                 algo_index=algo_index+1
@@ -463,9 +474,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
         #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
         #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')' # VARRAY(1,2,3,4,...N)
         #    )        
-        write_cursor.execute(query)
-        cxn_db_to_write.commit()
-        return True
+        #write_cursor.execute(query)
+        #cxn_db_to_write.commit()
+        #return True
 
 #def makeWriteCxn():
 #    return cx_Oracle.connect(hlt_rates_db_login,write_db_pwd,write_db_sid)
@@ -578,10 +589,10 @@ def makeTestTables():
             LUMI_SECTIONS_ID    VARCHAR2(13),
             SCALER_TYPE         NUMBER(2),
             PRIMARY KEY(ALGO_INDEX, LUMI_SECTIONS_ID, SCALER_TYPE),
-            FOREIGN KEY (LUMI_SECTIONS_ID) REFERENCES HLT_TEST_LUMI_SECTIONS (ID),
             FOREIGN KEY (SCALER_TYPE) REFERENCES HLT_TEST_SCALER_NAMES( TYPE)
         )
     """
+            #FOREIGN KEY (LUMI_SECTIONS_ID) REFERENCES HLT_TEST_LUMI_SECTIONS (ID),
     q_table6="""create table HLT_TEST_DATASETS
         (
             RUNNUMBER  NUMBER(11) NOT NULL,
@@ -629,19 +640,19 @@ def outputTestTables():
     cxn=cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
     cursor=cxn.cursor()
     print "######################################################################################################################"
-    print HLT_LS_db
-    cursor.execute('select * from '+HLT_LS_db)
+    print HLT_LS_table
+    cursor.execute('select * from '+HLT_LS_table)
     print cursor.fetchall()
     print "######################################################################################################################"
-    print HLT_rates_db
-    cursor.execute('select * from '+HLT_rates_db)
+    print HLT_rates_table
+    cursor.execute('select * from '+HLT_rates_table)
     print cursor.fetchall()
     print "######################################################################################################################"
-    print HLT_datasets_db
-    cursor.execute('select * from '+HLT_datasets_db)
-    print cursor.fetchall()
-    print "######################################################################################################################"
-    print L1_rates_db
-    cursor.execute("select * from "+L1_rates_db)
+    #print HLT_datasets_table
+    #cursor.execute('select * from '+HLT_datasets_table)
+    #print cursor.fetchall()
+    #print "######################################################################################################################"
+    print L1_rates_table
+    cursor.execute("select * from "+L1_rates_table)
     print cursor.fetchall()
     print "######################################################################################################################"
