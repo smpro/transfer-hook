@@ -400,7 +400,7 @@ def iterate():
                     checksum = 0
                 
                 # FQC: File quality control numbers
-                events_built=eventsNumber
+                events_built = inputEvents+errorEvents # events lost to BU/FU crash are not included in inputEvents total!
                 events_lost_checksum=0
                 events_lost_cmssw=0
                 events_lost_crash=errorEvents
