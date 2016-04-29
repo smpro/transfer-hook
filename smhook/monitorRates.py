@@ -281,7 +281,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 )
             """
             query=query.format(
-                HLT_datasets_db,
+                HLT_datasets_table,
                 run_number,
                 int(ls[2:]),
                 dataset_id,
