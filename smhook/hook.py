@@ -366,7 +366,14 @@ def iterate():
                     continue
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
-                streamName = str(fileName.split('_')[2].split('stream')[1])
+
+                try:
+                    streamName = str(fileName.split('_')[2].split('stream')[1])
+                except Exception as e:                    
+                    #run271983_ls0021_index000000_fu
+                    streamName = str(fileName.split('_')[2].split('index')[1])
+                    logger.exception(e)
+
                 if ( _checksum_status ):
                     checksum_int = int(settings['data'][5]) 
                     checksum = format(checksum_int, 'x').zfill(8)    #making sure it is 8 digits
@@ -409,7 +416,7 @@ def iterate():
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        #fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
