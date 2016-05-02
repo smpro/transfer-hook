@@ -351,7 +351,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
 
         #else:
         #    lumisection_id = result[0][0]
-        lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
+        lumisection_id = "%07d_%05d" % (int(run_number), int(ls[2:]))
 
         # Retrieve the IDs for the different types of L1 rates from the lookup table
         try:
