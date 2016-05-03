@@ -304,7 +304,7 @@ def iterate():
         recorded_recovery_dir = os.path.join(rundir, 'recovery', 'recorded')
         if not os.path.exists(recorded_recovery_dir):
             mkdir(recorded_recovery_dir)
-        os.path.join(*
+        
         for recovery_jsn in recovery_jsns:
             if ('BoLS' not in recovery_jsn and
                 'EoLS' not in recovery_jsn and
