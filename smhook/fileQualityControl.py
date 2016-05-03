@@ -33,7 +33,7 @@ execfile(myconfig)
 # The database configuration is taken from smhook.config
 
 def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
-	events_lost = events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized
+	events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
 	# This inserts the information in the database
 	file_raw, file_ext = os.path.splitext(jsndata_file)
 	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji! C-('_' Q)

@@ -455,14 +455,14 @@ def iterate():
 
                 # Need to handle file quality control in a special case for cmssw errors
                 if destination == "ErrorArea" or "Error" in streamName:
-                    maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        #fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
+                    maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     continue
 
                 # Do FQC for all of the following "normal" cases for streams that we aren't ignoring
@@ -472,6 +472,7 @@ def iterate():
                 non_tier0_streams.extend(_streams_to_evd)
                 non_tier0_streams.extend(_streams_with_scalers)
                 if streamName not in _streams_to_ignore:
+                    # Oversized files
                     if (streamName in _streams_to_dqm and fileSize > max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
                         logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
@@ -493,11 +494,6 @@ def iterate():
                         maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                         maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     else:
-                        fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
-                        if events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
-                            logger.info("File quality control: recorded some events lost (file %s)" % fileName)
-                        else:
-                            logger.info("File quality control: recorded no events lost (file %s)" % fileName)
                         maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                         maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                         jsn_file = jsn_file.replace(rundir, scratch_rundir)
