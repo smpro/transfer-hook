@@ -277,6 +277,18 @@ def iterate():
         else:
             rundir_basename = os.path.basename(rundir) 
 
+        # Make sure there are jsn files or else go to the next iteration
+        jsn_parts = [rundir,'jsns','*.jsn']
+        jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
+        logger.debug("The list of jsns are %s "  %jsns)
+
+        # Find the recovery files which live under /recovery directory
+        recovery_parts = [rundir, 'recovery', '*.jsn']
+        recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
+
+        if not jsns and not recovery_jsns:
+            continue # Skip the loop if there aren't any normal jsn files or recovery jsn files
+
         run_number = int(rundir_basename.replace('run', ''))
         logger.info('********** Run %d **********' % run_number)
         bookkeeper._run_number = run_number
@@ -300,9 +312,6 @@ def iterate():
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
         
-        # Handle FQC for the recovery files which live under /recovery directory
-        recovery_parts = [rundir, 'recovery', '*.jsn']
-        recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
         # Define a directory for the recovery json files where they will be moved after they are monitored
         recorded_recovery_dir = os.path.join(rundir, 'recovery', 'recorded')
         
@@ -340,12 +349,8 @@ def iterate():
                     mkdir(recorded_recovery_dir)
                 maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
         
-        # Make sure there are jsn files or else go to the next iteration
-        jsn_parts = [rundir,'jsns','*.jsn']
-        jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
-        logger.debug("The list of jsns are %s "  %jsns)
         if not jsns:
-            continue        
+            continue
 
         if (not os.path.exists(new_rundir) and
             not run_key == 'TIER0_TRANSFER_OFF'):
