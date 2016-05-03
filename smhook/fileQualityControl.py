@@ -32,10 +32,10 @@ execfile(myconfig)
 # The number of events built is greater than or equal to number of events lost.
 # The database configuration is taken from smhook.config
 
-def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
+def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
 	events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
 	# This inserts the information in the database
-	file_raw, file_ext = os.path.splitext(jsndata_file)
+	file_raw, file_ext = os.path.splitext(data_file)
 	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji! C-('_' Q)
 	run_number=raw_pieces[0][3:] # 123456
 	ls=raw_pieces[1] # ls1234
@@ -54,7 +54,7 @@ def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksu
 			logger.error('Error connecting to database for writing: %s'.format(e))
 			return False
 	cursor=cxn_db.cursor()
-	query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+jsndata_file+"'"
+	query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+data_file+"'"
 	# See if there is an existing row
 	cursor.execute(query)
 	if(is_good_ls):
@@ -86,8 +86,8 @@ def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksu
 			run_number,
 			ls[2:],
 			stream,
-			jsndata_file,
-			"TO_TIMESTAMP('"+str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsn_file)))+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
+			data_file,
+			"TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
 			events_built,
 			events_lost,
 			events_lost_checksum,
@@ -121,8 +121,8 @@ def fileQualityControl(jsn_file, jsndata_file, events_built, events_lost_checksu
 			run_number,
 			ls[2:],
 			stream,
-			jsndata_file,
-			"TO_TIMESTAMP('"+str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsn_file)))+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
+			data_file,
+			"TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
 			events_built,
 			events_lost,
 			events_lost_checksum,

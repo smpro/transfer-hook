@@ -311,8 +311,6 @@ def iterate():
         recovery_jsns = sorted(glob.glob(os.path.join(*recovery_parts)))
         # Define a directory for the recovery json files where they will be moved after they are monitored
         recorded_recovery_dir = os.path.join(rundir, 'recovery', 'recorded')
-        if not os.path.exists(recorded_recovery_dir):
-            mkdir(recorded_recovery_dir)
         
         for recovery_jsn in recovery_jsns:
             if ('BoLS' not in recovery_jsn and
@@ -344,6 +342,8 @@ def iterate():
                 events_built=inputEvents+errorEvents
                 fileQualityControl.fileQualityControl(recovery_jsn, fileName, events_built, 0,0,0, events_built,True ) 
                 logger.info("File quality control: recorded all events built as lost for file found in recovery area (jsn file {0}, data file {1})".format(recovery_jsn, fileName))
+                if not os.path.exists(recorded_recovery_dir):
+                    mkdir(recorded_recovery_dir)
                 maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
         if not jsns:
             continue        
@@ -476,7 +476,7 @@ def iterate():
                     if (streamName in _streams_to_dqm and fileSize > max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
                         logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
-                    else if events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
+                    elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
                         logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
                     else:
                         logger.info("File quality control: recorded no events lost (file %s)" % fileName)
