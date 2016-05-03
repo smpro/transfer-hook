@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, date
 from optparse import OptionParser
 from subprocess import call
 
+import requests
 
 #from Logging import getLogger
 logger = logging.getLogger(__name__)
@@ -57,11 +58,9 @@ def main():
 
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
-    numberOfShards   = cfg.get('ElasticSearch','numberOfShards')
-    numberOfReplicas = cfg.get('ElasticSearch','numberofReplicas')
 
     if not (esServerUrl == '' or esIndexName==''):
-        esMonitorMapping(esServerUrl,esIndexName,numberOfShards,numberOfReplicas)
+        esMonitorMapping(esServerUrl,esIndexName)
 
     caught_exception_count = 0
     iteration = 0
@@ -161,24 +160,21 @@ def iterate():
 
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
-    numberOfShards   = cfg.get('ElasticSearch','numberOfShards')
-    numberOfReplicas = cfg.get('ElasticSearch','numberofReplicas')
 
     path = cfg.get('Input', 'path')
-    _scratch_base = cfg.get('Output','scratch_base')
-    _error_base = cfg.get('Output','error_base')
-    _dqm_base = cfg.get('Output','dqm_base')
-    _ecal_base = cfg.get('Output','ecal_base')
+    _scratch_base  = cfg.get('Output','scratch_base')
+    _error_base    = cfg.get('Output','error_base')
+    _dqm_base      = cfg.get('Output','dqm_base')
+    _ecal_base     = cfg.get('Output','ecal_base')
     _lookarea_base = cfg.get('Output','lookarea_base')
-    _evd_base = cfg.get('Output','evd_base')
-    _evd_eosbase = cfg.get('Output','evd_eosbase')
-
+    _evd_base      = cfg.get('Output','evd_base')
+    _evd_eosbase   = cfg.get('Output','evd_eosbase')
+    new_path_base  = cfg.get('Output', 'new_path_base')
     _checksum_status = cfg.getboolean('Misc','checksum_status')
-    setup_label=cfg.get('Input','setup_label')
+    setup_label      = cfg.get('Input','setup_label')
 
     db_config = cfg.get('Bookkeeping', 'db_config')
-    new_path_base = cfg.get('Output', 'new_path_base')
-    db_cred = config.load(db_config)
+    db_cred   = config.load(db_config)
     connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd,
                                    db_cred.db_sid)
     cursor = connection.cursor()
@@ -190,9 +186,8 @@ def iterate():
     _streams_to_lookarea  = cfg.getlist('Streams','streams_to_lookarea' )
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
-
-    _special_streams  = cfg.getlist('Streams','special_streams' )
-    _run_special_streams = cfg.getboolean('Misc','run_special_streams')
+    _stream_type          = cfg.get('Streams','stream_type')
+    _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
 
     _renotify = cfg.getboolean('Misc','renotify')
 
@@ -258,16 +253,30 @@ def iterate():
         logger.debug("Base name for the rundir is: %s " % os.path.basename(rundir))
         stream_basename = os.path.basename(rundir)
         stream_basename = stream_basename.replace('stream','')
-        if ((stream_basename in _special_streams and not _run_special_streams) or (stream_basename not in _special_streams and _run_special_streams)):
-            logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
-            continue
+        
+        # Based on the stream type and stream name we will ingore stream directories (therefore files)
+        
+        if(_stream_type != "0"):
+
+            isStreamDQMExpress = ("DQM" in stream_basename or "Express" in stream_basename)
+            isStreamPhysics    = isStreamDQMExpress == False and ("Physics" in stream_basename or "HI" in stream_basename)
+        
+            if  (_stream_type == "onlyDQMExpress" and isStreamDQMExpress == False): 
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                continue
+            elif(_stream_type == "onlyPhysics" and isStreamPhysics == False): 
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                continue
+            elif(_stream_type == "noDQMExpressPhysics" and (isStreamDQMExpress == True or isStreamPhysics == True)): 
+                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
+                continue
         
         #now jsns live under /jsns directory
-
-        #jsns = sorted(glob.glob(os.path.join(rundir,'*.jsn')))
         jsn_parts = [rundir,'jsns','*.jsn']
         jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
         logger.debug("The list of jsns are %s "  %jsns)
+        if not jsns:
+            continue        
         
         if 'stream' in rundir:
             rundir_basename = os.path.basename(os.path.dirname(rundir)) 
@@ -338,6 +347,7 @@ def iterate():
                 maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
         if not jsns:
             continue        
+
         if (not os.path.exists(new_rundir) and
             not run_key == 'TIER0_TRANSFER_OFF'):
             mkdir(new_rundir)
@@ -398,7 +408,14 @@ def iterate():
                     continue
                 fileSize = int(settings['data'][4])
                 lumiSection = int(fileName.split('_')[1].strip('ls'))
-                streamName = str(fileName.split('_')[2].split('stream')[1])
+
+                try:
+                    streamName = str(fileName.split('_')[2].split('stream')[1])
+                except Exception as e:                    
+                    #run271983_ls0021_index000000_fu
+                    streamName = str(fileName.split('_')[2].split('index')[1])
+                    logger.exception(e)
+
                 if ( _checksum_status ):
                     checksum_int = int(settings['data'][5]) 
                     checksum = format(checksum_int, 'x').zfill(8)    #making sure it is 8 digits
@@ -433,12 +450,6 @@ def iterate():
                 if (inputEvents == 0):
                     overwrite = True
 
-                ## This is an xor operation to split the streams into 2 machines.
-                ## Explicitly the operation is:
-                if ((streamName in _special_streams and not _run_special_streams) or (streamName not in _special_streams and _run_special_streams)):
-                    logger.info("This file {0} is ignored according to the configuration of this machine".format(dat_file))
-                    continue
-
                 if streamName in _streams_with_scalers:
                     monitor_rates(jsn_file)
 
@@ -448,7 +459,7 @@ def iterate():
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        #fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
@@ -498,12 +509,9 @@ def iterate():
                         
                         #Elastic Monitor for DQM:
                         if not (esServerUrl=='' or esIndexName==''):
-                            #   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream","id"]
                             _id = jsn_file.replace(".jsn","")
-                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, time.time(), lumiSection, streamName, _id]
-                            esServerUrl = 'http://es-cdaq:9200'
-                            esIndexName = 'runindex_cdaq_write' # different index for different operation modes. 
-                            elasticMonitor(monitorData, run_number, esServerUrl, esIndexName, 5)
+                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, time.time(), lumiSection, streamName]
+                            elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
 
                     continue
 
@@ -873,7 +881,8 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
             maybe_move(jsnFile, move_rundir_open,force_overwrite=overwrite)
         # then move to the final area
             maybe_move(os.path.join(move_rundir_open,os.path.basename(datFile)),move_rundir,force_overwrite=overwrite)
-            maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir,force_overwrite=overwrite)
+            maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir,force_overwrite=overwrite)               
+
     except Exception as e:
         logger.exception(e)
 
@@ -1010,251 +1019,76 @@ def get_time_since_modification(filename):
     return datetime.utcnow() - m_utc_date_time
 
 #______________________________________________________________________________
-def elasticMonitor(monitorData, runnumber, esServerUrl, esIndexName, maxConnectionAttempts):
+def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
    # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
    connectionAttempts=0 #initialize                                                                                                                                                          
    # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
-   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream","id"]
+   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream"]
    values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
    transferMonitorDict=dict(zip(keys,values))
    transferMonitorDict['fm_date']=float(transferMonitorDict['fm_date'])
+   transferMonitorDict['host']=os.uname()[1]
    while True:
        try:
            documentType='transfer'
            logger.debug("About to try to insert into ES with the following info:")
            logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
            logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
-           monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'?parent='+runnumber,data=json.dumps(transferMonitorDict),timeout=1)
-           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
+           monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId,data=json.dumps(transferMonitorDict),timeout=1)
+           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           log.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
-           log.error(monitorResponse.raise_for_status())
+           logger.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
+           logger.error(monitorResponse.raise_for_status())
            if connectionAttempts > maxConnectionAttempts:
-               log.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
+               logger.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
                break
            else:
                connectionAttempts+=1
                time.sleep(0.1)
            continue
 #______________________________________________________________________________                                                                                                                                                     
-def esMonitorMapping(esServerUrl,esIndexName,numberOfShards,numberOfReplicas):
+def esMonitorMapping(esServerUrl,esIndexName):
 # subroutine which creates index and mappings in elastic search database
    indexExists = False
    # check if the index exists:
    try:
       checkIndexResponse=requests.get(esServerUrl+'/'+esIndexName+'/_stats/_shards/')
       if '_shards' in json.loads(checkIndexResponse.text):
-         log.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
+         logger.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
          indexExists = True
       else:
-         log.info('did not find existing index '+esIndexName+', attempting to create it...')
+         logger.info('did not find existing index '+esIndexName)
          indexExists = False
    except requests.exceptions.ConnectionError as e:
-      log.error('esMonitorMapping: Could not connect to ElasticSearch database!')
+      logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
    if indexExists:
       # if the index already exists, we put the mapping in the index for redundancy purposes:
       # JSON follows:
-      run_mapping = {
-         'run' : {
-            '_routing' :{
-               'required' : True,
-               'path'     : 'runNumber'
-            },
-            '_id' : {
-               'path' : 'runNumber'
-            },
-            'properties' : {
-               'runNumber':{
-                  'type':'integer'
-                  },
-               'startTimeRC':{
-                  'type':'date'
-                  },
-               'stopTimeRC':{
-                  'type':'date'
-                  },
-               'startTime':{
-                  'type':'date'
-                  },
-               'endTime':{
-                  'type':'date'
-                  },
-               'completedTime' : {
-                  'type':'date'
-                  }
-            },
-            '_timestamp' : {
-               'enabled' : True,
-               'store'   : 'yes'
-               }
-         }
-      }
-      minimerge_mapping = {
-         'minimerge' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
-            'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'long'},
-            }
-         }
-      }
-      macromerger_mapping = {
-         'macromerge' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
-            'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'long'},
-            }
-         }
-      }      
       transfer_mapping = {
          'transfer' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
+            '_all'          :{'enabled':False},  
+            '_timestamp'    :{'enabled':True},
             'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
+               'fm_date'       :{'type':'date','format' : 'epoch_millislldateOptionalTime'},
+               'id'            :{'type':'string','index' : 'not_analyzed'}, #run+appliance+stream+ls
+               'appliance'     :{'type':'string','index' : 'not_analyzed'},
+               'host'          :{'type':'string','index' : 'not_analyzed'}, 
                'stream'        :{'type':'string','index' : 'not_analyzed'},
                'ls'            :{'type':'integer'},
                'processed'     :{'type':'integer'},
                'accepted'      :{'type':'integer'},
                'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'long'},
+               'size'          :{'type':'long'}
             }
          }
       }
       try:
-         putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/run',data=json.dumps(run_mapping))
-         putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/minimerge',data=json.dumps(minimerge_mapping))
-         putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/macromerge',data=json.dumps(macromerge_mapping))
+         logger.info('esMonitorMapping: ' + esServerUrl+'/'+esIndexName+'/_mapping/transfer')
+         logger.info('esMonitorMapping: ' + json.dumps(transfer_mapping))
          putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/transfer',data=json.dumps(transfer_mapping))
       except requests.exceptions.ConnectionError as e:
-         log.error('esMonitorMapping: Could not connect to ElasticSearch database!')
-   else:   
-      # if the index/mappings don't exist, we must create them both:
-      # JSON data for index settings, and merge document mappings
-      settings = {
-         "analysis":{
-            "analyzer": {
-               "prefix-test-analyzer": {
-                  "type": "custom",
-                     "tokenizer": "prefix-test-tokenizer"
-                  }
-            },
-            "tokenizer": {
-               "prefix-test-tokenizer": {
-                  "type": "path_hierarchy",
-                  "delimiter": " "
-               }
-            }
-         },
-         "index":{
-            'number_of_shards' : numberOfShards,
-            'number_of_replicas' : numberOfReplicas
-         },
-      }
-      mapping = {
-         'run' : {
-            '_routing' :{
-               'required' : True,
-               'path'     : 'runNumber'
-            },
-            '_id' : {
-               'path' : 'runNumber'
-            },
-            'properties' : {
-               'runNumber':{
-                  'type':'integer'
-                  },
-               'startTimeRC':{
-                  'type':'date'
-                  },
-               'stopTimeRC':{
-                  'type':'date'
-                  },
-               'startTime':{
-                  'type':'date'
-                  },
-               'endTime':{
-                  'type':'date'
-                  },
-               'completedTime' : {
-                  'type':'date'
-                  }
-            },
-            '_timestamp' : {
-               'enabled' : True,
-               'store'   : 'yes'
-               }
-         },
-         'minimerge' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
-            'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'integer'},
-            }
-         },
-         'macromerge' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
-            'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'integer'},
-            }
-         },
-         'transfer' : {
-            '_id'        :{'path':'id'},
-            '_parent'    :{'type':'run'},
-            'properties' : {
-               'fm_date'       :{'type':'date'},
-               'id'            :{'type':'string'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string'},
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'integer'},
-            }
-         }
-      }
-      try:
-         createIndexResponse=requests.post(esServerUrl+'/'+esIndexName,data=json.dumps({ 'settings': settings, 'mappings': mapping }))
-      except requests.exceptions.ConnectionError as e:
-         log.error('esMonitorMapping: Could not connect to ElasticSearch database!')
+         logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
 #______________________________________________________________________________                                                                                                                                                     
                                                                                                   
 if __name__ == '__main__':
