@@ -271,12 +271,6 @@ def iterate():
                 logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
         
-        #now jsns live under /jsns directory
-        jsn_parts = [rundir,'jsns','*.jsn']
-        jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
-        logger.debug("The list of jsns are %s "  %jsns)
-        if not jsns:
-            continue        
         
         if 'stream' in rundir:
             rundir_basename = os.path.basename(os.path.dirname(rundir)) 
@@ -345,6 +339,11 @@ def iterate():
                 if not os.path.exists(recorded_recovery_dir):
                     mkdir(recorded_recovery_dir)
                 maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
+        
+        # Make sure there are jsn files or else go to the next iteration
+        jsn_parts = [rundir,'jsns','*.jsn']
+        jsns = sorted(glob.glob(os.path.join(*jsn_parts)))
+        logger.debug("The list of jsns are %s "  %jsns)
         if not jsns:
             continue        
 
