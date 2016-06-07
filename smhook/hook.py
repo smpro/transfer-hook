@@ -188,6 +188,8 @@ def iterate():
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
     _stream_type          = cfg.get('Streams','stream_type')
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
+    _total_machines       = cfg.get('Misc','total_machines')
+    _machine_instance     = cfg.get('Misc','machine_instance')
 
     _renotify = cfg.getboolean('Misc','renotify')
 
@@ -258,16 +260,12 @@ def iterate():
         
         if(_stream_type != "0"):
 
-            isStreamDQMExpress = ("DQM" in stream_basename or "Express" in stream_basename)
-            isStreamPhysics    = isStreamDQMExpress == False and ("Physics" in stream_basename or "HI" in stream_basename)
+            isStreamDQMExpress = ("DQM" in stream_basename or "Express" in stream_basename or "Error" in stream_base)
         
             if  (_stream_type == "onlyDQMExpress" and isStreamDQMExpress == False): 
                 logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
-            elif(_stream_type == "onlyPhysics" and isStreamPhysics == False): 
-                logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
-                continue
-            elif(_stream_type == "noDQMExpressPhysics" and (isStreamDQMExpress == True or isStreamPhysics == True)): 
+            elif(_stream_type == "noDQMExpressPhysics" and (isStreamDQMExpress == True)): 
                 logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
                 continue
         
@@ -377,6 +375,11 @@ def iterate():
             ) + pprint.pformat([os.path.basename(f) for f in jsns])
         )
         for jsn_file in jsns:
+
+            if (isStreamDQMExpress != True):                                                   
+                 if (int(jsn_file.split("_")[1].split("ls")[1])%int(_total_machines) != int(_machine_instance)):
+                     continue
+
             if ('BoLS' not in jsn_file and
                 'EoLS' not in jsn_file and
                 'index' not in jsn_file):
@@ -875,7 +878,7 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
         maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir,force_overwrite=overwrite)
 
         # copying to lookarea only if the file size is less than 2 GB 
-        if (fileSize < max_lookarea):
+        if (int(jsnFile.split("_")[1].split("ls")[1])%10 != 0):   
         #then move to open area dst2
             maybe_move(datFile, move_rundir_open,force_overwrite=overwrite)
             maybe_move(jsnFile, move_rundir_open,force_overwrite=overwrite)
