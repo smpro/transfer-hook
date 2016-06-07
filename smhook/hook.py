@@ -260,7 +260,7 @@ def iterate():
         
         if(_stream_type != "0"):
 
-            isStreamDQMExpress = ("DQM" in stream_basename or "Express" in stream_basename or "Error" in stream_base)
+            isStreamDQMExpress = ("DQM" in stream_basename or "Express" in stream_basename or "Error" in stream_basename)
         
             if  (_stream_type == "onlyDQMExpress" and isStreamDQMExpress == False): 
                 logger.debug("The directory {0} is ignored according to the configuration on this machine".format(stream_basename))
