@@ -878,7 +878,7 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
         maybe_move(os.path.join(copy_rundir_open,os.path.basename(jsnFile)),copy_rundir,force_overwrite=overwrite)
 
         # copying to lookarea only if the file size is less than 2 GB 
-        if (int(jsnFile.split("_")[1].split("ls")[1])%10 != 0):   
+        if (int(jsnFile.split("_")[1].split("ls")[1])%10 == 0):   
         #then move to open area dst2
             maybe_move(datFile, move_rundir_open,force_overwrite=overwrite)
             maybe_move(jsnFile, move_rundir_open,force_overwrite=overwrite)
