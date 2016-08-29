@@ -11,9 +11,12 @@ import logging
 
 import smhook.config
 
-# Hardcoded Config file to be used, is defined below:
-myconfig = os.path.join(smhook.config.DIR, '.db_rcms_cred.py')
+# Hardcoded settings
 debug=False
+myconfig = os.path.join(smhook.config.DIR, '.db_rcms_cred.py')
+cxn_timeout = 60*60 # Timeout for database connection in seconds
+
+
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
@@ -25,15 +28,59 @@ if debug == True:
 logger.info('Using config: %s' % myconfig)
 execfile(myconfig)
 
+# Establish DB connection as module global
+# This allows a persistent database connection
+# The database configuration is taken from smhook.config
+global cxn_exists, cxn_db, cursor, cxn_timestamp
+
+cxn_exists = False
+try:
+	cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
+    cursor=cxn_db.cursor()
+    cxn_exists = True
+except cx_Oracle.DatabaseError as e:
+	error, = e.args
+	if error.code == 1017:
+		logger.error('Bad credentials for database for writing file quality control')
+        cxn_exists = False
+	else:
+		logger.error('Error connecting to database for writing: %s'.format(e))
+        cxn_exists = False
+if cxn_exists:
+    cxn_timestamp = int(time.time())
+else:
+    cxn_timestamp = 0
+
 #############################
 # fileQualityControl        #
 #############################
 # This function takes a full path to a json file, the filename of a data file, and several numeric arguments then inserts or updates the relevant information in the database
 # The number of events built is greater than or equal to number of events lost.
-# The database configuration is taken from smhook.config
 
 def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
-	events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
+    # Check for a fresh connection
+    global cxn_exists, cxn_db, cursor, cxn_timestamp
+    is_fresh_cxn = int(time.time()) - cxn_timestamp < cxn_timeout
+    if !cxn_exists or !is_fresh_cxn: # If it's not fresh or doesn't exist, try to make a new one
+        try:
+        	cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
+            cursor=cxn_db.cursor()
+            cxn_exists = True
+        except cx_Oracle.DatabaseError as e:
+        	error, = e.args
+        	if error.code == 1017:
+        		logger.error('Bad credentials for database for writing file quality control')
+                cxn_exists = False
+        	else:
+        		logger.error('Error connecting to database for writing: %s'.format(e))
+                cxn_exists = False
+    if cxn_exists:
+        cxn_timestamp = int(time.time())
+    else:
+        cxn_timestamp = 0
+        return False
+	
+    events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
 	# This inserts the information in the database
 	file_raw, file_ext = os.path.splitext(data_file)
 	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji! C-('_' Q)
@@ -42,18 +89,6 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
 	stream=raw_pieces[2][6:] 
 	machine=raw_pieces[3]
 	
-	# Establish DB connections
-	try:
-		cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
-	except cx_Oracle.DatabaseError as e:
-		error, = e.args
-		if error.code == 1017:
-			logger.error('Bad credentials for database for writing file quality control')
-			return False
-		else:
-			logger.error('Error connecting to database for writing: %s'.format(e))
-			return False
-	cursor=cxn_db.cursor()
 	query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+data_file+"'"
 	# See if there is an existing row
 	cursor.execute(query)
