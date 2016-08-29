@@ -36,53 +36,48 @@ global cxn_exists, cxn_db, cursor, cxn_timestamp
 cxn_exists = False
 try:
 	cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
-    cursor=cxn_db.cursor()
-    cxn_exists = True
+	cursor=cxn_db.cursor()
+	cxn_exists = True
+	cxn_timestamp = int(time.time())
 except cx_Oracle.DatabaseError as e:
 	error, = e.args
 	if error.code == 1017:
 		logger.error('Bad credentials for database for writing file quality control')
-        cxn_exists = False
 	else:
 		logger.error('Error connecting to database for writing: %s'.format(e))
-        cxn_exists = False
-if cxn_exists:
-    cxn_timestamp = int(time.time())
-else:
-    cxn_timestamp = 0
+if not cxn_exists:
+	cxn_timestamp = 0
 
 #############################
-# fileQualityControl        #
+# fileQualityControl		#
 #############################
 # This function takes a full path to a json file, the filename of a data file, and several numeric arguments then inserts or updates the relevant information in the database
 # The number of events built is greater than or equal to number of events lost.
 
 def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
-    # Check for a fresh connection
-    global cxn_exists, cxn_db, cursor, cxn_timestamp
-    is_fresh_cxn = int(time.time()) - cxn_timestamp < cxn_timeout
-    if !cxn_exists or !is_fresh_cxn: # If it's not fresh or doesn't exist, try to make a new one
-        if cxn_exists:
-            cxn_db.close() 
-        try:
-        	cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
-            cursor=cxn_db.cursor()
-            cxn_exists = True
-        except cx_Oracle.DatabaseError as e:
-        	error, = e.args
-        	if error.code == 1017:
-        		logger.error('Bad credentials for database for writing file quality control')
-                cxn_exists = False
-        	else:
-        		logger.error('Error connecting to database for writing: %s'.format(e))
-                cxn_exists = False
-    if cxn_exists:
-        cxn_timestamp = int(time.time())
-    else:
-        cxn_timestamp = 0
-        return False
-	
-    events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
+	# Check for a fresh connection
+	global cxn_exists, cxn_db, cursor, cxn_timestamp
+	is_fresh_cxn = int(time.time()) - cxn_timestamp < cxn_timeout
+	if not cxn_exists or not is_fresh_cxn: # If it's not fresh or doesn't exist, try to make a new one
+		if cxn_exists:
+			cxn_db.close()
+			cxn_exists = False
+		try:
+			cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
+			cursor=cxn_db.cursor()
+			cxn_exists = True
+			cxn_timestamp = int(time.time())
+		except cx_Oracle.DatabaseError as e:
+			error, = e.args
+			if error.code == 1017:
+				logger.error('Bad credentials for database for writing file quality control')
+			else:
+				logger.error('Error connecting to database for writing: %s'.format(e))
+	if not cxn_exists:
+		cxn_timestamp = 0
+		return False
+
+	events_lost = min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized)
 	# This inserts the information in the database
 	file_raw, file_ext = os.path.splitext(data_file)
 	raw_pieces=file_raw.split( '_' , 3 ) # this is not an emoji! C-('_' Q)
@@ -139,18 +134,18 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
 		# Update the existing row
 		query="""
 			UPDATE CMS_STOMGR.FILE_QUALITY_CONTROL SET
-				RUNNUMBER              = {1},
-				LS                     = {2},
-				STREAM                 = '{3}',
-				FILENAME               = '{4}',
-				LAST_UPDATE_TIME       = {5},
-				EVENTS_BUILT           = {6},
-				EVENTS_LOST            = {7},
+				RUNNUMBER			  = {1},
+				LS					 = {2},
+				STREAM				 = '{3}',
+				FILENAME			   = '{4}',
+				LAST_UPDATE_TIME	   = {5},
+				EVENTS_BUILT		   = {6},
+				EVENTS_LOST			= {7},
 				EVENTS_LOST_CHECKSUM   = {8},
-				EVENTS_LOST_CMSSW      = {9},
-				EVENTS_LOST_CRASH      = {10},
+				EVENTS_LOST_CMSSW	  = {9},
+				EVENTS_LOST_CRASH	  = {10},
 				EVENTS_LOST_OVERSIZED  = {11},
-				IS_GOOD_LS             = {12}
+				IS_GOOD_LS			 = {12}
 			WHERE FILENAME='{4}'
 		"""
 		query=query.format(

@@ -14,10 +14,11 @@ import smhook.config
 # Hardcoded Config file to be used, is defined below:
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
-
-#myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 debug=False
+myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
+cxn_timeout = 60*60 # Timeout for database connection in seconds
+
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
@@ -28,6 +29,67 @@ if debug == True:
 # Load the config
 logger.info('Using config: %s' % myconfig)
 execfile(myconfig)
+
+# Establish DB connections as module globals
+# This allows persistent database connections
+global cxn_exists, cxn_db, cursor, cxn_timestamp
+cxn_exists = {
+    "trigger_read":       False,
+    "hlt_rates_write":    False,
+    "l1_rates_write":     False,
+    "l1_rate_types_read": False
+}
+cxn_db = {}
+cursor = {}
+cxn_timestamp = {
+     "trigger_read":       0,
+     "hlt_rates_write":    0,
+     "l1_rates_write":     0,
+     "l1_rate_types_read": 0
+}
+try:
+    cxn_db["trigger_read"] = cx_Oracle.connect(trigger_db_login,trigger_db_pwd,trigger_db_sid)
+    cursor["trigger_read"] = cxn_db["trigger_read"].cursor()
+    cxn_exists["trigger_read"] = True
+    cxn_timestamp["trigger_read"] = int(time.time())
+except cx_Oracle.DatabaseError as e:
+    if error.code == 1017:
+        logger.error('Bad credentials for database for reading trigger tables/datasets')
+    else:
+        logger.error('Error connecting to database for reading: %s'.format(e))
+try:
+    cxn_db["hlt_rates_write"] = cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
+    cursor["hlt_rates_write"] = cxn_db["hlt_rates_write"].cursor()
+    cxn_exists["hlt_rates_write"] = True
+    cxn_timestamp["hlt_rates_write"] = int(time.time())
+except cx_Oracle.DatabaseError as e:
+    error, = e.args
+    if error.code == 1017:
+        logger.error('Bad credentials for database for writing HLT rates')
+    else:
+        logger.error('Error connecting to database for writing: %s'.format(e))
+try:
+    cxn_db["l1_rates_write"] = cx_Oracle.connect(l1_rates_db_login, l1_rates_db_pwd, l1_rates_db_sid)
+    cursor["l1_rates_write"] = cxn_db["l1_rates_write"].cursor()
+    cxn_exists["l1_rates_write"] = True
+    cxn_timestamp["l1_rates_write"] = int(time.time())
+except cx_Oracle.DatabaseError as e:
+    error, = e.args
+    if error.code == 1017:
+        logger.error('Bad credentials for database for writing L1 rates')
+    else:
+        logger.error('Error connecting to database for writing: %s'.format(e))
+try:
+    cxn_db["l1_rate_types_read"] = cx_Oracle.connect(l1_rate_type_db_login, l1_rate_type_db_pwd, l1_rate_type_db_sid)
+    cursor["l1_rate_types_read"] = cxn_db["l1_rate_types_read"].cursor()
+    cxn_exists["l1_rate_types_read"] = True
+    cxn_timestamp["l1_rate_types_read"] = int(time.time())
+except cx_Oracle.DatabaseError as e:
+    error, = e.args
+    if error.code == 1017:
+        logger.error('Bad credentials for database for reading L1 rate types')
+    else:
+        logger.error('Error connecting to database for reading: %s'.format(e))
 
 #############################
 # monitorRates:             #
@@ -51,6 +113,10 @@ def monitorRates(jsndata_file,rates_jsn_file):
     # Any other call of this function is inappropriate and will just not work!
     # e.g. jsndata_file='/store/lustre/mergeMiniDAQMacro/run230852/run230852_ls0110_streamHLTRates_mrg-c2f13-37-01.jsndata'
 
+    # Grab the globals for the database connections
+    global cxn_exists, cxn_db, cursor, cxn_timestamp
+    is_fresh_cxn={}
+
     # Do some filename handling to get info about the run, stream, LS
     jsn_file = rates_jsn_file
     json_dir=os.path.dirname(jsndata_file) 
@@ -66,19 +132,26 @@ def monitorRates(jsndata_file,rates_jsn_file):
         logger.error('Unrecognized rate stream: '+raw_pieces[2])
         return False
     
-
     # We only need the trigger tables and dataset name-ID mapping for the HLT rates:
     if stream=="HLTRates":
-        try:
-            cxn_db_to_read=cx_Oracle.connect(trigger_db_login,trigger_db_pwd,trigger_db_sid)
-        except cx_Oracle.DatabaseError as e:
-            if error.code == 1017:
-                logger.error('Bad credentials for database for reading trigger tables/datasets')
-                return False
-            else:
-                logger.error('Error connecting to database for reading: %s'.format(e))
-                return False
-
+        # Check for a fresh connection for reading the trigger tables and dataset mapping
+        is_fresh_cxn["trigger_read"] = int(time.time()) - cxn_timestamp["trigger_read"] < cxn_timeout
+        if not cxn_exists["trigger_read"] or not is_fresh_cxn["trigger_read"]: # If it's not fresh or doesn't exist, try to make a new one
+            if cxn_exists:
+                cxn_db["trigger_read"].close()
+                cxn_exists["trigger_read"] = False
+            try:
+                cxn_db["trigger_read"] = cx_Oracle.connect(trigger_db_login,trigger_db_pwd,trigger_db_sid)
+                cursor["trigger_read"] = cxn_db["trigger_read"].cursor()
+                cxn_exists["trigger_read"] = True
+                cxn_timestamp["trigger_read"] = int(time.time())
+            except cx_Oracle.DatabaseError as e:
+                if error.code == 1017:
+                    logger.error('Bad credentials for database for reading trigger tables/datasets')
+                    return False
+                else:
+                    logger.error('Error connecting to database for reading: %s'.format(e))
+                    return False
         # Retrieve the mapping between HLT path index, HLT path name, HLT path ID
         pathname_query="""
             select D.ORD, A.NAME, E.PATHID from
@@ -95,9 +168,8 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 and C.RUNNUMBER = {0}
             order by D.ORD
         """
-        read_cursor=cxn_db_to_read.cursor()
-        read_cursor.execute(pathname_query.format(str(run_number)))
-        pathname_mapping=read_cursor.fetchall()
+        cursor["trigger_read"].execute(pathname_query.format(str(run_number)))
+        pathname_mapping=cursor["trigger_read"].fetchall()
         if len(pathname_mapping) < 1:
             logger.error("Could not get pathname-pathID mapping for HLT rates!")
             return False
@@ -113,22 +185,19 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 and A.CONFIGID = C.HLTKEY 
                 and C.RUNNUMBER = {0} order by E.name
         """
-        read_cursor=cxn_db_to_read.cursor()
-        read_cursor.execute(dataset_name_query.format(str(run_number)))
-        dataset_name_mapping=read_cursor.fetchall()
+        cursor["trigger_read"].execute(dataset_name_query.format(str(run_number)))
+        dataset_name_mapping=cursor["trigger_read"].fetchall()
         if len(dataset_name_mapping) < 1:
             logger.error("Could not get pathname-pathID mapping for HLT rates!")
             return False
 
     # Open the jsndata file
     # If it doesn't exist, this function will crash
-
     try:
         rates_json=open(jsndata_file).read()
     except (OSError, IOError) as e:
         logger.error('Error finding or opening jsndata file: "'+jsndata_file+'"')
         return False
-
     try:
         rates=json.loads(rates_json)
     except (ValueError) as e:
@@ -151,19 +220,24 @@ def monitorRates(jsndata_file,rates_jsn_file):
     ini_filename=raw_pieces[0]+'_ls0000_'+raw_pieces[2]+'_StorageManager.ini'
     ini_path = os.path.join(json_dir, 'open', ini_filename)
     if stream=='HLTRates':
-        # Establish DB connections for HLT
-        try:
-            cxn_db_to_write=cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
-        except cx_Oracle.DatabaseError as e:
-            error, = e.args
-            if error.code == 1017:
-                logger.error('Bad credentials for database for writing rates')
-                return False
-            else:
-                logger.error('Error connecting to database for writing: %s'.format(e))
-                return False
-        write_cursor=cxn_db_to_write.cursor()
-
+        # Check for a fresh connection for writing the HLT rates
+        is_fresh_cxn["hlt_rates_write"] = int(time.time()) - cxn_timestamp["hlt_rates_write"] < cxn_timeout
+        if not cxn_exists["hlt_rates_write"] or not is_fresh_cxn["hlt_rates_write"]: # If it's not fresh or doesn't exist, try to make a new one
+            if cxn_exists:
+                cxn_db["hlt_rates_write"].close()
+                cxn_exists["hlt_rates_write"] = False
+            try:
+                cxn_db["hlt_rates_write"] = cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
+                cursor["hlt_rates_write"] = cxn_db["hlt_rates_write"].cursor()
+                cxn_exists["hlt_rates_write"] = True
+                cxn_timestamp["hlt_rates_write"] = int(time.time())
+            except cx_Oracle.DatabaseError as e:
+                if error.code == 1017:
+                    logger.error('Bad credentials for database for writing rates')
+                    return False
+                else:
+                    logger.error('Error connecting to database for writing: %s'.format(e))
+                    return False
         try:
             HLT_json=open(ini_path).read()
         except (OSError, IOError) as e:
@@ -198,8 +272,8 @@ def monitorRates(jsndata_file,rates_jsn_file):
         # If it isn't, we create a row in the table of LS
         # Currently most of the fields are set to 0 because I am grossly misinformed
         query="SELECT RUNNUMBER FROM "+HLT_LS_table+" WHERE LSNUMBER="+ls[2:]+" AND RUNNUMBER="+run_number
-        write_cursor.execute(query)
-        if len(write_cursor.fetchall()) < 1:
+        cursor["hlt_rates_write"].execute(query)
+        if len(cursor["hlt_rates_write"].fetchall()) < 1:
             # No existing row. we must now try to insert:
             # print "This LS is not already in the DB" #debug    
             query="""
@@ -224,7 +298,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 0,
                 0
             )
-            write_cursor.execute(query)
+            cursor["hlt_rates_write"].execute(query)
         # End checking/indexing LS in the DB
 
         # Now put the rates in the DB
@@ -259,8 +333,8 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 HLT_rates[pathname]['PEXCEPT'],
                 HLT_rates[pathname]['PREJECT']
             )
-            write_cursor.execute(query)
-            cxn_db_to_write.commit()
+            cursor["hlt_rates_write"].execute(query)
+            cxn_db["hlt_rates_write"].commit()
 
         # Put the dataset acceptances in the DB using similar method as the rates
         for dataset_name in HLT_dataset_acceptances:
@@ -287,36 +361,47 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 dataset_id,
                 HLT_dataset_acceptances[dataset_name]
             )
-            write_cursor.execute(query)
-            cxn_db_to_write.commit()
+            cursor["hlt_rates_write"].execute(query)
+            cxn_db["hlt_rates_write"].commit()
         return True
     
     elif stream=='L1Rates':
-        # Establish DB connection for L1
-        try:
-            cxn_db_to_write=cx_Oracle.connect(l1_rates_db_login, l1_rates_db_pwd, l1_rates_db_sid)
-        except cx_Oracle.DatabaseError as e:
-            error, = e.args
-            if error.code == 1017:
-                logger.error('Bad credentials for database for writing L1 rates')
-                return False
-            else:
-                logger.error('Error connecting to database for writing: %s'.format(e))
-                return False
-        write_cursor=cxn_db_to_write.cursor()
-
-        try:
-            cxn_db_to_read=cx_Oracle.connect(l1_rate_type_db_login, l1_rate_type_db_pwd, l1_rate_type_db_sid)
-        except cx_Oracle.DatabaseError as e:
-            error, = e.args
-            if error.code == 1017:
-                logger.error('Bad credentials for database for reading L1 rate types')
-                return False
-            else:
-                logger.error('Error connecting to database for reading: %s'.format(e))
-                return False
-        read_cursor=cxn_db_to_read.cursor()
-
+        # Check for a fresh connection for writing the L1 rates
+        is_fresh_cxn["l1_rates_write"] = int(time.time()) - cxn_timestamp["l1_rates_write"] < cxn_timeout
+        if not cxn_exists["l1_rates_write"] or not is_fresh_cxn["l1_rates_write"]: # If it's not fresh or doesn't exist, try to make a new one
+            if cxn_exists:
+                cxn_db["l1_rates_write"].close()
+                cxn_exists["l1_rates_write"] = False
+            try:
+                cxn_db["l1_rates_write"] = cx_Oracle.connect(l1_rates_db_login, l1_rates_db_pwd, l1_rates_db_sid)
+                cursor["l1_rates_write"] = cxn_db["l1_rates_write"].cursor()
+                cxn_exists["l1_rates_write"] = True
+                cxn_timestamp["l1_rates_write"] = int(time.time())
+            except cx_Oracle.DatabaseError as e:
+                if error.code == 1017:
+                    logger.error('Bad credentials for database for writing L1 rates')
+                    return False
+                else:
+                    logger.error('Error connecting to database for writing: %s'.format(e))
+                    return False
+        # Check for a fresh connection for reading the L1 rates
+        is_fresh_cxn["l1_rate_types_read"] = int(time.time()) - cxn_timestamp["l1_rate_types_read"] < cxn_timeout
+        if not cxn_exists["l1_rate_types_read"] or not is_fresh_cxn["l1_rate_types_read"]: # If it's not fresh or doesn't exist, try to make a new one
+            if cxn_exists:
+                cxn_db["l1_rate_types_read"].close()
+                cxn_exists["l1_rate_types_read"] = False
+            try:
+                cxn_db["l1_rate_types_read"] = cx_Oracle.connect(l1_rate_type_db_login, l1_rate_type_db_pwd, l1_rate_type_db_sid)
+                cursor["l1_rate_types_read"] = cxn_db["l1_rate_types_read"].cursor()
+                cxn_exists["l1_rate_types_read"] = True
+                cxn_timestamp["l1_rate_types_read"] = int(time.time())
+            except cx_Oracle.DatabaseError as e:
+                if error.code == 1017:
+                    logger.error('Bad credentials for database for reading L1 rate types')
+                    return False
+                else:
+                    logger.error('Error connecting to database for writing: %s'.format(e))
+                    return False
         try:
             L1_json=open(ini_path).read()
         except (OSError, IOError) as e:
@@ -332,38 +417,18 @@ def monitorRates(jsndata_file,rates_jsn_file):
         L1_rates['L1_DECISION_RANDOM']      = rates['data'][4]
         L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
         
-        # Check if the LS is already registered in the database
-        # Currently not needed.
-        #query="SELECT ID FROM {0} WHERE RUN_NUMBER={1} AND LUMI_SECTION={2}".format(L1_lumisection_id_table, run_number, int(ls[2:]))
-        #write_cursor.execute(query);
-        #result=write_cursor.fetchall()
-        #if len(result) < 1 and False:
-        #    # No existing row. we must now try to insert it in the L1 DB:
-        #    lumisection_id = "%06d_%05d" % (int(run_number), int(ls[2:]))
-        #    query="INSERT INTO %s (ID, RUN_NUMBER, LUMI_SECTION) VALUES ('%s', %d, %d)" % (
-        #        L1_lumisection_id_table, 
-        #        lumisection_id,
-        #        int(run_number),
-        #        int(ls[2:])
-        #    )
-        #    write_cursor.execute(query)
-        #    cxn_db_to_write.commit()
-
-        #else:
-        #    lumisection_id = result[0][0]
-
         lumisection_id = "%07d_%05d" % (int(run_number), int(ls[2:]))
 
         # Retrieve the IDs for the different types of L1 rates from the lookup table
         try:
-            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT') FROM DUAL")
-            l1_all_rates_result = read_cursor.fetchall()
-            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_PHYSICS') FROM DUAL")
-            l1_physics_rates_result = read_cursor.fetchall()
-            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_CALIBRATION') FROM DUAL")
-            l1_calibration_rates_result = read_cursor.fetchall()
-            read_cursor.execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_RANDOM') FROM DUAL")
-            l1_random_rates_result = read_cursor.fetchall()
+            cursor["l1_rate_types_read"].execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_BY_HLT') FROM DUAL")
+            l1_all_rates_result = cursor["l1_rate_types_read"].fetchall()
+            cursor["l1_rate_types_read"].execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_PHYSICS') FROM DUAL")
+            l1_physics_rates_result = cursor["l1_rate_types_read"].fetchall()
+            cursor["l1_rate_types_read"].execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_CALIBRATION') FROM DUAL")
+            l1_calibration_rates_result = cursor["l1_rate_types_read"].fetchall()
+            cursor["l1_rate_types_read"].execute("SELECT CMS_UGT_MON.GET_SCALER_TYPE('POST_DEADTIME_ALGORITHM_RATE_AFTER_PRESCALE_RANDOM') FROM DUAL")
+            l1_random_rates_result = cursor["l1_rate_types_read"].fetchall()
         except cx_Oracle.DatabaseError as e:
             error, = e.args
             logger.error('Error with database while looking up the ID for the L1 rate types: %s'.format(e))
@@ -392,102 +457,10 @@ def monitorRates(jsndata_file,rates_jsn_file):
                     lumisection_id
                 )
                 logger.debug(query)
-                write_cursor.execute(query)
+                cursor["l1_rates_write"].execute(query)
                 algo_index=algo_index+1
-        cxn_db_to_write.commit()
-        cxn_db_to_write.close()
+        cxn_db["l1_rates_write"].commit()
         return True
-
-        # OLD CODE FOLLOWS
-        ## Check if the L1 rates are split by type ( backwards compatibility )
-        #L1_names=json.loads(L1_json)
-        #L1_rates={}
-        #L1_rates['EVENTCOUNT']                 = rates['data'][0][0]
-        #L1_rates['L1_DECISION']             = rates['data'][1]
-        #L1_rates['L1_TECHNICAL']             = rates['data'][2]
-        #if len(rates['data'])>4:
-        #    L1_rates['L1_DECISION_PHYSICS']        = rates['data'][3] # NEW LINES -DGH
-        #    L1_rates['L1_TECHNICAL_PHYSICS']    = rates['data'][4]
-        #    L1_rates['L1_DECISION_CALIBRATION']    = rates['data'][5]
-        #    L1_rates['L1_TECHNICAL_CALIBRATION']= rates['data'][6]
-        #    L1_rates['L1_DECISION_RANDOM']         = rates['data'][7]
-        #    L1_rates['L1_TECHNICAL_RANDOM']     = rates['data'][8]
-        ## Here we record the file modification time of the jsndata file for book keeping purposes
-        #L1_rates['mod_datetime']            = str(datetime.datetime.utcfromtimestamp(os.path.getmtime(jsndata_file)))
-        #
-        ## Insert L1 rates into the database
-        #if len(rates['data'])>4:
-        #    query="""
-        #        INSERT INTO {0} (
-        #            RUNNUMBER,
-        #            LSNUMBER,
-        #            MODIFICATIONTIME,
-        #            EVENTCOUNT,
-        #            DECISION_ARRAY,
-        #            DECISION_ARRAY_PHYSICS,
-        #            DECISION_ARRAY_CALIBRATION,
-        #            DECISION_ARRAY_RANDOM,
-        #            TECHNICAL_ARRAY,
-        #            TECHNICAL_ARRAY_PHYSICS,
-        #            TECHNICAL_ARRAY_CALIBRATION,
-        #            TECHNICAL_ARRAY_RANDOM
-        #        ) VALUES (
-        #            {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}
-        #        )
-        #    """
-        #    # The join operations below simply format the rates arrays so that they may be inserted into the DB.
-        #    query=query.format(
-        #        L1_rates_db,
-        #        run_number,
-        #        int(ls[2:]),
-        #        "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-        #        L1_rates['EVENTCOUNT'],
-        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_PHYSICS']))+')',
-        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_CALIBRATION']))+')',
-        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION_RANDOM']))+')',
-        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')', # VARRAY(1,2,3,4,...N)
-        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_PHYSICS']))+')',
-        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_CALIBRATION']))+')',
-        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL_RANDOM']))+')'
-        #    )
-        #else: # backwards compatible
-        #    query="""
-        #        INSERT INTO {0} (
-        #            RUNNUMBER,
-        #            LSNUMBER,
-        #            MODIFICATIONTIME,
-        #            EVENTCOUNT,
-        #            DECISION_ARRAY,
-        #            TECHNICAL_ARRAY
-        #        ) VALUES (
-        #            {1}, {2}, {3}, {4}, {5}, {6}
-        #        )
-        #    """
-        #    # The join operations below simply format the rates arrays so that they may be inserted into the DB.
-        #    query=query.format(
-        #        L1_rates_db,
-        #        run_number,
-        #        int(ls[2:]),
-        #        "TO_TIMESTAMP('"+L1_rates['mod_datetime']+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-        #        L1_rates['EVENTCOUNT'],
-        #        decision_varray_name+'('+','.join(map(str,L1_rates['L1_DECISION']))+')', # VARRAY(1,2,3,4,...N)
-        #        technical_varray_name+'('+','.join(map(str,L1_rates['L1_TECHNICAL']))+')' # VARRAY(1,2,3,4,...N)
-        #    )        
-        #write_cursor.execute(query)
-        #cxn_db_to_write.commit()
-        #return True
-
-#def makeWriteCxn():
-#    return cx_Oracle.connect(hlt_rates_db_login,write_db_pwd,write_db_sid)
-#def makeReadCxn():
-#    return cx_Oracle.connect(trigger_db_login,trigger_db_pwd,trigger_db_sid)
-#def makeWriteCursor():
-#    cxn_db_to_write=cx_Oracle.connect(hlt_rates_db_login,write_db_pwd,write_db_sid)
-#    return cxn_db_to_write.cursor()
-#def makeReadCursor():
-#    cxn_db_to_read=cx_Oracle.connect(trigger_db_login,trigger_db_pwd,trigger_db_sid)
-#    return cxn_db_to_read.cursor()
 
 def getMyTables():
     cxn=cx_Oracle.connect(hlt_rates_db_login, hlt_rates_db_pwd, hlt_rates_db_sid)
