@@ -62,6 +62,8 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
     global cxn_exists, cxn_db, cursor, cxn_timestamp
     is_fresh_cxn = int(time.time()) - cxn_timestamp < cxn_timeout
     if !cxn_exists or !is_fresh_cxn: # If it's not fresh or doesn't exist, try to make a new one
+        if cxn_exists:
+            cxn_db.close() 
         try:
         	cxn_db=cx_Oracle.connect(db_user, db_pwd, db_sid)
             cursor=cxn_db.cursor()
