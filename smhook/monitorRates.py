@@ -15,8 +15,8 @@ import smhook.config
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
 debug=False
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-#myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
+myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 cxn_timeout = 60*60 # Timeout for database connection in seconds
 
 logger = logging.getLogger(__name__)
