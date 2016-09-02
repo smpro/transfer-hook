@@ -531,9 +531,10 @@ def iterate_private_data():
 			
 			# get info from required file name format
 			try:
-				runnumber = int(fileName.split('_')[0].strip('run'))
-				lumiSection = int(fileName.split('_')[1].strip('ls'))
-				streamName = str(fileName.split('_')[2].split('stream')[1])
+				jsn_filename=os.path.basename(jsn_file)
+				runnumber = int(jsn_filename.split('_')[0].strip('run'))
+				lumiSection = int(jsn_filename.split('_')[1].strip('ls'))
+				streamName = str(jsn_filename.split('_')[2].split('stream')[1])
 			except ValueError:
 				logger.warning("The json file %s has improper name format and cannot be processed" % jsn_file)
 				maybe_move(jsn_file, safety_subdir, suffix='BadName', force_overwrite=True)
