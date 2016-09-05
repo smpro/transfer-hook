@@ -15,6 +15,7 @@ import smhook.config
 debug=False
 myconfig = os.path.join(smhook.config.DIR, '.db_rcms_cred.py')
 cxn_timeout = 60*60 # Timeout for database connection in seconds
+num_retries=5
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,16 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
     
     query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+data_file+"'"
     # See if there is an existing row
-    cursor.execute(query)
+    retries=0
+    while retries < num_retries:
+        try:
+            cursor.execute(query)
+        except cx_Oracle.DatabaseError as e:
+            logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+            retries=retries+1
+            if retries == num_retries:
+                logger.error('Exceeded max number of retries, giving up')
+                return False
     if(is_good_ls):
         is_good_ls=1
     else:
@@ -128,8 +138,6 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
             events_lost_oversized,
             is_good_ls
         )
-        cursor.execute(query)
-        cxn_db.commit()
     else:
         # Update the existing row
         query="""
@@ -163,6 +171,16 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
             events_lost_oversized,
             is_good_ls
         )
-        cursor.execute(query)
-        cxn_db.commit()
-        return True
+    
+    retries=0
+    while retries < num_retries:
+        try:
+            cursor.execute(query)
+        except cx_Oracle.DatabaseError as e:
+            logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+            retries=retries+1
+            if retries == num_retries:
+                logger.error('Exceeded max number of retries, giving up')
+                return False
+    cxn_db.commit()
+    return True

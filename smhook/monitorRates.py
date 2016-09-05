@@ -18,6 +18,7 @@ debug=False
 #myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
 myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 cxn_timeout = 60*60 # Timeout for database connection in seconds
+num_retries=5
 
 logger = logging.getLogger(__name__)
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
@@ -168,7 +169,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 and C.RUNNUMBER = {0}
             order by D.ORD
         """
-        cursor["trigger_read"].execute(pathname_query.format(str(run_number)))
+        retries=0
+        while retries < num_retries:
+            try:
+                cursor["trigger_read"].execute(pathname_query.format(str(run_number)))
+            except cx_Oracle.DatabaseError as e:
+                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                retries=retries+1
+                if retries == num_retries:
+                    logger.error('Exceeded max number of retries, giving up')
+                    return False
         pathname_mapping=cursor["trigger_read"].fetchall()
         if len(pathname_mapping) < 1:
             logger.error("Could not get pathname-pathID mapping for HLT rates!")
@@ -185,7 +195,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 and A.CONFIGID = C.HLTKEY 
                 and C.RUNNUMBER = {0} order by E.name
         """
-        cursor["trigger_read"].execute(dataset_name_query.format(str(run_number)))
+        retries=0
+        while retries < num_retries:
+            try:
+                cursor["trigger_read"].execute(dataset_name_query.format(str(run_number)))
+            except cx_Oracle.DatabaseError as e:
+                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                retries=retries+1
+                if retries == num_retries:
+                    logger.error('Exceeded max number of retries, giving up')
+                    return False
         dataset_name_mapping=cursor["trigger_read"].fetchall()
         if len(dataset_name_mapping) < 1:
             logger.error("Could not get pathname-pathID mapping for HLT rates!")
@@ -272,7 +291,17 @@ def monitorRates(jsndata_file,rates_jsn_file):
         # If it isn't, we create a row in the table of LS
         # Currently most of the fields are set to 0 because I am grossly misinformed
         query="SELECT RUNNUMBER FROM "+HLT_LS_table+" WHERE LSNUMBER="+ls[2:]+" AND RUNNUMBER="+run_number
-        cursor["hlt_rates_write"].execute(query)
+        retries=0
+        while retries < num_retries:
+            try:
+                cursor["hlt_rates_write"].execute(query)
+            except cx_Oracle.DatabaseError as e:
+                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                retries=retries+1
+                if retries == num_retries:
+                    logger.error('Exceeded max number of retries, giving up')
+                    return False
+
         if len(cursor["hlt_rates_write"].fetchall()) < 1:
             # No existing row. we must now try to insert:
             # print "This LS is not already in the DB" #debug    
@@ -298,7 +327,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 0,
                 0
             )
-            cursor["hlt_rates_write"].execute(query)
+            retries=0
+            while retries < num_retries:
+                try:
+                    cursor["hlt_rates_write"].execute(query)
+                except cx_Oracle.DatabaseError as e:
+                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    retries=retries+1
+                    if retries == num_retries:
+                        logger.error('Exceeded max number of retries, giving up')
+                        return False
         # End checking/indexing LS in the DB
 
         # Now put the rates in the DB
@@ -333,7 +371,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 HLT_rates[pathname]['PEXCEPT'],
                 HLT_rates[pathname]['PREJECT']
             )
-            cursor["hlt_rates_write"].execute(query)
+            retries=0
+            while retries < num_retries:
+                try:
+                    cursor["hlt_rates_write"].execute(query)
+                except cx_Oracle.DatabaseError as e:
+                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    retries=retries+1
+                    if retries == num_retries:
+                        logger.error('Exceeded max number of retries, giving up')
+                        return False
             cxn_db["hlt_rates_write"].commit()
 
         # Put the dataset acceptances in the DB using similar method as the rates
@@ -361,7 +408,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 dataset_id,
                 HLT_dataset_acceptances[dataset_name]
             )
-            cursor["hlt_rates_write"].execute(query)
+            retries=0
+            while retries < num_retries:
+                try:
+                    cursor["hlt_rates_write"].execute(query)
+                except cx_Oracle.DatabaseError as e:
+                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    retries=retries+1
+                    if retries == num_retries:
+                        logger.error('Exceeded max number of retries, giving up')
+                        return False
             cxn_db["hlt_rates_write"].commit()
         return True
     
@@ -457,7 +513,16 @@ def monitorRates(jsndata_file,rates_jsn_file):
                     lumisection_id
                 )
                 logger.debug(query)
-                cursor["l1_rates_write"].execute(query)
+                retries=0
+                while retries < num_retries:
+                    try:
+                        cursor["l1_rates_write"].execute(query)
+                    except cx_Oracle.DatabaseError as e:
+                        logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                        retries=retries+1
+                        if retries == num_retries:
+                            logger.error('Exceeded max number of retries, giving up')
+                            return False
                 algo_index=algo_index+1
         cxn_db["l1_rates_write"].commit()
         return True
