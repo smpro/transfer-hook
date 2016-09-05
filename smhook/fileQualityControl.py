@@ -93,8 +93,9 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
     while retries < num_retries:
         try:
             cursor.execute(query)
+            break
         except cx_Oracle.DatabaseError as e:
-            logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+            logger.error('Error querying the database (try #%d): %s' % (retries,e))
             retries=retries+1
             if retries == num_retries:
                 logger.error('Exceeded max number of retries, giving up')
@@ -176,8 +177,9 @@ def fileQualityControl(jsn_file, data_file, events_built, events_lost_checksum, 
     while retries < num_retries:
         try:
             cursor.execute(query)
+            break
         except cx_Oracle.DatabaseError as e:
-            logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+            logger.error('Error querying the database (try #%d): %s' % (retries,e))
             retries=retries+1
             if retries == num_retries:
                 logger.error('Exceeded max number of retries, giving up')

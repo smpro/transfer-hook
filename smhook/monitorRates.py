@@ -173,8 +173,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
         while retries < num_retries:
             try:
                 cursor["trigger_read"].execute(pathname_query.format(str(run_number)))
+                break
             except cx_Oracle.DatabaseError as e:
-                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                logger.error('Error querying the database (try #%d): %s' % (retries,e))
                 retries=retries+1
                 if retries == num_retries:
                     logger.error('Exceeded max number of retries, giving up')
@@ -199,8 +200,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
         while retries < num_retries:
             try:
                 cursor["trigger_read"].execute(dataset_name_query.format(str(run_number)))
+                break
             except cx_Oracle.DatabaseError as e:
-                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                logger.error('Error querying the database (try #%d): %s' % (retries,e))
                 retries=retries+1
                 if retries == num_retries:
                     logger.error('Exceeded max number of retries, giving up')
@@ -295,8 +297,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
         while retries < num_retries:
             try:
                 cursor["hlt_rates_write"].execute(query)
+                break
             except cx_Oracle.DatabaseError as e:
-                logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                logger.error('Error querying the database (try #%d): %s' % (retries,e))
                 retries=retries+1
                 if retries == num_retries:
                     logger.error('Exceeded max number of retries, giving up')
@@ -331,8 +334,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
             while retries < num_retries:
                 try:
                     cursor["hlt_rates_write"].execute(query)
+                    break
                 except cx_Oracle.DatabaseError as e:
-                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    logger.error('Error querying the database (try #%d): %s' % (retries,e))
                     retries=retries+1
                     if retries == num_retries:
                         logger.error('Exceeded max number of retries, giving up')
@@ -375,8 +379,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
             while retries < num_retries:
                 try:
                     cursor["hlt_rates_write"].execute(query)
+                    break
                 except cx_Oracle.DatabaseError as e:
-                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    logger.error('Error querying the database (try #%d): %s' % (retries,e))
                     retries=retries+1
                     if retries == num_retries:
                         logger.error('Exceeded max number of retries, giving up')
@@ -412,8 +417,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
             while retries < num_retries:
                 try:
                     cursor["hlt_rates_write"].execute(query)
+                    break
                 except cx_Oracle.DatabaseError as e:
-                    logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                    logger.error('Error querying the database (try #%d): %s' % (retries,e))
                     retries=retries+1
                     if retries == num_retries:
                         logger.error('Exceeded max number of retries, giving up')
@@ -517,8 +523,9 @@ def monitorRates(jsndata_file,rates_jsn_file):
                 while retries < num_retries:
                     try:
                         cursor["l1_rates_write"].execute(query)
+                        break
                     except cx_Oracle.DatabaseError as e:
-                        logger.error('Error querying the database (try #%d): %s'.format(retries,e))
+                        logger.error('Error querying the database (try #%d): %s' % (retries,e))
                         retries=retries+1
                         if retries == num_retries:
                             logger.error('Exceeded max number of retries, giving up')
