@@ -721,22 +721,32 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 			raise RuntimeError, "Destination file `%s' exists!" % dst_path
 	max_retries=cfg.getint('Misc','max_retries')
 	n_retries=0
+	error_codes={2: "no such file", 22: "eos auth", 255: "missing source file"}
 	while n_retries < max_retries:
 		try:
 			if eos:
 				# do copy to eos
-				# need to improve eos error handling
 				cmd_cp_to_eos =  ("xrdcp " + str(src) + " root://eoscms.cern.ch//" + str(dst_path))
 				logger.info("Running '{0}' (try # {1} / {2}) ...".format(cmd_cp_to_eos,n_retries+1, max_retries))
-				result=os.popen(cmd_cp_to_eos).read()
+				p = subprocess.Popen([cmd_cp_to_eos], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+				out,err = p.communicate()
+				if p.returncode != 0:
+					if p.returncode in error_codes:
+						raise ValueError(error_codes[p.returncode])
+					else:
+						raise ValueError(str(p.returncode))
 				#if result[0:5]=='error':
 				#	raise ValueError('eos error')				
 				if src_checksum: # then verify the checksums:
 					cmd_get_checksum_info="eos fileinfo {0} --checksum".format(str(dst_path))
-					dst_checksum_info=os.popen(cmd_get_checksum_info).read()
-					if len(dst_checksum_info.split('\n')) < 2:
-						raise ValueError("checksum fileinfo failure")
-					dst_checksum = dst_checksum_info.split('\n')[1].split(':')[1].strip()
+					p = subprocess.Popen([cmd_get_checksum_info], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+					out,err = p.communicate()
+					if p.returncode != 0:
+						if p.returncode in error_codes:
+							raise ValueError(error_codes[p.returncode])
+						else:
+							raise ValueError(str(p.returncode))
+					dst_checksum = out.split('\n')[1].split(':')[1].strip()
 					if dst_checksum == src_checksum:
 						logger.info("Hex checksums match (source xs='{0}', dest xs='{1}')".format(src_checksum, dst_checksum))
 					else:
@@ -789,13 +799,18 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 				else:
 					logger.info("Hex checksums match after calculating that of source (source xs='{0}', dest xs='{1}')".format(src_calculated_checksum, dst_checksum))
 					break
-			if error.args[0] == 'checksum fileinfo failure':
-				logger.warning("Could not get checksum info using EOS (command = '{0}')".format(cmd_get_checksum_info))
-			# not actually used at the moment, but needs to be caught properly:
-			if error.args[0] == 'eos error':
-				eos_error_code=result[7:].split(' ')[0].split('=')
-				logger.warning("Error communicating with EOS (error code {0}".format(eos_error_code))
-		
+			elif error.args[0] == 'no such file':
+				logger.warning("No such file or directory on EOS: "+str(dst_path))
+				logger.warning(err)
+			elif error.args[0] == 'eos auth':
+				logger.warning("EOS authentication failure, check Kerberos settings")
+				logger.warning(err)
+			elif error.args[0] == 'missing source file':
+				logger.warning("Source file does not exist or is not accessible: "+str(src))
+				logger.warning(err)
+			else:
+				logger.warning("An error occurred (code "+error.args[0]+")")
+				logger.warning(err)
 		n_retries+=1
 ## move_file_to_dir()
 
