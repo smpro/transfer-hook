@@ -39,7 +39,7 @@ execfile(myconfig)
 global cxn_exists, cxn_db, cxn_timestamp, cxn_names
 cxn_names = ['trigger_read', 'hlt_rates_write', 'l1_rates_write', 'l1_rate_types_read'] # put in config file later
 #temporary
-db_usernames = {'trigger_read': trigger_db_login,, 'hlt_rates_write': hlt_rates_db_login, 'l1_rates_write': l1_rates_db_login, 'l1_rate_types_read': l1_rate_type_db_login}
+db_usernames = {'trigger_read': trigger_db_login, 'hlt_rates_write': hlt_rates_db_login, 'l1_rates_write': l1_rates_db_login, 'l1_rate_types_read': l1_rate_type_db_login}
 db_passwords = {'trigger_read': trigger_db_pwd, 'hlt_rates_write': hlt_rates_db_pwd, 'l1_rates_write': l1_rates_db_pwd, 'l1_rate_types_read': l1_rate_type_db_pwd}
 db_sids      = {'trigger_read': trigger_db_sid, 'hlt_rates_write': hlt_rates_db_sid, 'l1_rates_write': l1_rates_db_sid, 'l1_rate_types_read': l1_rate_type_db_sid}
 cxn_exists = {}
@@ -55,7 +55,7 @@ for cxn_name in cxn_names:
         cxn_exists[cxn_name] = True
     except cx_Oracle.DatabaseError as e:
         error, = e.args
-        logger.error('Error connecting to database "{0}": {1}'.format(cxn_name, returnErrorMessage(error.code)
+        logger.error('Error connecting to database "{0}": {1}'.format(cxn_name, returnErrorMessage(error.code)))
 
 def returnErrorMessage(code):
     if code==1017:
@@ -72,7 +72,7 @@ def useConnection(cxn_name):
         if cxn_exists:
             cxn_db[cxn_name].close()
             cxn_exists[cxn_name]=False
-            logger.info('Database connection "{0}" has expired. Making a new one...'.format(cxn_name)
+            logger.info('Database connection "{0}" has expired. Making a new one...'.format(cxn_name))
         retries=0
         while not cxn_exists[cxn_name] and retries<num_retries:
             try:
@@ -83,7 +83,7 @@ def useConnection(cxn_name):
                 logger.debug('Successfully reconnected to database "{0}"'.format(cxn_name))
             except cx_Oracle.DatabaseError as e:
                 error, = e.args
-                logger.error('Error connecting to database "{0}". Reason: {2}'.format(cxn_name, returnErrorMessage(error.code)
+                logger.error('Error connecting to database "{0}". Reason: {2}'.format(cxn_name, returnErrorMessage(error.code)))
                 retries+=1
     if not cxn_exists[cxn_name]:
         return False
@@ -103,13 +103,13 @@ def timeout(func, args=(), kwargs={}, timeout_duration=1, default=None):
     except TimeoutError as exc:
         result = default
     finally:
-        logger.error('Timeout {0} s exceeded calling function {1}'.format(timeout_duration, func.__name__)
+        logger.error('Timeout {0} s exceeded calling function {1}'.format(timeout_duration, func.__name__))
         signal.alarm(0)
     return result
 
 def query(cxn_name, query, custom_timeout=0):
     #Interface for passing queries to the database agent
-    logger.debug('Passing a query to database connection "{0}": "{1}"'.format(cxn_name, query.replace('\n', ' ').replace('\r', ''))
+    logger.debug('Passing a query to database connection "{0}": "{1}"'.format(cxn_name, query.replace('\n', ' ').replace('\r', '')))
     the_cxn = useConnection(cxn_name)
     if the_cxn==False:
         logger.error('Could not run query, unable to connect to "{0}"'.format(cxn_name))
