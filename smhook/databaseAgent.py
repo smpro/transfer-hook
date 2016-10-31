@@ -39,9 +39,24 @@ execfile(myconfig)
 global cxn_exists, cxn_db, cxn_timestamp, cxn_names
 cxn_names = ['trigger_read', 'hlt_rates_write', 'l1_rates_write', 'l1_rate_types_read'] # put in config file later
 #temporary
-db_usernames = {'trigger_read': trigger_db_login, 'hlt_rates_write': hlt_rates_db_login, 'l1_rates_write': l1_rates_db_login, 'l1_rate_types_read': l1_rate_type_db_login}
-db_passwords = {'trigger_read': trigger_db_pwd, 'hlt_rates_write': hlt_rates_db_pwd, 'l1_rates_write': l1_rates_db_pwd, 'l1_rate_types_read': l1_rate_type_db_pwd}
-db_sids      = {'trigger_read': trigger_db_sid, 'hlt_rates_write': hlt_rates_db_sid, 'l1_rates_write': l1_rates_db_sid, 'l1_rate_types_read': l1_rate_type_db_sid}
+db_usernames = {'trigger_read'       :   trigger_db_login,
+                'hlt_rates_write'    : hlt_rates_db_login,
+                'l1_rates_write'     : l1_rates_db_login,
+                'l1_rate_types_read' : l1_rate_type_db_login,
+                'file_status'        : file_status_db_login,}
+                'file_status_T0'     : file_status_T0_db_login}
+db_passwords = {'trigger_read'       : trigger_db_pwd,
+                'hlt_rates_write'    : hlt_rates_db_pwd,
+                'l1_rates_write'     : l1_rates_db_pwd,
+                'l1_rate_types_read' : l1_rate_type_db_pwd,
+                'file_status'        : file_status_db_pwd,
+                'file_status_T0'     : file_status_T0_db_pwd}
+db_sids      = {'trigger_read'       : trigger_db_sid,
+                'hlt_rates_write'    : hlt_rates_db_sid,
+                'l1_rates_write'     : l1_rates_db_sid,
+                'l1_rate_types_read' : l1_rate_type_db_sid,
+                'file_status'        : file_status_db_sid,
+                'file_status_T0'     : file_status_T0_db_sid}
 cxn_exists = {}
 cxn_db = {}
 cxn_timestamp = {}
@@ -107,7 +122,7 @@ def timeout(func, args=(), kwargs={}, timeout_duration=1, default=False):
         signal.setitimer(signal.ITIMER_REAL, 0) # Disable the alarm
     return result
 
-def query(cxn_name, query, fetch_output=True, custom_timeout=0):
+def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
     # databaseAgent.query
     # Interface for passing queries to the database agent.
     #
