@@ -74,7 +74,7 @@ def __updateFile(filename, old_flag, new_flag):
         return false
     # Update the row using a crude bitwise OR 
     query = ("UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
-      "SET STATUS_FLAG=(256-BITAND(256-{0},256-STATUS_FLAG)) WHERE "+\
+      "SET STATUS_FLAG=(255-BITAND(255-{0},255-STATUS_FLAG)) WHERE "+\
       "BITAND(STATUS_FLAG,{1})={1} AND "+\
       "FILENAME='{2}'").format(
         new_flag,
