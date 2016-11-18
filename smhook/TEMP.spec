@@ -51,37 +51,10 @@ chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
 su - smpro -c "cat ~smpro/confidential/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
 chmod 444 /opt/python/smhook/config/.smpro_cern_cred
 chkconfig --add smhookd
-mkdir -p /store/detectordata/dpg_bril         
-mkdir -p /store/detectordata/dpg_csc          
-mkdir -p /store/detectordata/dpg_dt           
-mkdir -p /store/detectordata/dpg_ecal         
-mkdir -p /store/detectordata/dpg_hcal         
-mkdir -p /store/detectordata/dpg_rpc          
-mkdir -p /store/detectordata/dpg_tracker_pixel
-mkdir -p /store/detectordata/dpg_tracker_strip
-mkdir -p /store/detectordata/dpg_trigger      
 mkdir -p /store/detectordata/pdt_safety     
 mkdir -p /store/detectordata/pdt_trash     
-chown -R root:zh /store/detectordata/dpg_bril         
-chown -R root:zh /store/detectordata/dpg_csc          
-chown -R root:zh /store/detectordata/dpg_dt           
-chown -R root:zh /store/detectordata/dpg_ecal         
-chown -R root:zh /store/detectordata/dpg_hcal         
-chown -R root:zh /store/detectordata/dpg_rpc          
-chown -R root:zh /store/detectordata/dpg_tracker_pixel
-chown -R root:zh /store/detectordata/dpg_tracker_strip
-chown -R root:zh /store/detectordata/dpg_trigger      
 chown -R root:zh /store/detectordata/pdt_safety     
 chown -R root:zh /store/detectordata/pdt_trash     
-chmod -R 775 /store/detectordata/dpg_bril         
-chmod -R 775 /store/detectordata/dpg_csc          
-chmod -R 775 /store/detectordata/dpg_dt           
-chmod -R 775 /store/detectordata/dpg_ecal         
-chmod -R 775 /store/detectordata/dpg_hcal         
-chmod -R 775 /store/detectordata/dpg_rpc          
-chmod -R 775 /store/detectordata/dpg_tracker_pixel
-chmod -R 775 /store/detectordata/dpg_tracker_strip
-chmod -R 775 /store/detectordata/dpg_trigger      
 chmod -R 775 /store/detectordata/pdt_safety     
 chmod -R 775 /store/detectordata/pdt_trash     
 
