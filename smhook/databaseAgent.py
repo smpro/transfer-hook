@@ -39,7 +39,7 @@ execfile(myconfig)
 global cxn_exists, cxn_db, cxn_timestamp, cxn_names
 cxn_names = ['trigger_read', 'hlt_rates_write', 'l1_rates_write', 'l1_rate_types_read'] # put in config file later
 #temporary
-db_usernames = {'trigger_read'       :   trigger_db_login,
+db_usernames = {'trigger_read'       : trigger_db_login,
                 'hlt_rates_write'    : hlt_rates_db_login,
                 'l1_rates_write'     : l1_rates_db_login,
                 'l1_rate_types_read' : l1_rate_type_db_login,
