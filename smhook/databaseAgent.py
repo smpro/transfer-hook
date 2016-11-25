@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# Last modified by Dylan G. Hsu on 2015-05-29 :: dylan.hsu@cern.ch
+# Last modified by Dylan G. Hsu on 2016-11-25 :: dylan.hsu@cern.ch
 
 import os,sys,socket
 import shutil
@@ -37,35 +37,15 @@ execfile(myconfig)
 # Establish DB connections as module globals
 # This allows persistent database connections
 global cxn_exists, cxn_db, cxn_timestamp, cxn_names
-cxn_names = ['trigger_read', 'hlt_rates_write', 'l1_rates_write', 'l1_rate_types_read'] # put in config file later
-#temporary
-db_usernames = {'trigger_read'       : trigger_db_login,
-                'hlt_rates_write'    : hlt_rates_db_login,
-                'l1_rates_write'     : l1_rates_db_login,
-                'l1_rate_types_read' : l1_rate_type_db_login,
-                'file_status'        : file_status_db_login,}
-                'file_status_T0'     : file_status_T0_db_login}
-db_passwords = {'trigger_read'       : trigger_db_pwd,
-                'hlt_rates_write'    : hlt_rates_db_pwd,
-                'l1_rates_write'     : l1_rates_db_pwd,
-                'l1_rate_types_read' : l1_rate_type_db_pwd,
-                'file_status'        : file_status_db_pwd,
-                'file_status_T0'     : file_status_T0_db_pwd}
-db_sids      = {'trigger_read'       : trigger_db_sid,
-                'hlt_rates_write'    : hlt_rates_db_sid,
-                'l1_rates_write'     : l1_rates_db_sid,
-                'l1_rate_types_read' : l1_rate_type_db_sid,
-                'file_status'        : file_status_db_sid,
-                'file_status_T0'     : file_status_T0_db_sid}
 cxn_exists = {}
 cxn_db = {}
 cxn_timestamp = {}
-for cxn_name in cxn_names:
+for cxn_name in db_config:
     cxn_exists[cxn_name]=False
     cxn_timestamp[cxn_name]=0
     cxn_db[cxn_name]=False
     try:
-        cxn_db[cxn_name] = cx_Oracle.connect(db_usernames[cxn_name], db_passwords[cxn_name], db_sids[cxn_name])
+        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
         cxn_timestamp[cxn_name] = int(time.time())
         cxn_exists[cxn_name] = True
     except cx_Oracle.DatabaseError as e:
@@ -92,7 +72,7 @@ def useConnection(cxn_name):
         while not cxn_exists[cxn_name] and retries<num_retries:
             try:
                 logger.debug('Try #1 to make a new database connection to "{0}"'.format(cxn_name))
-                cxn_db[cxn_name] = cx_Oracle.connect(db_usernames[cxn_name], db_passwords[cxn_name], db_sids[cxn_name])
+                cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
                 cxn_timestamp[cxn_name] = int(time.time())
                 cxn_exists[cxn_name] = True
                 logger.debug('Successfully reconnected to database "{0}"'.format(cxn_name))
