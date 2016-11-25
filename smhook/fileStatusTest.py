@@ -130,7 +130,9 @@ def makeTestTables():
         "FILENAME           VARCHAR2(1000) NOT NULL, "+\
         "CHECKSUM           VARCHAR2(50), "+\
         "LAST_UPDATE_TIME   TIMESTAMP(6), "+\
-        "STATUS_FLAG NUMBER(3) NOT NULL, "+\
+        "STATUS_FLAG        NUMBER(3) NOT NULL, "+\
+        "INJECT_FLAG        NUMBER(1) NOT NULL, "+\
+        "BAD_CHECKSUM       NUMBER(1) NOT NULL, "+\
         "PRIMARY KEY (FILENAME), "+\
         "CONSTRAINT CONS_FTS_LUMIS UNIQUE(RUNNUMBER, LS, STREAM) "+\
       ")'; "+\
