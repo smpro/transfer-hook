@@ -174,13 +174,6 @@ def iterate():
     _checksum_status = cfg.getboolean('Misc','checksum_status')
     setup_label      = cfg.get('Input','setup_label')
 
-    db_config = cfg.get('Bookkeeping', 'db_config')
-    db_cred   = config.load(db_config)
-    
-	connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd,
-                                   db_cred.db_sid)
-	cursor = connection.cursor()
-
     _streams_with_scalers = cfg.getlist('Streams','streams_with_scalars')
     _streams_to_ecal      = cfg.getlist('Streams','streams_to_ecal'     )
     _streams_to_evd       = cfg.getlist('Streams','streams_to_evd'      )
@@ -359,7 +352,7 @@ def iterate():
             logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
                 connection=databaseAgent.useConnection('bookkeeping')
-				bookkeeper.open_run(connection.cursor())
+                bookkeeper.open_run(connection.cursor())
                 connection.commit()
             except cx_Oracle.IntegrityError:
                 logger.warning(

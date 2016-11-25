@@ -7,9 +7,10 @@ import shutil
 import os.path
 
 from smhook.runinfo import RunInfo 
+import smhook.config as config
 #import smhook.runinfo as RunInfo 
 global runinfo
-runinfo = RunInfo(os.path.join('/opt/python/smhook/config', '.db.omds.runinfo_r.cfg.py')) 
+runinfo = RunInfo(os.path.join(config.DIR, '.db.omds.runinfo_r.cfg.py')) 
 
 logger = logging.getLogger(__name__)
 
