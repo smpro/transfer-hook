@@ -105,16 +105,16 @@ def main():
 #______________________________________________________________________________
 def setup():
     global execute_sql
-    global _db_sid, _db_user, _db_pwd
+    #global _db_sid, _db_user, _db_pwd
     if _dry_run:
         logger.info('Setting up a dry run.')
         execute_sql = lambda cursor, statement: None ## Does nothing
     else:
         execute_sql = lambda cursor, statement: cursor.execute(statement)
-    db_config = imp.load_source('db_config', _db_config)
-    _db_sid = db_config.db_sid
-    _db_user = db_config.db_user
-    _db_pwd = db_config.db_pwd
+    #db_config = imp.load_source('db_config', _db_config)
+    #_db_sid = db_config.db_sid
+    #_db_user = db_config.db_user
+    #_db_pwd = db_config.db_pwd
 ## setup
 
 

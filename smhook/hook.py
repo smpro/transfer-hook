@@ -28,6 +28,7 @@ import smhook.fileQualityControl as fileQualityControl
 import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
+import smhook.databaseAgent as databaseAgent
 
 from smhook.runinfo import RunInfo
 from datetime import datetime, timedelta, date
@@ -175,9 +176,10 @@ def iterate():
 
     db_config = cfg.get('Bookkeeping', 'db_config')
     db_cred   = config.load(db_config)
-    connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd,
+    
+	connection = cx_Oracle.connect(db_cred.db_user, db_cred.db_pwd,
                                    db_cred.db_sid)
-    cursor = connection.cursor()
+	cursor = connection.cursor()
 
     _streams_with_scalers = cfg.getlist('Streams','streams_with_scalars')
     _streams_to_ecal      = cfg.getlist('Streams','streams_to_ecal'     )
@@ -356,7 +358,8 @@ def iterate():
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
-                bookkeeper.open_run(cursor)
+                connection=databaseAgent.useConnection('bookkeeping')
+				bookkeeper.open_run(connection.cursor())
                 connection.commit()
             except cx_Oracle.IntegrityError:
                 logger.warning(
@@ -641,8 +644,9 @@ def iterate():
                         )
                         inject_file.write(line + '\n')
                 try:
+                    connection=databaseAgent.useConnection('bookkeeping')
                     bookkeeper.fill_number_of_files(
-                        cursor, streamName, lumiSection, number_of_files
+                        connection.cursor(), streamName, lumiSection, number_of_files
                     )
                     connection.commit()
                 except cx_Oracle.IntegrityError:
@@ -665,7 +669,6 @@ def iterate():
                     maybe_move(dat_path, new_rundir_bad, force_overwrite=overwrite)
             except ValueError:
                 logger.warning("Illegal filename `%s'!" % fname)
-    connection.close()
 ## iterate()
 
 
