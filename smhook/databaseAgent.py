@@ -17,8 +17,8 @@ import smhook.config
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
 debug=True
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-#myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
+myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 cxn_timeout = 60*60 # Timeout for database connection in seconds
 num_retries = 5
 query_timeout = 2 #Timeout for individual queries in seconds
@@ -33,24 +33,6 @@ if debug == True:
 # Load the config
 logger.info('Using config: %s' % myconfig)
 execfile(myconfig)
-
-# Establish DB connections as module globals
-# This allows persistent database connections
-global cxn_exists, cxn_db, cxn_timestamp, cxn_names
-cxn_exists = {}
-cxn_db = {}
-cxn_timestamp = {}
-for cxn_name in db_config:
-    cxn_exists[cxn_name]=False
-    cxn_timestamp[cxn_name]=0
-    cxn_db[cxn_name]=False
-    try:
-        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
-        cxn_timestamp[cxn_name] = int(time.time())
-        cxn_exists[cxn_name] = True
-    except cx_Oracle.DatabaseError as e:
-        error, = e.args
-        logger.error('Error connecting to database "{0}": {1}'.format(cxn_name, returnErrorMessage(error.code)))
 
 def returnErrorMessage(code):
     if code==1017:
@@ -154,3 +136,23 @@ def executeQuery(the_cxn, query, fetch_output=True):
     else:
         result=True
     return result
+
+# Establish DB connections as module globals
+# This allows persistent database connections
+global cxn_exists, cxn_db, cxn_timestamp, cxn_names
+cxn_exists = {}
+cxn_db = {}
+cxn_timestamp = {}
+for cxn_name in db_config:
+    cxn_exists[cxn_name]=False
+    cxn_timestamp[cxn_name]=0
+    cxn_db[cxn_name]=False
+    try:
+        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
+        cxn_timestamp[cxn_name] = int(time.time())
+        cxn_exists[cxn_name] = True
+    except cx_Oracle.DatabaseError as e:
+        error, = e.args
+        logger.error('Error connecting to database "{0}": {1}'.format(cxn_name, returnErrorMessage(error.code)))
+
+
