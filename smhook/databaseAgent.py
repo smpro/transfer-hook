@@ -17,8 +17,8 @@ import smhook.config
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
 debug=True
-#myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
+myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
+#myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
 cxn_timeout = 60*60 # Timeout for database connection in seconds
 num_retries = 5
 query_timeout = 2 #Timeout for individual queries in seconds
@@ -35,14 +35,16 @@ logger.info('Using config: %s' % myconfig)
 execfile(myconfig)
 
 def returnErrorMessage(code):
+    if code==942:
+        return 'Table does not exist'
     if code==1017:
         return 'Bad credentials'
     else:
         return 'Unrecognized error ({0})'.format(code)
 
 def useConnection(cxn_name):
-    global cxn_exists, cxn_db, cxn_timestamp, cxn_names
-    if cxn_name not in cxn_names:
+    global cxn_exists, cxn_db, cxn_timestamp
+    if cxn_name not in db_config:
         return False
     fresh_cxn = int(time.time()) - cxn_timestamp[cxn_name] <  cxn_timeout
     if not cxn_exists[cxn_name] or not fresh_cxn:
@@ -105,6 +107,7 @@ def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
     args=[the_cxn, query, fetch_output] # Arguments to send to databaseAgent.executeQuery
     ran_query=False
     retries=0
+    result=False
     while ran_query==False and retries<num_retries:
         logger.info('Try #{0} query on database "{1}": "{2}"'.format(retries+1, cxn_name, query))
         try:
@@ -139,7 +142,7 @@ def executeQuery(the_cxn, query, fetch_output=True):
 
 # Establish DB connections as module globals
 # This allows persistent database connections
-global cxn_exists, cxn_db, cxn_timestamp, cxn_names
+global cxn_exists, cxn_db, cxn_timestamp
 cxn_exists = {}
 cxn_db = {}
 cxn_timestamp = {}

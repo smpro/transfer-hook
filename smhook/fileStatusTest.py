@@ -106,34 +106,47 @@ def updateFtsTable(status_flag, runnumber_min, runnumber_max, machine_name):
 # Also serves as internal documentation of the necessary tables because this stuff is not written down anywhere...
 def makeTestTables():
 #      STATUS_FLAG ENUM('P5_OPENED', 'P5_CLOSED', 'T0_INJECTED', 'TRANSFERRED', 'T0_CHECKED', 'T0_REPACKED', 'P5_DELETED'),
+    q_sequence1="CREATE SEQUENCE FILE_ID_SEQ "+\
+      "MINVALUE 1 "+\
+       "MAXVALUE 999999999999999999999999999 "+\
+       "START WITH 1 "+\
+       "INCREMENT BY 1 "+\
+       "CACHE 20"
+
     q_table1="CREATE TABLE FILE_STATUS_FLAGS ("+\
-      "STATUS_FLAG NUMBER(3) NOT NULL, "+\
+      "STATUS_FLAG NUMBER(4) NOT NULL, "+\
       "MEANING VARCHAR2(16) NOT NULL, "+\
       "PRIMARY KEY (STATUS_FLAG) "+\
     ")"
       
     q_table2="INSERT ALL "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (1,  'P5_OPENED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (2,  'P5_CLOSED') "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (1,  'P5_INJECTED') "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (2,  'TRANSFERRED') "+\
       "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (4,  'T0_INJECTED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (8,  'TRANSFERRED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (16, 'T0_CHECKED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (32, 'T0_REPACKED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (64, 'P5_DELETED') "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (8,  'T0_CHECKED' ) "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (16, 'T0_REPACKED') "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (32, 'P5_DELETED' ) "+\
       "SELECT 1 FROM DUAL"
 
     q_table3="BEGIN "+\
       "EXECUTE IMMEDIATE 'CREATE TABLE FILE_TRANSFER_STATUS ( "+\
-        "RUNNUMBER          NUMBER(22)     NOT NULL, "+\
-        "LS                 NUMBER(22)     NOT NULL, "+\
-        "STREAM             VARCHAR2(256)  NOT NULL, "+\
-        "FILENAME           VARCHAR2(1000) NOT NULL, "+\
-        "CHECKSUM           VARCHAR2(50), "+\
-        "LAST_UPDATE_TIME   TIMESTAMP(6), "+\
-        "STATUS_FLAG        NUMBER(3) NOT NULL, "+\
-        "INJECT_FLAG        NUMBER(1) NOT NULL, "+\
-        "BAD_CHECKSUM       NUMBER(1) NOT NULL, "+\
-        "PRIMARY KEY (FILENAME), "+\
+        "FILE_ID               NUMBER(27)     NOT NULL, "+\
+        "RUNNUMBER             NUMBER(22)     NOT NULL, "+\
+        "LS                    NUMBER(22)     NOT NULL, "+\
+        "STREAM                VARCHAR2(256)  NOT NULL, "+\
+        "FILENAME              VARCHAR2(1000) NOT NULL, "+\
+        "CHECKSUM              VARCHAR2(50), "+\
+        "P5_INJECTED_TIME      TIMESTAMP(6), "+\
+        "TRANSFER_START_TIME   TIMESTAMP(6), "+\
+        "TRANSFER_END_TIME     TIMESTAMP(6), "+\
+        "T0_CHECKED_TIME       TIMESTAMP(6), "+\
+        "T0_REPACKED_TIME      TIMESTAMP(6), "+\
+        "P5_DELETED_TIME       TIMESTAMP(6), "+\
+        "STATUS_FLAG           NUMBER(3) NOT NULL, "+\
+        "INJECT_FLAG           NUMBER(1) NOT NULL, "+\
+        "BAD_CHECKSUM          NUMBER(1) NOT NULL, "+\
+        "PRIMARY KEY (FILE_ID), "+\
+        "CONSTRAINT CONS_FTS_FILENAME UNIQUE(FILENAME), "+\
         "CONSTRAINT CONS_FTS_LUMIS UNIQUE(RUNNUMBER, LS, STREAM) "+\
       ")'; "+\
       "EXECUTE IMMEDIATE 'CREATE INDEX IDX_FTS_FLAGS "+\
@@ -143,12 +156,10 @@ def makeTestTables():
     "END;"
 #        #"FOREIGN KEY (STATUS_FLAG) REFERENCES FILE_STATUS_FLAGS(STATUS_FLAG), "+\
     try:
-        query=q_table1
+        databaseAgent.runQuery('hlt_rates_write', q_sequence1, False)
         databaseAgent.runQuery('hlt_rates_write', q_table1, False)
-        query=q_table2
         databaseAgent.runQuery('hlt_rates_write', q_table2, False)
         databaseAgent.cxn_db['hlt_rates_write'].commit()
-        query=q_table3
         databaseAgent.runQuery('hlt_rates_write', q_table3, False)
         databaseAgent.cxn_db['hlt_rates_write'].commit()
     except cx_Oracle.DatabaseError as e:
@@ -162,6 +173,7 @@ def makeTestTables():
 
 # Don't run this in the production environment, ever.
 def dropTestTables():
+    databaseAgent.runQuery('hlt_rates_write', "DROP SEQUENCE FILE_ID_SEQ", False)
     databaseAgent.runQuery('hlt_rates_write', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_TRANSFER_STATUS'; if existing_tables > 0 then execute immediate 'drop table FILE_TRANSFER_STATUS'; end if; end;", False)
     databaseAgent.runQuery('hlt_rates_write', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_STATUS_FLAGS'; if existing_tables > 0 then execute immediate 'drop table FILE_STATUS_FLAGS'; end if; end;", False)
     databaseAgent.cxn_db['hlt_rates_write'].commit()

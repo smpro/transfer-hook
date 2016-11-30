@@ -560,83 +560,27 @@ def iterate():
                     
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
-                maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
-                maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
                 ## Call the actual inject script
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
                     number_of_files = 1
-                    args_insert = [
-                        './insertFile.pl',
-                        '--FILENAME'     , fileName,
-                        '--FILECOUNTER'  , 0,
-                        '--NEVENTS'      , 0,
-                        '--FILESIZE'     , 0,
-                        '--STARTTIME'    , starttime,
-                        '--STOPTIME'     , 0,
-                        '--STATUS'       , 'open',
-                        '--RUNNUMBER'    , run_number,
-                        '--LUMISECTION'  , lumiSection,
-                        '--PATHNAME'     , rundir,
-                        '--HOSTNAME'     , hostname,
-                        '--SETUPLABEL'   , setup_label,
-                        '--STREAM'       , streamName,
-                        '--INSTANCE'     , 1,
-                        '--SAFETY'       , 0,
-                        '--APPVERSION'   , appversion,
-                        '--APPNAME'      , 'CMSSW',
-                        '--TYPE'         , 'streamer',
-                        '--CHECKSUM'     , checksum,
-                        '--CHECKSUMIND'  , 0,
-                    ]
-                    args_close = [
-                        './closeFile.pl',
-                        '--FILENAME'    , fileName,
-                        '--FILECOUNTER' , 0,
-                        '--NEVENTS'     , eventsNumber,
-                        '--FILESIZE'    , fileSize,
-                        '--STARTTIME'   , starttime,
-                        '--STOPTIME'    , stoptime,
-                        '--STATUS'      , 'closed',
-                        '--RUNNUMBER'   , run_number,
-                        '--LUMISECTION' , lumiSection,
-                        '--PATHNAME'    , new_rundir,
-                        '--HOSTNAME'    , hostname,
-                        '--SETUPLABEL'  , setup_label,
-                        '--STREAM'      , streamName,
-                        '--INSTANCE'    , 1,
-                        '--SAFETY'      , 0,
-                        '--APPVERSION'  , appversion,
-                        '--APPNAME'     , 'CMSSW',
-                        '--TYPE'        , 'streamer',
-                        '--DEBUGCLOSE'  , 2,
-                        '--CHECKSUM'    , checksum,
-                        '--CHECKSUMIND' , 0,
-                    ]
-                    inject_file_path = os.path.join(
-                        cfg.get('Output', 'inject_base'),
-                        '{date}-{hostname}.log'.format(
-                            date=date.today().strftime('%Y%m%d'),
-                            hostname=hostname,
-                        )
-                    )
-                    with open(inject_file_path, 'a') as inject_file:
-                        line = ' '.join(map(str, args_insert))
-                        logger.info(
-                            "Appending line `%s' to `%s' ..." % (
-                                line, inject_file_path
-                            )
-                        )
-                        inject_file.write(line + '\n')
-                        line = ' '.join(map(str, args_close))
-                        logger.info(
-                            "Appending line `%s' to `%s' ..." % (
-                                line, inject_file_path
-                            )
-                        )
-                        inject_file.write(line + '\n')
+                    # Mark file as open meaning we are about to move it to Lustre transfer area
+                    query="INSERT INTO FILE_TRANSFER_STATUS "+\
+                        "(RUNNUMBER, LS , STREAM, FILENAME, CHECKSUM, LAST_UPDATE_TIME, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM) VALUES"+\
+                        "({0}      , {1}, '{2}' , '{3}'   , '{4}'   , {5}             , {6}        , {7}        , {8}         )"
+                    query.format(run_number, lumiSection, streamName, fileName, checksum, "TO_TIMESTAMP('"+str(datetime.now())+"','YYYY-MM-DD HH24:MI:SS.FF6')", int('00000001',2), 1, 0)
+                    databaseAgent.runQuery('file_status', query, False)
+                    databaseAgent.cxn_db['file_status'].commit()
+                maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+                if eventsNumber != 0:
+                    # Now mark file as closed
+                    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=(255-BITAND(255-STATUS_FLAG, 255-2)) WHERE BITAND(STATUS_FLAG,2)=0 AND FILENAME='{0}'".format(fileName)
+                    databaseAgent.runQuery('file_status', query, False)
+                    databaseAgent.cxn_db['file_status'].commit()
                 try:
+                    # Do the bookkeeping
                     connection=databaseAgent.useConnection('bookkeeping')
                     bookkeeper.fill_number_of_files(
                         connection.cursor(), streamName, lumiSection, number_of_files
@@ -648,7 +592,6 @@ def iterate():
                                run_number, streamName, lumiSection,
                                number_of_files
                            )
-
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
@@ -662,6 +605,13 @@ def iterate():
                     maybe_move(dat_path, new_rundir_bad, force_overwrite=overwrite)
             except ValueError:
                 logger.warning("Illegal filename `%s'!" % fname)
+
+        # Poll T0 DB for files that are injected, which we can start to copy
+        files_to_copy = get_files_to_copy()
+        for record in files_to_copy:
+            [fileName, run_number, lumiSection, streamName] = record
+
+
 ## iterate()
 
 
@@ -1088,6 +1038,15 @@ def esMonitorMapping(esServerUrl,esIndexName):
          putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/transfer',data=json.dumps(transfer_mapping))
       except requests.exceptions.ConnectionError as e:
          logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
+#______________________________________________________________________________                                                                                                                                                     
+def get_files_to_copy():
+    # Get files that are ready to copy to T0
+    # Want 00000111 & status = 00000111, this means opened, closed, and injected on T0 side
+    # Want 00001000 & status = 00000000, meaning it is not copied yet
+    query="SELECT FILENAME, RUNNUMBER, LS, STREAM FROM FILE_TRANSFER_STATUS_T0 WHERE BITAND(STATUS_FLAG, {0}) = {1}".format( int('00001111',2), int('00000111',2) )
+    result=databaseAgent.runQuery('file_status_T0', query, True)
+    return result
+
 #______________________________________________________________________________                                                                                                                                                     
                                                                                                   
 if __name__ == '__main__':
