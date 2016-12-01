@@ -29,8 +29,8 @@ if debug == True:
 
 def markAllRowsCompleted():
     query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=255 WHERE STATUS_FLAG<>255"
-    databaseAgent.runQuery('hlt_rates_write',query,False)
-    databaseAgent.cxn_db['hlt_rates_write'].commit()
+    databaseAgent.runQuery('file_status',query,False)
+    databaseAgent.cxn_db['file_status'].commit()
 
 def testPolling(flag):
     n=1000
@@ -40,7 +40,7 @@ def testPolling(flag):
         markRandomRows(n)
         query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE BITAND(STATUS_FLAG,{0})={0}".format(flag)
         t1=int(round(time.time() * 1000000))/1000.
-        result=databaseAgent.runQuery('hlt_rates_write',query,True)
+        result=databaseAgent.runQuery('file_status',query,True)
         num_found=len( result )
         delta_t = int(round(time.time() * 1000000))/1000. - t1
         print "took {0} ms to poll and retrieve {1} filenames".format(delta_t, num_found)
@@ -67,8 +67,8 @@ def populateFtsTable():
               )
         query+="SELECT 1 FROM DUAL"
         time_this_runnumber=int(round(time.time() * 1000))
-        databaseAgent.runQuery('hlt_rates_write',query, False)
-        databaseAgent.cxn_db['hlt_rates_write'].commit()
+        databaseAgent.runQuery('file_status',query, False)
+        databaseAgent.cxn_db['file_status'].commit()
         print ". . . took {0} ms".format( int(round(time.time() * 1000)) - time_this_runnumber)
     print "total time: {0} ms".format( int(round(time.time() * 1000)) - time0) 
 
@@ -89,13 +89,13 @@ def updateFtsTable(status_flag, runnumber_min, runnumber_max, machine_name):
         print "updating for runnumber {0}, ls {1}".format(runnumber, lumisection)
         query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=(255-BITAND(255-STATUS_FLAG,255-{0})) WHERE FILENAME='{1}'".format(status_flag, filename)
         time_this_lumisection=int(round(time.time() * 1000000))/1000.
-        databaseAgent.runQuery('hlt_rates_write',query,False)
-        databaseAgent.cxn_db['hlt_rates_write'].commit()
+        databaseAgent.runQuery('file_status',query,False)
+        databaseAgent.cxn_db['file_status'].commit()
         delta_t = int(round(time.time() * 1000000))/1000. - time_this_lumisection
         total_time+=delta_t
         query="SELECT 1 FROM DUAL"
         time_control_query=int(round(time.time() * 1000000))/1000.
-        databaseAgent.runQuery('hlt_rates_write',query,False)
+        databaseAgent.runQuery('file_status',query,False)
         delta_t_control=int(round(time.time() * 1000000))/1000. - time_control_query
         print ". . . took {0} ms (dummy query took {1} ms)".format(delta_t, delta_t_control)
         distr_file.write("{0} {1} {2} {3}\n".format(runnumber, lumisection, delta_t, delta_t_control))
@@ -106,13 +106,15 @@ def updateFtsTable(status_flag, runnumber_min, runnumber_max, machine_name):
 # Also serves as internal documentation of the necessary tables because this stuff is not written down anywhere...
 def makeTestTables():
 #      STATUS_FLAG ENUM('P5_OPENED', 'P5_CLOSED', 'T0_INJECTED', 'TRANSFERRED', 'T0_CHECKED', 'T0_REPACKED', 'P5_DELETED'),
-    q_sequence1="CREATE SEQUENCE FILE_ID_SEQ "+\
+    q_sequence1="BEGIN "+\
+      "EXECUTE IMMEDIATE 'CREATE SEQUENCE FILE_ID_SEQ "+\
       "MINVALUE 1 "+\
-       "MAXVALUE 999999999999999999999999999 "+\
-       "START WITH 1 "+\
-       "INCREMENT BY 1 "+\
-       "CACHE 20"
-
+      "MAXVALUE 999999999999999999999999999 "+\
+      "START WITH 1 "+\
+      "INCREMENT BY 1 "+\
+      "CACHE 20'; "+\
+      "EXECUTE IMMEDIATE 'GRANT SELECT ON FILE_ID_SEQ to CMS_STOMGR_W'; "+\
+      "END;"
     q_table1="CREATE TABLE FILE_STATUS_FLAGS ("+\
       "STATUS_FLAG NUMBER(4) NOT NULL, "+\
       "MEANING VARCHAR2(16) NOT NULL, "+\
@@ -149,6 +151,8 @@ def makeTestTables():
         "CONSTRAINT CONS_FTS_FILENAME UNIQUE(FILENAME), "+\
         "CONSTRAINT CONS_FTS_LUMIS UNIQUE(RUNNUMBER, LS, STREAM) "+\
       ")'; "+\
+      "EXECUTE IMMEDIATE 'GRANT ALL PRIVILEGES ON FILE_TRANSFER_STATUS TO CMS_STOMGR_W'; "+\
+      "EXECUTE IMMEDIATE 'GRANT SELECT ON FILE_TRANSFER_STATUS TO PUBLIC'; "+\
       "EXECUTE IMMEDIATE 'CREATE INDEX IDX_FTS_FLAGS "+\
         "ON FILE_TRANSFER_STATUS ( "+\
           "STATUS_FLAG "+\
@@ -156,12 +160,12 @@ def makeTestTables():
     "END;"
 #        #"FOREIGN KEY (STATUS_FLAG) REFERENCES FILE_STATUS_FLAGS(STATUS_FLAG), "+\
     try:
-        databaseAgent.runQuery('hlt_rates_write', q_sequence1, False)
-        databaseAgent.runQuery('hlt_rates_write', q_table1, False)
-        databaseAgent.runQuery('hlt_rates_write', q_table2, False)
-        databaseAgent.cxn_db['hlt_rates_write'].commit()
-        databaseAgent.runQuery('hlt_rates_write', q_table3, False)
-        databaseAgent.cxn_db['hlt_rates_write'].commit()
+        databaseAgent.runQuery('CMS_STOMGR', q_sequence1, False)
+        databaseAgent.runQuery('CMS_STOMGR', q_table1, False)
+        databaseAgent.runQuery('CMS_STOMGR', q_table2, False)
+        databaseAgent.cxn_db['CMS_STOMGR'].commit()
+        databaseAgent.runQuery('CMS_STOMGR', q_table3, False)
+        databaseAgent.cxn_db['CMS_STOMGR'].commit()
     except cx_Oracle.DatabaseError as e:
         error, = e.args
         print error.code
@@ -173,7 +177,7 @@ def makeTestTables():
 
 # Don't run this in the production environment, ever.
 def dropTestTables():
-    databaseAgent.runQuery('hlt_rates_write', "DROP SEQUENCE FILE_ID_SEQ", False)
-    databaseAgent.runQuery('hlt_rates_write', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_TRANSFER_STATUS'; if existing_tables > 0 then execute immediate 'drop table FILE_TRANSFER_STATUS'; end if; end;", False)
-    databaseAgent.runQuery('hlt_rates_write', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_STATUS_FLAGS'; if existing_tables > 0 then execute immediate 'drop table FILE_STATUS_FLAGS'; end if; end;", False)
-    databaseAgent.cxn_db['hlt_rates_write'].commit()
+    databaseAgent.runQuery('CMS_STOMGR', "DROP SEQUENCE FILE_ID_SEQ", False)
+    databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_TRANSFER_STATUS'; if existing_tables > 0 then execute immediate 'drop table FILE_TRANSFER_STATUS'; end if; end;", False)
+    databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_STATUS_FLAGS'; if existing_tables > 0 then execute immediate 'drop table FILE_STATUS_FLAGS'; end if; end;", False)
+    databaseAgent.cxn_db['CMS_STOMGR'].commit()

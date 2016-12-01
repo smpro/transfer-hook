@@ -40,17 +40,19 @@ def insertFile(filename, runnumber, stream, ls, inject_into_T0=True):
 
     query = "DECLARE ID_VAL NUMBER(27); "+\
     "BEGIN "+\
-      "INSERT INTO CMS_DAQ_TEST_RUNINFO.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
-      "(FILE_ID_SEQ.NEXTVAL, {0}, {1}, {2}, '{3}', '{4}', {5}, {6}, {7}) "+\
+      "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
+      "(CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', {4}, {5}, {6}, {7}) "+\
       "RETURNING FILE_ID INTO ID_VAL; "+\
       "COMMIT; "+\
       "DBMS_OUTPUT.PUT_LINE(ID_VAL); "+\
     "END;"
     query=query.format(runnumber, ls, stream, filename, 1, inject_flag, 0, "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')")
     print query
-    #result = databaseAgent.runQuery('file_status', query, False)
-    cursor.execute(query)
+    result = databaseAgent.runQuery('file_status', query, False)
+    cursor.callproc("dbms_output.get_line", (lineVar, statusVar))
     got_file_id = statusVar.getvalue()==0
+    #print "statusVar={0}".format(statusVar.getvalue())
+    #print "lineVar={0}".format(lineVar.getvalue())
     if got_file_id is False or result is False:
       return False
     else:

@@ -29,6 +29,8 @@ import smhook.metafile as metafile
 import smhook.eor as eor
 import smhook.config as config
 import smhook.databaseAgent as databaseAgent
+import smhook.injectWorker as injectWorker
+#import smhook.copyWorker as copyWorker
 
 from smhook.runinfo import RunInfo
 from datetime import datetime, timedelta, date
@@ -560,25 +562,18 @@ def iterate():
                     
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
-                ## Call the actual inject script
+                ## Inject worker inserts file
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
                     number_of_files = 1
-                    # Mark file as open meaning we are about to move it to Lustre transfer area
-                    query="INSERT INTO FILE_TRANSFER_STATUS "+\
-                        "(RUNNUMBER, LS , STREAM, FILENAME, CHECKSUM, LAST_UPDATE_TIME, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM) VALUES"+\
-                        "({0}      , {1}, '{2}' , '{3}'   , '{4}'   , {5}             , {6}        , {7}        , {8}         )"
-                    query.format(run_number, lumiSection, streamName, fileName, checksum, "TO_TIMESTAMP('"+str(datetime.now())+"','YYYY-MM-DD HH24:MI:SS.FF6')", int('00000001',2), 1, 0)
-                    databaseAgent.runQuery('file_status', query, False)
-                    databaseAgent.cxn_db['file_status'].commit()
-                maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
-                maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
-                if eventsNumber != 0:
-                    # Now mark file as closed
-                    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=(255-BITAND(255-STATUS_FLAG, 255-2)) WHERE BITAND(STATUS_FLAG,2)=0 AND FILENAME='{0}'".format(fileName)
-                    databaseAgent.runQuery('file_status', query, False)
-                    databaseAgent.cxn_db['file_status'].commit()
+                    result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, inject_into_T0=True)
+                    if result is False or (result>0) is False:
+                        logger.warning("injectWorker returned False for insertFile('{0}',{1},{2},{3},True)".format(fileName, run_number, lumiSection, streamName))
+                        continue
+                    else:
+                        maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                        maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
                 try:
                     # Do the bookkeeping
                     connection=databaseAgent.useConnection('bookkeeping')
