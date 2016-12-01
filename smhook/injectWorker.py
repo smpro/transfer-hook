@@ -19,16 +19,27 @@ import cx_Oracle
 debug=True
 
 logger = logging.getLogger(__name__)
+
+status_flags = {
+  'TRANSFERRED': 2 ** 1,
+  'T0_INJECTED': 2 ** 2,
+  'T0_CHECKED' : 2 ** 3,
+  'T0_REPACKED': 2 ** 4,
+  'T0_DELETED' : 2 ** 5
+}
+
 # For debugging purposes, initialize the logger to stdout if running script as a standalone
 if debug == True:
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
 
-def insertFile(filename, runnumber, stream, ls, inject_into_T0=True):
+def insertFile(filename, runnumber, ls, stream, checksum, inject_into_T0=True):
     # Inserts a new file into the system
+    # Need to account for cases where file is already in the system!
     
-    cursor=databaseAgent.cxn_db['file_status'].cursor()
+    connection=databaseAgent.useConnection('file_status')
+    cursor=connection.cursor()
     cursor.callproc("dbms_output.enable", (None,))
     statusVar = cursor.var(cx_Oracle.NUMBER)
     lineVar   = cursor.var(cx_Oracle.STRING)
@@ -40,13 +51,13 @@ def insertFile(filename, runnumber, stream, ls, inject_into_T0=True):
 
     query = "DECLARE ID_VAL NUMBER(27); "+\
     "BEGIN "+\
-      "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
-      "(CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', {4}, {5}, {6}, {7}) "+\
+      "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
+      "(CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) "+\
       "RETURNING FILE_ID INTO ID_VAL; "+\
       "COMMIT; "+\
       "DBMS_OUTPUT.PUT_LINE(ID_VAL); "+\
     "END;"
-    query=query.format(runnumber, ls, stream, filename, 1, inject_flag, 0, "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')")
+    query=query.format(runnumber, ls, stream, filename, checksum, 1, inject_flag, 0, "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')")
     print query
     result = databaseAgent.runQuery('file_status', query, False)
     cursor.callproc("dbms_output.get_line", (lineVar, statusVar))
@@ -58,6 +69,35 @@ def insertFile(filename, runnumber, stream, ls, inject_into_T0=True):
     else:
       file_id = int(lineVar.getvalue())
       return file_id
+#______________________________________________________________________________
+def recordTransferStart(file_id):
+    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "SET TRANSFER_START_TIME={0} "+\
+      "WHERE FILE_ID={1}"
+    query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", file_id)
+    result = databaseAgent.runQuery('file_status', query, fetch_output=False)
+    return result
+#______________________________________________________________________________
+def recordTransferComplete(file_id):
+    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "SET TRANSFER_END_TIME = {0}, "+\
+      "STATUS_FLAG = (255 - BITAND(255 - {1}, 255 - STATUS_FLAG))"+\
+      "WHERE FILE_ID={2}"
+    query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", status_flags['TRANSFERRED'], file_id)
+    result = databaseAgent.runQuery('file_status', query, fetch_output=False)
+    return result
+#______________________________________________________________________________
+def recordCorruptedTransfer(file_id):
+    transferred_flag = 2 ** 1
+    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "SET TRANSFER_END_TIME = {0}, "+\
+      "STATUS_FLAG = (255 - BITAND(255 - {1}, 255 - STATUS_FLAG)), "+\
+      "BAD_CHECKSUM = 1 "+\
+      "WHERE FILE_ID={2}"
+    query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", status_flags['TRANSFERRED'], file_id)
+    result = databaseAgent.runQuery('file_status', query, fetch_output=False)
+    return result
+#______________________________________________________________________________
 def closedFile(filename):
     # Mark as closed a file that already exists in 'open' state in the database
     return __updateFile(filename, 2 ** 0, 2 ** 1)

@@ -19,8 +19,11 @@ import os.path
 import pprint
 import sys
 import subprocess
+import time
 
 import smhook.config as config
+import smhook.injectWorker as injectWorker
+import smhook.databaseAgent as databaseAgent
 logger = logging.getLogger(__name__)
 
 _filename = "run000000_ls0001_streamExpress_StorageManager.dat"
@@ -178,10 +181,73 @@ def copy_to_t0(src,pfn_path):
 
 
 #______________________________________________________________________________
-def insert_file_to_db(src,setup_label,status,inject_flag):
-    '''Dummy function to temporarily print out what it shoudl be doing'''
-    logger.info("I will be injecting information to the DB about file {0} the setup label is {1}, the status to be injected is {2} the injection flag is {3}".format(src,setup_label,status,inject_flag))
+def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_retries=1):
+    # Main interface to the daemon for actually copying the files
+    # Checksum can be falsebe provided, either file_id or fileName can be false
+    if not file_id and not fileName:
+        # Not enough info to do the transfer
+        logger.warning("copyWorker.copyFile received too little information about the file")
+        return False
+    if not checksum or not file_id or not fileName:
+        [file_id, fileName, checksum] = getFileInfo(file_id,fileName,checksum)
+    if not checksum or not file_id or not fileName:
+        line = "copyWorker.copyFile could not recover enough information about file from the database"
+        if not file_id:
+            line += " (filename = '{0}')".format(fileName)
+        elif not fileName:
+            line += " (file ID = {0})".format(file_id)
+        logger.warning(line)
+        return False
+        
+    lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, src)
+    eos_makedir(lfn_path)
 
+    # Record the transfer start time before the retry loop, so the retries affect the rate
+    injectWorker.recordTransferStart(file_id)
+    n_retries = 0
+    while n_retries < max_retries:
+        copy_status = copy_to_t0(src,pfn_path)
+        
+        if copy_status !=0:
+            n_retries+=1
+            time.sleep(30)
+            continue
+        if checksum != 0:
+            checksum_comparison_remote = compare_checksum(src,pfn_path,jsn_checksum,local=False)
+            if checksum_comparison_remote is True:
+                injectWorker.recordTransferComplete(file_id)
+                return True
+            else:
+                checksum_comparison_local = compare_checksum(src,pfn_path,jsn_checksum,local=True)
+                if checksum_comparison_local is True:
+                    # Local checksum comparison is fine, need to retry in 30 seconds
+                    n_retries+=1
+                    time.sleep(30)
+                    continue
+                else:
+                    # File is corrupted locally, daemon will move it to the bad area
+                    injectWorker.recordCorruptedTransfer(file_id)
+                    logger.warning("The file is corrupted and is moved to the bad area. The retries are stopped!")
+                    return False
+        else:
+            injectWorker.recordTransferComplete(file_id)
+            return True
+        n_retries+=1
+    return False
+
+#______________________________________________________________________________
+def getFileInfo(file_id, fileName, checksum):
+    if not fileName and not file_id:
+        return [file_id, fileName, checksum]
+    if not file_id:
+        where_clause = " WHERE FILENAME={0} ".format(file_id)
+    else:
+        where_clause = " WHERE FILE_ID={0} ".format(file_id)
+    query = "SELECT FILE_ID, FILENAME, CHECKSUM FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+where_clause
+    result = databaseAgent.runQuery('file_status', query, fetch_output=True)
+    if result and len(result[0])==3:
+        [file_id,fileName,checksum] = result[0]
+    return [file_id,fileName,checksum]
 #______________________________________________________________________________
 def main():
     
@@ -192,65 +258,24 @@ def main():
     #t0copy._checksum = XXXX
     #t0copy.main()
 
-    src      = _filename
+    fileName = _filename
     checksum = _checksum
+    run_number = 0
+    lumiSection = 1
+    streamName = 'Express'
     
-    #status = check_file_from_db(src)
-    
-    #if (status > "NEW"):
-        # this would mean the file is already is copied, so need to re-copy.
-    #    break
-    
-
     dest = "/store/t0streamer/"
     setup_label = 'TransferTest'
 
-
     ## Put in an identifier to tell T0 to repack the file or not
-    inject_flag = 1
+    inject_into_T0 = True
     if setup_label == ['TransferTest']: #or add other special flags we define
-        inject_flag = 0
+        inject_into_T0 = False
 
     # mark the file as new
     insert_file_to_db(src,setup_label,"NEW",inject_flag)
-
-
-
-    lfn_path, pfn_path = lfn_and_pfn(dest,setup_label,src)
-    eos_makedir(lfn_path)
-
-    n_retries = 0
-    max_retries = 1
-
-    while n_retries < max_retries:
-
-        copy_status = copy_to_t0(src,pfn_path)
-        
-        if copy_status !=0:
-            n_retries+=1
-            continue
-        
-        if checksum != 0: continue
-        
-        # compare the json checksum to the eos checksum
-        if(compare_checksum(src,pfn_path,jsn_checksum,local=False)):
-            #everything is ok, now you can fill the db
-            ## PUT THE FILE IN THE DB with the inject flag
-            insert_file_to_db(src,setup_label,status,inject_flag)
-            break
-        else:
-            if(compare_checksum(src,pfn_path, jsn_checksum,local=True)):
-                #this means you need to retry, first sleep for 30 seconds
-                #And then it will automatically will go into the retry
-                os.system("sleep 30s")
-            else:
-                ##move the file somewhere "bad", perhaps define a new folder
-                insert_file_to_db(src,setup_label,status,inject_flag,False)
-                logger.warning("The file is corrupted and is moved to the bad area. The retries are stopped!")
-                break
-                
-        n_retries+=1
-
+    result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
+    copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
 
 ## main
 

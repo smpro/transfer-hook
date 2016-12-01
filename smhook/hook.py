@@ -164,6 +164,7 @@ def iterate():
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
 
+    # These all need to become globals read from config file, do that later
     path = cfg.get('Input', 'path')
     _scratch_base  = cfg.get('Output','scratch_base')
     _error_base    = cfg.get('Output','error_base')
@@ -187,6 +188,8 @@ def iterate():
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
+    destination = "/store/t0streamer/"
+    setup_label = 'TransferTest'
 
     _renotify = cfg.getboolean('Misc','renotify')
 
@@ -567,13 +570,23 @@ def iterate():
                     number_of_files = 0
                 else:
                     number_of_files = 1
-                    result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, inject_into_T0=True)
-                    if result is False or (result>0) is False:
-                        logger.warning("injectWorker returned False for insertFile('{0}',{1},{2},{3},True)".format(fileName, run_number, lumiSection, streamName))
-                        continue
+                    if setup_label == 'TransferTest':
+                        inject_into_T0=False
                     else:
-                        maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
-                        maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+                        inject_into_T0=True
+
+                    result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
+                    if result is False or (result>0) is False:
+                        logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+                        continue
+                    file_id=result
+                    logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (result, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+
+                    maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                    maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+                    
+                    new_file_path = os.path.join(new_rundir, fileName)
+                    copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
                 try:
                     # Do the bookkeeping
                     connection=databaseAgent.useConnection('bookkeeping')
