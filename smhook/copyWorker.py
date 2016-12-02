@@ -24,9 +24,14 @@ import time
 import smhook.config as config
 import smhook.injectWorker as injectWorker
 import smhook.databaseAgent as databaseAgent
+debug=True
 logger = logging.getLogger(__name__)
 
 _filename = "run000000_ls0001_streamExpress_StorageManager.dat"
+if debug == True:
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    logger.addHandler(ch)
 
 #______________________________________________________________________________
 def buildcommand(command):
@@ -104,8 +109,10 @@ def eos_makedir(lfn_path):
     '''
 
     try:
+        print("Making directory in eos `%s' (incl. parents) ..." % lfn_path)
         logger.info("Making directory in eos `%s' (incl. parents) ..." % lfn_path)
-        mkdircommand = "eos mkdir -p root://eoscms.cern.ch//" + lfn_path
+        mkdircommand = "eos mkdir -p " + lfn_path
+        print("mkdircommand is {0}".format(mkdircommand))
         logger.info("mkdircommand is {0}".format(mkdircommand))
         out, error, returncode = buildcommand(mkdircommand)
         if returncode != 0:
@@ -169,7 +176,7 @@ def copy_to_t0(src,pfn_path):
     try:
         # Copy silently and overwrite the existing file if it exists.
         # Here add the tag from P5 as well to trace it in eos side
-        copycommand = ("xrdcp -f -s" + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
+        copycommand = ("xrdcp -f -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
         logger.info("Running `%s' ..." % copycommand)
         out, error, returncode = buildcommand(copycommand)
         if returncode != 0:
@@ -199,26 +206,26 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
         logger.warning(line)
         return False
         
-    lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, src)
+    lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, fileName)
     eos_makedir(lfn_path)
 
     # Record the transfer start time before the retry loop, so the retries affect the rate
     injectWorker.recordTransferStart(file_id)
     n_retries = 0
     while n_retries < max_retries:
-        copy_status = copy_to_t0(src,pfn_path)
+        copy_status = copy_to_t0(path,pfn_path)
         
         if copy_status !=0:
             n_retries+=1
             time.sleep(30)
             continue
         if checksum != 0:
-            checksum_comparison_remote = compare_checksum(src,pfn_path,jsn_checksum,local=False)
+            checksum_comparison_remote = compare_checksum(path,pfn_path,jsn_checksum,local=False)
             if checksum_comparison_remote is True:
                 injectWorker.recordTransferComplete(file_id)
                 return True
             else:
-                checksum_comparison_local = compare_checksum(src,pfn_path,jsn_checksum,local=True)
+                checksum_comparison_local = compare_checksum(path,pfn_path,jsn_checksum,local=True)
                 if checksum_comparison_local is True:
                     # Local checksum comparison is fine, need to retry in 30 seconds
                     n_retries+=1
