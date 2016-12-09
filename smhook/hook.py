@@ -30,7 +30,7 @@ import smhook.eor as eor
 import smhook.config as config
 import smhook.databaseAgent as databaseAgent
 import smhook.injectWorker as injectWorker
-#import smhook.copyWorker as copyWorker
+import smhook.copyWorker as copyWorker
 
 from smhook.runinfo import RunInfo
 from datetime import datetime, timedelta, date

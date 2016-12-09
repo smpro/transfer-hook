@@ -35,8 +35,8 @@ if debug == True:
 
 #______________________________________________________________________________
 def buildcommand(command):
-
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
+    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
     out, error = p.communicate()
     
     return out, error, p.returncode
@@ -95,8 +95,8 @@ def lfn_and_pfn(destination,setuplabel,filename):
     ##pfn example: /eos/cms/store/t0streamer/TransferTest/Express/000/282/124/run282124_ls0127_streamExpress_StorageManager.dat
 
     run, lumi, stream = parse_filename(filename)
-    lfn = str(destination)+'/'+str(setuplabel)+'/'+str(stream)+'/000/'+str(run)[:3]+'/'+str(run)[3:]+'/'
-    pfn = '/eos/cms/'+lfn+filename
+    lfn = os.path.join(str(destination),str(setuplabel),str(stream),'000',str(run)[:3],str(run)[3:])
+    pfn = os.path.join('/eos/cms/',lfn,filename)
     
     logger.info("lfn {0}, pfn {1}, run {2}, strrun {3}".format(lfn, pfn, run, str(run)))
 
@@ -139,7 +139,7 @@ def compare_checksum(src,dest,checksum,local=False):
 
     else:
         cmd_get_checksum_info="eos fileinfo {0} --checksum".format(str(dest))
-        out, error, returncode = buildcommand(cmd_get_checksum)
+        out, error, returncode = buildcommand(cmd_get_checksum_info)
         
         if returncode != 0:
             check_known_returncodes(returncode)
@@ -219,13 +219,13 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
             n_retries+=1
             time.sleep(30)
             continue
-        if checksum != 0:
-            checksum_comparison_remote = compare_checksum(path,pfn_path,jsn_checksum,local=False)
+        if checksum != 0 and int(checksum) != 0:
+            checksum_comparison_remote = compare_checksum(path,pfn_path,checksum,local=False)
             if checksum_comparison_remote is True:
                 injectWorker.recordTransferComplete(file_id)
                 return True
             else:
-                checksum_comparison_local = compare_checksum(path,pfn_path,jsn_checksum,local=True)
+                checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
                 if checksum_comparison_local is True:
                     # Local checksum comparison is fine, need to retry in 30 seconds
                     n_retries+=1
