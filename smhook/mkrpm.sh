@@ -2,8 +2,8 @@
 
 # Usage: ./mkrpm.sh
 
-VERSION=1.0
-RELEASE=24
+VERSION=2.0
+RELEASE=1
 
 echo 'You are trying to build an RPM for smhook version:',$VERSION,' and release: '$RELEASE   
 
@@ -12,7 +12,7 @@ rpmdev-setuptree
 cd ~/rpmbuild/SOURCES/
 git clone git@github.com:smpro/transfer-hook.git
 cd transfer-hook
-git checkout devel
+git checkout dbcomm
 
 #Get list of files in smhook
 for i in `find smhook -type f`; do 

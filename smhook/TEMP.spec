@@ -40,21 +40,21 @@ rm -rf $RPM_BUILD_ROOT
 /opt/python/smhook/smeord
 
 %post
-su - smpro -c "cat ~smpro/confidential/.db_int2r_cred.py" > /opt/python/smhook/config/.db_int2r_cred.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_int2r_cred.py" > /opt/python/smhook/config/.db_int2r_cred.py
 chmod 400 /opt/python/smhook/config/.db_int2r_cred.py
-su - smpro -c "cat ~smpro/confidential/.db.omds.runinfo_r.cfg.py" > /opt/python/smhook/config/.db.omds.runinfo_r.cfg.py
+su - smpro -c "cat ~smpro/confidential_v2/.db.omds.runinfo_r.cfg.py" > /opt/python/smhook/config/.db.omds.runinfo_r.cfg.py
 chmod 400 /opt/python/smhook/config/.db.omds.runinfo_r.cfg.py
-su - smpro -c "cat ~smpro/confidential/.db_production_config.py" > /opt/python/smhook/config/.db_production_config.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_production_config.py" > /opt/python/smhook/config/.db_production_config.py
 chmod 400 /opt/python/smhook/config/.db_production_config.py
-su - smpro -c "cat ~smpro/confidential/.db_rates_production.py" > /opt/python/smhook/config/.db_rates_production.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_rates_production.py" > /opt/python/smhook/config/.db_rates_production.py
 chmod 400 /opt/python/smhook/config/.db_rates_production.py
-su - smpro -c "cat ~smpro/confidential/.db_rates_integration.py" > /opt/python/smhook/config/.db_rates_integration.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_rates_integration.py" > /opt/python/smhook/config/.db_rates_integration.py
 chmod 400 /opt/python/smhook/config/.db_rates_integration.py
-su - smpro -c "cat ~smpro/confidential/.db_rcms_cred.py" > /opt/python/smhook/config/.db_rcms_cred.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_rcms_cred.py" > /opt/python/smhook/config/.db_rcms_cred.py
 chmod 400 /opt/python/smhook/config/.db_rcms_cred.py
-su - smpro -c "cat ~smpro/confidential/.db_runinfo_cred.py" > /opt/python/smhook/config/.db_runinfo_cred.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_runinfo_cred.py" > /opt/python/smhook/config/.db_runinfo_cred.py
 chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
-su - smpro -c "cat ~smpro/confidential/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
+su - smpro -c "cat ~smpro/confidential_v2/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred
 chmod 444 /opt/python/smhook/config/.smpro_cern_cred
 chkconfig --add smhookd
 chkconfig --add smeord
