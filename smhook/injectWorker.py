@@ -21,11 +21,11 @@ debug=True
 logger = logging.getLogger(__name__)
 
 status_flags = {
+  'P5_INJECTED': 2 ** 0,
   'TRANSFERRED': 2 ** 1,
-  'T0_INJECTED': 2 ** 2,
-  'T0_CHECKED' : 2 ** 3,
-  'T0_REPACKED': 2 ** 4,
-  'T0_DELETED' : 2 ** 5
+  'T0_CHECKED' : 2 ** 2,
+  'T0_REPACKED': 2 ** 3,
+  'P5_DELETED' : 2 ** 4
 }
 
 # For debugging purposes, initialize the logger to stdout if running script as a standalone

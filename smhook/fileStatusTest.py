@@ -2,7 +2,7 @@
 
 # Last modified by Dylan G. Hsu on 2015-05-29 :: dylan.hsu@cern.ch
 
-import os,sys,socket
+import os,sys,socket,binascii
 import shutil
 import time,datetime
 import cx_Oracle
@@ -40,7 +40,7 @@ def testPolling(flag):
         markRandomRows(n)
         query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE BITAND(STATUS_FLAG,{0})={0}".format(flag)
         t1=int(round(time.time() * 1000000))/1000.
-        result=databaseAgent.runQuery('file_status',query,True)
+        result=databaseAgent.runQuery('file_status',query,True,custom_timeout=5)
         num_found=len( result )
         delta_t = int(round(time.time() * 1000000))/1000. - t1
         print "took {0} ms to poll and retrieve {1} filenames".format(delta_t, num_found)
@@ -53,22 +53,23 @@ def populateFtsTable():
     time0=int(round(time.time() * 1000))
     for runnumber in range(100001,200000):
         print "inserting for runnumber {0}".format(runnumber)
-        query="INSERT ALL "
+        time_this_runnumber=int(round(time.time() * 1000))
         for lumisection in range(0,999):
             filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
-            query+=("INTO FILE_TRANSFER_STATUS (RUNNUMBER,LS,STREAM,FILENAME,LAST_UPDATE_TIME,STATUS_FLAG) "+
-              "VALUES ({0},{1},'{2}','{3}',{4},{5}) ").format(
-                runnumber,
-                lumisection,
-                stream,
-                filename,
-                "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-                255
-              )
-        query+="SELECT 1 FROM DUAL"
-        time_this_runnumber=int(round(time.time() * 1000))
-        databaseAgent.runQuery('file_status',query, False)
-        databaseAgent.cxn_db['file_status'].commit()
+            query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
+            "VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
+              runnumber,
+              lumisection,
+              stream,
+              filename,
+              binascii.b2a_hex(os.urandom(4)),
+              255,
+              1,
+              0,
+              "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+            )
+            databaseAgent.runQuery('file_status',query, False, custom_timeout=1)
+            databaseAgent.cxn_db['file_status'].commit()
         print ". . . took {0} ms".format( int(round(time.time() * 1000)) - time_this_runnumber)
     print "total time: {0} ms".format( int(round(time.time() * 1000)) - time0) 
 
@@ -124,10 +125,9 @@ def makeTestTables():
     q_table2="INSERT ALL "+\
       "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (1,  'P5_INJECTED') "+\
       "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (2,  'TRANSFERRED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (4,  'T0_INJECTED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (8,  'T0_CHECKED' ) "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (16, 'T0_REPACKED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (32, 'P5_DELETED' ) "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (4,  'T0_CHECKED' ) "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (8,  'T0_REPACKED') "+\
+      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (16, 'P5_DELETED' ) "+\
       "SELECT 1 FROM DUAL"
 
     q_table3="BEGIN "+\
