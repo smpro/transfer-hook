@@ -334,6 +334,15 @@ def iterate():
                     continue
                 inputEvents = int(settings['data'][0])
                 fileName = str(settings['data'][3])
+                fileSize = int(settings['data'][4])
+                lumiSection = int(fileName.split('_')[1].strip('ls'))
+                lumiSection = int(fileName.split('_')[1].strip('ls'))
+                try:
+                    streamName = str(fileName.split('_')[2].split('stream')[1])
+                except Exception as e:                    
+                    #run271983_ls0021_index000000_fu
+                    streamName = str(fileName.split('_')[2].split('index')[1])
+                    logger.exception(e)
                 eventsNumber = int(settings['data'][1])
                 errorEvents = int(settings['data'][2]) # BU/FU crash
                 if inputEvents == 0:
@@ -341,7 +350,7 @@ def iterate():
                     maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
                     continue
                 events_built=inputEvents+errorEvents
-                fileQualityControl.fileQualityControl(recovery_jsn, fileName, events_built, 0,0,0, events_built,True ) 
+                fileQualityControl.fileQualityControl(recovery_jsn, fileName, run_number, lumiSection, streamName, fileSize, events_built, 0,0,0, events_built,True ) 
                 logger.info("File quality control: recorded all events built as lost for file found in recovery area (jsn file {0}, data file {1})".format(recovery_jsn, fileName))
                 if not os.path.exists(recorded_recovery_dir):
                     mkdir(recorded_recovery_dir)
@@ -466,7 +475,7 @@ def iterate():
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], run_number, lumiSection, streamName, 0, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
@@ -488,7 +497,7 @@ def iterate():
                         logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
                     else:
                         logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-                    fileQualityControl.fileQualityControl(jsn_file, fileName, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                    fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
 
                 if streamName in _streams_to_dqm:
                     ## TODO: Use some other temporary directory instead of scrach

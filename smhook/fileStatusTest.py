@@ -159,12 +159,82 @@ def makeTestTables():
         ")'; "+\
     "END;"
 #        #"FOREIGN KEY (STATUS_FLAG) REFERENCES FILE_STATUS_FLAGS(STATUS_FLAG), "+\
+
+    q_table4="BEGIN "+\
+      "EXECUTE IMMEDIATE 'CREATE TABLE FILE_QUALITY_CONTROL ( "+\
+      "RUNNUMBER                  NUMBER(22)        NOT NULL, "+\
+      "LS                         NUMBER(22)        NOT NULL, "+\
+      "STREAM                     VARCHAR2(256)      NOT NULL, "+\
+      "FILENAME                   VARCHAR2(1000)    NOT NULL, "+\
+      "LAST_UPDATE_TIME           TIMESTAMP(6), "+\
+      "FILE_SIZE                  NUMBER(22), "+\
+      "EVENTS_BUILT               NUMBER(22), "+\
+      "EVENTS_LOST                NUMBER(22), "+\
+      "EVENTS_LOST_CHECKSUM       NUMBER(22),        "+\
+      "EVENTS_LOST_CMSSW          NUMBER(22),        "+\
+      "EVENTS_LOST_CRASH          NUMBER(22),        "+\
+      "EVENTS_LOST_OVERSIZED      NUMBER(22),        "+\
+      "IS_GOOD_LS                 NUMBER(1)         NOT NULL, "+\
+      "PRIMARY KEY (FILENAME) "+\
+    ")'; "+\
+    "EXECUTE IMMEDIATE 'GRANT ALL PRIVILEGES ON FILE_QUALITY_CONTROL TO CMS_STOMGR_W'; "+\
+    "EXECUTE IMMEDIATE 'GRANT SELECT ON FILE_QUALITY_CONTROL TO PUBLIC'; "+\
+    "END;"
+    
+    q_view1="BEGIN EXECUTE IMMEDIATE 'CREATE VIEW STATUS_STREAMS AS "+\
+      "SELECT  "+\
+        "RUNNUMBER, "+\
+        "STREAM, "+\
+        "SUM(BITAND(STATUS_FLAG,1)) AS INJECTED, "+\
+        "SUM(BITAND(STATUS_FLAG,2))/2. AS TRANSFERRED, "+\
+        "SUM(BITAND(STATUS_FLAG,4))/4. AS CHECKED, "+\
+        "SUM(BITAND(STATUS_FLAG,8))/8. AS REPACKED, "+\
+        "SUM(BITAND(STATUS_FLAG,16))/16. AS DELETED, "+\
+        "SUM(BAD_CHECKSUM) AS CORRUPTED "+\
+      "FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "WHERE INJECT_FLAG=1 "+\
+      "GROUP BY RUNNUMBER, STREAM "+\
+      "ORDER BY RUNNUMBER, STREAM DESC ';"+\
+      "EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_STREAMS TO PUBLIC'; END;"
+    q_view2="BEGIN EXECUTE IMMEDIATE 'CREATE VIEW STATUS_RUNS AS "+\
+      "SELECT  "+\
+        "RUNNUMBER, "+\
+        "SUM(BITAND(STATUS_FLAG,1)) AS INJECTED, "+\
+        "SUM(BITAND(STATUS_FLAG,2))/2. AS TRANSFERRED, "+\
+        "SUM(BITAND(STATUS_FLAG,4))/4. AS CHECKED, "+\
+        "SUM(BITAND(STATUS_FLAG,8))/8. AS REPACKED, "+\
+        "SUM(BITAND(STATUS_FLAG,16))/16. AS DELETED, "+\
+        "SUM(BAD_CHECKSUM) AS CORRUPTED "+\
+      "FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "WHERE INJECT_FLAG=1 "+\
+      "GROUP BY RUNNUMBER "+\
+      "ORDER BY RUNNUMBER DESC ';"+\
+      "EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_RUNS TO PUBLIC'; END;"
+    q_view3="BEGIN EXECUTE IMMEDIATE 'CREATE VIEW RUN_FILE_QUALITY AS SELECT "+\
+      "RUNNUMBER, "+\
+      "SUM(NVL(EVENTS_BUILT,0))          AS TOTAL_EVENTS_BUILT         , "+\
+      "SUM(NVL(EVENTS_LOST,0))           AS TOTAL_EVENTS_LOST          , "+\
+      "SUM(NVL(EVENTS_LOST_CHECKSUM,0))  AS TOTAL_EVENTS_LOST_CHECKSUM , "+\
+      "SUM(NVL(EVENTS_LOST_CMSSW,0))     AS TOTAL_EVENTS_LOST_CMSSW    , "+\
+      "SUM(NVL(EVENTS_LOST_CRASH,0))     AS TOTAL_EVENTS_LOST_CRASH    , "+\
+      "SUM(NVL(EVENTS_LOST_OVERSIZED,0)) AS TOTAL_EVENTS_LOST_OVERSIZED, "+\
+      "SUM(NVL(FILE_SIZE,0))             AS TOTAL_SIZE "+\
+      "FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE RUNNUMBER<999999999 AND EVENTS_BUILT>=0 "+\
+      "GROUP BY RUNNUMBER ORDER BY RUNNUMBER DESC'; "+\
+      "EXECUTE IMMEDIATE 'GRANT SELECT ON RUN_FILE_QUALITY TO PUBLIC'; "+\
+    "END;"
+
     try:
         databaseAgent.runQuery('CMS_STOMGR', q_sequence1, False)
         databaseAgent.runQuery('CMS_STOMGR', q_table1, False)
         databaseAgent.runQuery('CMS_STOMGR', q_table2, False)
         databaseAgent.cxn_db['CMS_STOMGR'].commit()
         databaseAgent.runQuery('CMS_STOMGR', q_table3, False)
+        databaseAgent.cxn_db['CMS_STOMGR'].commit()
+        databaseAgent.runQuery('CMS_STOMGR', q_table4, False)
+        databaseAgent.cxn_db['CMS_STOMGR'].commit()
+        databaseAgent.runQuery('CMS_STOMGR', q_view1, False)
+        databaseAgent.runQuery('CMS_STOMGR', q_view2, False)
         databaseAgent.cxn_db['CMS_STOMGR'].commit()
     except cx_Oracle.DatabaseError as e:
         error, = e.args
@@ -173,7 +243,6 @@ def makeTestTables():
         print error.context
         print error.offset
         print query[max(0,error.offset-20):min(len(query)-1,error.offset+20)]
-
 
 # Don't run this in the production environment, ever.
 def dropTestTables():
