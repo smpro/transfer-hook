@@ -482,23 +482,6 @@ def iterate():
                     maybe_move(jsn_file, error_rundir, force_overwrite=overwrite)
                     continue
 
-                # Do FQC for all of the following "normal" cases for streams that we aren't ignoring
-                non_tier0_streams=[]
-                non_tier0_streams.extend(_streams_to_dqm)
-                non_tier0_streams.extend(_streams_to_ecal)
-                non_tier0_streams.extend(_streams_to_evd)
-                non_tier0_streams.extend(_streams_with_scalers)
-                if streamName not in _streams_to_ignore:
-                    # Oversized files
-                    if (streamName in _streams_to_dqm and fileSize > max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize > max_tier0_transfer_file_size):
-                        events_lost_oversized=events_built
-                        logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
-                    elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
-                        logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
-                    else:
-                        logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-                    fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
-
                 if streamName in _streams_to_dqm:
                     ## TODO: Use some other temporary directory instead of scrach
                     if (fileSize > max_dqm_transfer_file_size):
@@ -526,7 +509,6 @@ def iterate():
                             monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, time.time(), lumiSection, streamName]
                             elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
 
-                    continue
 
                 if streamName in _streams_to_ecal:
                     ## TODO: Use some other temporary directory instead of
@@ -570,45 +552,66 @@ def iterate():
                     )
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
-                    continue
                     
                 starttime = int(os.stat(dat_file).st_atime)
                 stoptime  = int(os.stat(jsn_file).st_ctime)
-                ## Inject worker inserts file
-                if eventsNumber == 0:
-                    number_of_files = 0
-                else:
-                    number_of_files = 1
-                    if setup_label == 'TransferTest':
-                        inject_into_T0=False
+                
+                if (streamName in _streams_to_dqm and fileSize <= max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize <= max_tier0_transfer_file_size):
+                  ## Inject worker inserts file
+                  if eventsNumber == 0:
+                      number_of_files = 0
+                  else:
+                      number_of_files = 1
+                      if setup_label == 'TransferTest':
+                          inject_into_T0=False
+                      else:
+                          inject_into_T0=True
+  
+                      result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
+                      if result is False or (result>0) is False:
+                          logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+                          continue
+                      file_id=result
+                      logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (result, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+  
+                      maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                      maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+                      
+                      new_file_path = os.path.join(new_rundir, fileName)
+                      copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
+                  try:
+                      # Do the bookkeeping
+                      connection=databaseAgent.useConnection('bookkeeping')
+                      bookkeeper.fill_number_of_files(
+                          connection.cursor(), streamName, lumiSection, number_of_files
+                      )
+                      connection.commit()
+                  except cx_Oracle.IntegrityError:
+                      print ('WARNING: Failed to insert bookkeeping for ' +
+                             'run {0}, stream {1}, ls {2}: #files = {3}').format(
+                                 run_number, streamName, lumiSection,
+                                 number_of_files
+                             )
+                
+                # Do FQC for all of the following "normal" cases for streams that we aren't ignoring
+                non_tier0_streams=[]
+                non_tier0_streams.extend(_streams_to_dqm)
+                non_tier0_streams.extend(_streams_to_ecal)
+                non_tier0_streams.extend(_streams_to_evd)
+                non_tier0_streams.extend(_streams_with_scalers)
+                if streamName not in _streams_to_ignore:
+                    # Oversized files
+                    if copy_result is False:
+                        events_lost_checksum=events_built
+                        logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
+                    elif (streamName in _streams_to_dqm and fileSize > max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize > max_tier0_transfer_file_size):
+                        events_lost_oversized=events_built
+                        logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
+                    elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
+                        logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
                     else:
-                        inject_into_T0=True
-
-                    result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
-                    if result is False or (result>0) is False:
-                        logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
-                        continue
-                    file_id=result
-                    logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (result, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
-
-                    maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
-                    maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
-                    
-                    new_file_path = os.path.join(new_rundir, fileName)
-                    copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
-                try:
-                    # Do the bookkeeping
-                    connection=databaseAgent.useConnection('bookkeeping')
-                    bookkeeper.fill_number_of_files(
-                        connection.cursor(), streamName, lumiSection, number_of_files
-                    )
-                    connection.commit()
-                except cx_Oracle.IntegrityError:
-                    print ('WARNING: Failed to insert bookkeeping for ' +
-                           'run {0}, stream {1}, ls {2}: #files = {3}').format(
-                               run_number, streamName, lumiSection,
-                               number_of_files
-                           )
+                        logger.info("File quality control: recorded no events lost (file %s)" % fileName)
+                    fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
