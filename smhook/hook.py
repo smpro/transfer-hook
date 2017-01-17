@@ -627,9 +627,9 @@ def iterate():
                 logger.warning("Illegal filename `%s'!" % fname)
 
         # Poll T0 DB for files that are injected, which we can start to copy
-        files_to_copy = get_files_to_copy()
-        for record in files_to_copy:
-            [fileName, run_number, lumiSection, streamName] = record
+        #files_to_copy = get_files_to_copy()
+        #for record in files_to_copy:
+        #    [fileName, run_number, lumiSection, streamName] = record
 
 
 ## iterate()

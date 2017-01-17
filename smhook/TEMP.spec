@@ -5,7 +5,7 @@ Version:        __VERSION__
 Release:        __RELEASE__%{?dist}
 Summary:        Simple RPM used to setup the storage manager hook (python code)
 
-Requires:       cms_sm_copyworker cms_sm_copymanager cms_sm_injectworker cx_Oracle
+Requires:       cx_Oracle
 Group:          CMS/System
 License:        GPL
 URL:            https://github.com/smpro/transfer-hook/tree/master/smhook
@@ -14,6 +14,8 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %description
 This RPM installs the transfer system hook (python) and configuraton files. 
+
+%define _unpackaged_files_terminate_build 0
 
 %prep
 %setup -q -n smhook

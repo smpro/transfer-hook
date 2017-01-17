@@ -247,7 +247,7 @@ def getFileInfo(file_id, fileName, checksum):
     if not fileName and not file_id:
         return [file_id, fileName, checksum]
     if not file_id:
-        where_clause = " WHERE FILENAME={0} ".format(file_id)
+        where_clause = " WHERE FILENAME={0} ".format(fileName)
     else:
         where_clause = " WHERE FILE_ID={0} ".format(file_id)
     query = "SELECT FILE_ID, FILENAME, CHECKSUM FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+where_clause
