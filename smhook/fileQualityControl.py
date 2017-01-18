@@ -66,7 +66,7 @@ def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, e
         query=query.format(
             "CMS_STOMGR.FILE_QUALITY_CONTROL",
             run_number,
-            ls[2:],
+            ls,
             stream,
             data_file,
             "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
