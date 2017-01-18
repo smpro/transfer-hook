@@ -16,9 +16,19 @@ import smhook.config
 # Hardcoded Config file to be used, is defined below:
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
-debug=True
-myconfig = os.path.join(smhook.config.DIR, '.db_rates_integration.py')
-#myconfig = os.path.join(smhook.config.DIR, '.db_rates_production.py')
+debug=False
+
+production_config_file = '.db_rates_production.py'
+integration_config_file = '.db_rates_integration.py'
+the_config_file = production_config_file
+#the_config_file = integration_config_file
+myconfig = os.path.join(smhook.config.DIR, the_config_file)
+global l1_rates_table
+if the_config_file == production_config_file:
+    l1_rates_table = 'CMS_UGT_MON.ALGO_SCALERS'
+else:
+    l1_rates_table = 'CMS_DAQ_TEST_RUNINFO.HLT_TEST_ALGO_SCALERS'
+
 cxn_timeout = 60*60 # Timeout for database connection in seconds
 num_retries = 5
 query_timeout = 2 #Timeout for individual queries in seconds
