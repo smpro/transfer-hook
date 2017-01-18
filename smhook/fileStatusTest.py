@@ -28,7 +28,7 @@ if debug == True:
 
 
 def markAllRowsCompleted():
-    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=255 WHERE STATUS_FLAG<>255"
+    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=4 WHERE STATUS_FLAG<>4"
     databaseAgent.runQuery('file_status',query,False)
     databaseAgent.cxn_db['file_status'].commit()
 
@@ -38,7 +38,7 @@ def testPolling(flag):
     for i in range(1,1000):
         markAllRowsCompleted()
         markRandomRows(n)
-        query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE BITAND(STATUS_FLAG,{0})={0}".format(flag)
+        query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE STATUS_FLAG={0}".format(flag)
         t1=int(round(time.time() * 1000000))/1000.
         result=databaseAgent.runQuery('file_status',query,True,custom_timeout=5)
         num_found=len( result )
@@ -56,14 +56,15 @@ def populateFtsTable():
         time_this_runnumber=int(round(time.time() * 1000))
         for lumisection in range(0,999):
             filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
-            query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
+            query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG,INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
             "VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
               runnumber,
               lumisection,
               stream,
               filename,
               binascii.b2a_hex(os.urandom(4)),
-              255,
+              4,
+              1,
               1,
               0,
               "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
@@ -88,7 +89,7 @@ def updateFtsTable(status_flag, runnumber_min, runnumber_max, machine_name):
         lumisection=ls_pair[1]
         filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
         print "updating for runnumber {0}, ls {1}".format(runnumber, lumisection)
-        query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=(255-BITAND(255-STATUS_FLAG,255-{0})) WHERE FILENAME='{1}'".format(status_flag, filename)
+        query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG={0} WHERE FILENAME='{1}'".format(status_flag, filename)
         time_this_lumisection=int(round(time.time() * 1000000))/1000.
         databaseAgent.runQuery('file_status',query,False)
         databaseAgent.cxn_db['file_status'].commit()
@@ -242,5 +243,5 @@ def makeTestTables():
 def dropTestTables():
     databaseAgent.runQuery('CMS_STOMGR', "DROP SEQUENCE FILE_ID_SEQ", False)
     databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_TRANSFER_STATUS'; if existing_tables > 0 then execute immediate 'drop table FILE_TRANSFER_STATUS'; end if; end;", False)
-    databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_STATUS_FLAGS'; if existing_tables > 0 then execute immediate 'drop table FILE_STATUS_FLAGS'; end if; end;", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP FUNCTION T0_NEEDS_TO_INJECT")
     databaseAgent.cxn_db['CMS_STOMGR'].commit()
