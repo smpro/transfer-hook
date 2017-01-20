@@ -70,29 +70,29 @@ def insertFile(filename, runnumber, ls, stream, checksum, inject_into_T0=True):
       return file_id
 #______________________________________________________________________________
 def recordTransferStart(file_id):
-    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+    query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_START_TIME={0} "+\
-      "WHERE FILE_ID={1}"
+      "WHERE FILE_ID={1}; COMMIT; END;"
     query=query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", file_id)
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)
     return result
 #______________________________________________________________________________
 def recordTransferComplete(file_id):
-    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+    query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_END_TIME = {0}, "+\
       "STATUS_FLAG = {1}, "+\
       "BAD_CHECKSUM = 0 "+\
-      "WHERE FILE_ID={2}"
+      "WHERE FILE_ID={2}; COMMIT; END;"
     query=query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", status_flags['TRANSFERRED'], file_id)
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)
     return result
 #______________________________________________________________________________
 def recordCorruptedTransfer(file_id):
-    query="UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+    query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_END_TIME = {0}, "+\
       "STATUS_FLAG = {1}, "+\
       "BAD_CHECKSUM = 1 "+\
-      "WHERE FILE_ID={2}"
+      "WHERE FILE_ID={2}; COMMIT; END;"
     query=query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", status_flags['TRANSFERRED'], file_id)
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)
     return result

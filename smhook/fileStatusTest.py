@@ -48,29 +48,49 @@ def testPolling(flag):
     markAllRowsCompleted()
     distr_file.close()
 
-def populateFtsTable():
+def populateFtsTable(starting_runnumber=100001):
+    connection=databaseAgent.useConnection('file_status')
+    cursor=connection.cursor()
+    cursor.callproc("dbms_output.enable", (None,))
+    statusVar = cursor.var(cx_Oracle.NUMBER)
+    lineVar   = cursor.var(cx_Oracle.STRING)
     stream="DGH"
     time0=int(round(time.time() * 1000))
-    for runnumber in range(100001,200000):
+    for runnumber in range(starting_runnumber,starting_runnumber+99999):
         print "inserting for runnumber {0}".format(runnumber)
         time_this_runnumber=int(round(time.time() * 1000))
-        for lumisection in range(0,999):
-            filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
-            query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG,INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
-            "VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
-              runnumber,
-              lumisection,
-              stream,
-              filename,
-              binascii.b2a_hex(os.urandom(4)),
-              4,
-              1,
-              1,
-              0,
-              "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-            )
-            databaseAgent.runQuery('file_status',query, False, custom_timeout=1)
-            databaseAgent.cxn_db['file_status'].commit()
+        file_ids_string="file_ids: "
+        for ls in range(0,999):
+            filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,ls,stream)
+            #query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG,INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
+            #"VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
+            #  runnumber,
+            #  lumisection,
+            #  stream,
+            #  filename,
+            #  binascii.b2a_hex(os.urandom(4)),
+            #  4,
+            #  1,
+            #  1,
+            #  0,
+            #  "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+            #)
+            checksum = binascii.b2a_hex(os.urandom(4))
+            query = "DECLARE ID_VAL NUMBER(27); "+\
+            "BEGIN "+\
+              "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS,  STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
+              "(CMS_STOMGR.FILE_ID_SEQ.NEXTVAL,                      {0},       {1}, '{2}',  '{3}',    '{4}',    {5},         {6},          {7},         {8},          {9}             ) "+\
+              "RETURNING FILE_ID INTO ID_VAL; "+\
+              "COMMIT; "+\
+              "DBMS_OUTPUT.PUT_LINE(ID_VAL); "+\
+            "END;"
+            query=query.format(runnumber, ls, stream, filename, checksum, 4,1,1,0, "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')")
+            result = databaseAgent.runQuery('file_status', query, False, custom_timeout=10)
+            cursor.callproc("dbms_output.get_line", (lineVar, statusVar))
+            got_file_id = statusVar.getvalue()==0
+            file_id = int(lineVar.getvalue())
+            file_ids_string = "{0} {1}, ".format(file_ids_string, file_id)
+        print file_ids_string
         print ". . . took {0} ms".format( int(round(time.time() * 1000)) - time_this_runnumber)
     print "total time: {0} ms".format( int(round(time.time() * 1000)) - time0) 
 
@@ -147,10 +167,10 @@ def makeTestTables():
           "STATUS_FLAG "+\
         ")'; "+\
     "END;"
-    q_table2="CREATE FUNCTION T0_NEEDS_TO_INJECT (STATUS_FLAG IN NUMBER(1), INJECT_FLAG IN NUMBER(1), BAD_CHECKSUM IN NUMBER(1)) "+\
+    q_table2="CREATE FUNCTION T0_NEEDS_TO_INJECT (STATUS_FLAG IN NUMBER, INJECT_FLAG IN NUMBER, BAD_CHECKSUM IN NUMBER) "+\
       "RETURN INT DETERMINISTIC IS "+\
       "BEGIN "+\
-        "IF ( STATUS_FLAG=2 AND INJECT_FLAG=1 AND BAD_CHECKSUM=0 ) RETURN 0; "+\
+        "IF ( STATUS_FLAG=2 AND INJECT_FLAG=1 AND BAD_CHECKSUM=0 ) THEN RETURN 0; "+\
         "ELSE RETURN NULL; "+\
         "END IF; "+\
       "END T0_NEEDS_TO_INJECT;"
