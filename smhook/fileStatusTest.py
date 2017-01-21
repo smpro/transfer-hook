@@ -28,7 +28,7 @@ if debug == True:
 
 
 def markAllRowsCompleted():
-    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=255 WHERE STATUS_FLAG<>255"
+    query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=4 WHERE STATUS_FLAG<>4"
     databaseAgent.runQuery('file_status',query,False)
     databaseAgent.cxn_db['file_status'].commit()
 
@@ -38,7 +38,7 @@ def testPolling(flag):
     for i in range(1,1000):
         markAllRowsCompleted()
         markRandomRows(n)
-        query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE BITAND(STATUS_FLAG,{0})={0}".format(flag)
+        query="SELECT FILENAME FROM FILE_TRANSFER_STATUS WHERE STATUS_FLAG={0}".format(flag)
         t1=int(round(time.time() * 1000000))/1000.
         result=databaseAgent.runQuery('file_status',query,True,custom_timeout=5)
         num_found=len( result )
@@ -48,28 +48,49 @@ def testPolling(flag):
     markAllRowsCompleted()
     distr_file.close()
 
-def populateFtsTable():
+def populateFtsTable(starting_runnumber=100001):
+    connection=databaseAgent.useConnection('file_status')
+    cursor=connection.cursor()
+    cursor.callproc("dbms_output.enable", (None,))
+    statusVar = cursor.var(cx_Oracle.NUMBER)
+    lineVar   = cursor.var(cx_Oracle.STRING)
     stream="DGH"
     time0=int(round(time.time() * 1000))
-    for runnumber in range(100001,200000):
+    for runnumber in range(starting_runnumber,starting_runnumber+99999):
         print "inserting for runnumber {0}".format(runnumber)
         time_this_runnumber=int(round(time.time() * 1000))
-        for lumisection in range(0,999):
-            filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
-            query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
-            "VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
-              runnumber,
-              lumisection,
-              stream,
-              filename,
-              binascii.b2a_hex(os.urandom(4)),
-              255,
-              1,
-              0,
-              "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
-            )
-            databaseAgent.runQuery('file_status',query, False, custom_timeout=1)
-            databaseAgent.cxn_db['file_status'].commit()
+        file_ids_string="file_ids: "
+        for ls in range(0,999):
+            filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,ls,stream)
+            #query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG,INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
+            #"VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
+            #  runnumber,
+            #  lumisection,
+            #  stream,
+            #  filename,
+            #  binascii.b2a_hex(os.urandom(4)),
+            #  4,
+            #  1,
+            #  1,
+            #  0,
+            #  "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+            #)
+            checksum = binascii.b2a_hex(os.urandom(4))
+            query = "DECLARE ID_VAL NUMBER(27); "+\
+            "BEGIN "+\
+              "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS,  STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG, INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) VALUES "+\
+              "(CMS_STOMGR.FILE_ID_SEQ.NEXTVAL,                      {0},       {1}, '{2}',  '{3}',    '{4}',    {5},         {6},          {7},         {8},          {9}             ) "+\
+              "RETURNING FILE_ID INTO ID_VAL; "+\
+              "COMMIT; "+\
+              "DBMS_OUTPUT.PUT_LINE(ID_VAL); "+\
+            "END;"
+            query=query.format(runnumber, ls, stream, filename, checksum, 4,1,1,0, "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')")
+            result = databaseAgent.runQuery('file_status', query, False, custom_timeout=10)
+            cursor.callproc("dbms_output.get_line", (lineVar, statusVar))
+            got_file_id = statusVar.getvalue()==0
+            file_id = int(lineVar.getvalue())
+            file_ids_string = "{0} {1}, ".format(file_ids_string, file_id)
+        print file_ids_string
         print ". . . took {0} ms".format( int(round(time.time() * 1000)) - time_this_runnumber)
     print "total time: {0} ms".format( int(round(time.time() * 1000)) - time0) 
 
@@ -88,7 +109,7 @@ def updateFtsTable(status_flag, runnumber_min, runnumber_max, machine_name):
         lumisection=ls_pair[1]
         filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,lumisection,stream)
         print "updating for runnumber {0}, ls {1}".format(runnumber, lumisection)
-        query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG=(255-BITAND(255-STATUS_FLAG,255-{0})) WHERE FILENAME='{1}'".format(status_flag, filename)
+        query="UPDATE FILE_TRANSFER_STATUS SET STATUS_FLAG={0} WHERE FILENAME='{1}'".format(status_flag, filename)
         time_this_lumisection=int(round(time.time() * 1000000))/1000.
         databaseAgent.runQuery('file_status',query,False)
         databaseAgent.cxn_db['file_status'].commit()
@@ -116,21 +137,8 @@ def makeTestTables():
       "CACHE 20'; "+\
       "EXECUTE IMMEDIATE 'GRANT SELECT ON FILE_ID_SEQ to CMS_STOMGR_W'; "+\
       "END;"
-    q_table1="CREATE TABLE FILE_STATUS_FLAGS ("+\
-      "STATUS_FLAG NUMBER(4) NOT NULL, "+\
-      "MEANING VARCHAR2(16) NOT NULL, "+\
-      "PRIMARY KEY (STATUS_FLAG) "+\
-    ")"
-      
-    q_table2="INSERT ALL "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (1,  'P5_INJECTED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (2,  'TRANSFERRED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (4,  'T0_CHECKED' ) "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (8,  'T0_REPACKED') "+\
-      "INTO FILE_STATUS_FLAGS (STATUS_FLAG, MEANING) VALUES (16, 'P5_DELETED' ) "+\
-      "SELECT 1 FROM DUAL"
 
-    q_table3="BEGIN "+\
+    q_table1="BEGIN "+\
       "EXECUTE IMMEDIATE 'CREATE TABLE FILE_TRANSFER_STATUS ( "+\
         "FILE_ID               NUMBER(27)     NOT NULL, "+\
         "RUNNUMBER             NUMBER(22)     NOT NULL, "+\
@@ -144,7 +152,8 @@ def makeTestTables():
         "T0_CHECKED_TIME       TIMESTAMP(6), "+\
         "T0_REPACKED_TIME      TIMESTAMP(6), "+\
         "P5_DELETED_TIME       TIMESTAMP(6), "+\
-        "STATUS_FLAG           NUMBER(3) NOT NULL, "+\
+        "STATUS_FLAG           NUMBER(1) NOT NULL, "+\
+        "DELETED_FLAG          NUMBER(1) NOT NULL, "+\
         "INJECT_FLAG           NUMBER(1) NOT NULL, "+\
         "BAD_CHECKSUM          NUMBER(1) NOT NULL, "+\
         "PRIMARY KEY (FILE_ID), "+\
@@ -158,8 +167,14 @@ def makeTestTables():
           "STATUS_FLAG "+\
         ")'; "+\
     "END;"
-#        #"FOREIGN KEY (STATUS_FLAG) REFERENCES FILE_STATUS_FLAGS(STATUS_FLAG), "+\
-
+    q_table2="CREATE FUNCTION T0_NEEDS_TO_INJECT (STATUS_FLAG IN NUMBER, INJECT_FLAG IN NUMBER, BAD_CHECKSUM IN NUMBER) "+\
+      "RETURN INT DETERMINISTIC IS "+\
+      "BEGIN "+\
+        "IF ( STATUS_FLAG=2 AND INJECT_FLAG=1 AND BAD_CHECKSUM=0 ) THEN RETURN 0; "+\
+        "ELSE RETURN NULL; "+\
+        "END IF; "+\
+      "END T0_NEEDS_TO_INJECT;"
+    q_table3="CREATE INDEX IDX_NEW_FILES_FOR_T0 ON FILE_TRANSFER_STATUS (T0_NEEDS_TO_INJECT(STATUS_FLAG, INJECT_FLAG, BAD_CHECKSUM))"
     q_table4="BEGIN "+\
       "EXECUTE IMMEDIATE 'CREATE TABLE FILE_QUALITY_CONTROL ( "+\
       "RUNNUMBER                  NUMBER(22)        NOT NULL, "+\
@@ -248,5 +263,5 @@ def makeTestTables():
 def dropTestTables():
     databaseAgent.runQuery('CMS_STOMGR', "DROP SEQUENCE FILE_ID_SEQ", False)
     databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_TRANSFER_STATUS'; if existing_tables > 0 then execute immediate 'drop table FILE_TRANSFER_STATUS'; end if; end;", False)
-    databaseAgent.runQuery('CMS_STOMGR', "declare existing_tables number; begin select count(*) into existing_tables from all_tables where table_name = 'FILE_STATUS_FLAGS'; if existing_tables > 0 then execute immediate 'drop table FILE_STATUS_FLAGS'; end if; end;", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP FUNCTION T0_NEEDS_TO_INJECT")
     databaseAgent.cxn_db['CMS_STOMGR'].commit()

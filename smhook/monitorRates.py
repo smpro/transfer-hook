@@ -20,6 +20,8 @@ if debug == True:
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
 
+l1_rates_table = databaseAgent.l1_rates_table
+
 #############################
 # monitorRates:             #
 #############################
@@ -308,7 +310,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
             for algo_count in L1_rates[l1_rate_type_name]:
                 algo_rate = algo_count / (3564 * 2**18 / 40078970.0)
                 query = "INSERT INTO %s (ALGO_INDEX, ALGO_COUNT, ALGO_RATE, SCALER_TYPE, LUMI_SECTIONS_ID) VALUES ( %d, %d, %f, %d, '%s' )" % (
-                    L1_rates_table,
+                    l1_rates_table,
                     algo_index,
                     algo_count,                   
                     algo_rate,
