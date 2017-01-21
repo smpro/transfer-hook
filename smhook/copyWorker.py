@@ -27,7 +27,9 @@ import smhook.databaseAgent as databaseAgent
 debug=True
 logger = logging.getLogger(__name__)
 
-_filename = "run000000_ls0001_streamExpress_StorageManager.dat"
+_filename = "run100000_ls0001_streamExpress_StorageManager.dat"
+_checksum = 0
+
 if debug == True:
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
@@ -195,22 +197,22 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
         # Not enough info to do the transfer
         logger.warning("copyWorker.copyFile received too little information about the file")
         return False
-    if not checksum or not file_id or not fileName:
+    if not checksum==0 or not file_id or not fileName:
         [file_id, fileName, checksum] = getFileInfo(file_id,fileName,checksum)
-    if not checksum or not file_id or not fileName:
+    if not checksum==0 or not file_id or not fileName:
         line = "copyWorker.copyFile could not recover enough information about file from the database"
         if not file_id:
             line += " (filename = '{0}')".format(fileName)
         elif not fileName:
             line += " (file ID = {0})".format(file_id)
         logger.warning(line)
-        return False
+        if not (file_id < 0 ): return False
         
     lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, fileName)
     eos_makedir(lfn_path)
 
     # Record the transfer start time before the retry loop, so the retries affect the rate
-    injectWorker.recordTransferStart(file_id)
+    if (file_id >= 0) : injectWorker.recordTransferStart(file_id)
     n_retries = 0
     while n_retries < max_retries:
         copy_status = copy_to_t0(path,pfn_path)
@@ -222,7 +224,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
         if checksum != 0 and int(checksum) != 0:
             checksum_comparison_remote = compare_checksum(path,pfn_path,checksum,local=False)
             if checksum_comparison_remote is True:
-                injectWorker.recordTransferComplete(file_id)
+                if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
                 return True
             else:
                 checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
@@ -233,11 +235,12 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
                     continue
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
-                    injectWorker.recordCorruptedTransfer(file_id)
+                    if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
                     logger.warning("The file is corrupted and is moved to the bad area. The retries are stopped!")
                     return False
         else:
-            injectWorker.recordTransferComplete(file_id)
+            if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
+            logger.info("The file transfer is complete")
             return True
         n_retries+=1
     return False
@@ -267,7 +270,7 @@ def main():
 
     fileName = _filename
     checksum = _checksum
-    run_number = 0
+    run_number = 100000
     lumiSection = 1
     streamName = 'Express'
     
@@ -276,13 +279,15 @@ def main():
 
     ## Put in an identifier to tell T0 to repack the file or not
     inject_into_T0 = True
-    if setup_label == ['TransferTest']: #or add other special flags we define
+    if 'TransferTest' in setup_label: #or add other special flags we define
         inject_into_T0 = False
 
     # mark the file as new
-    insert_file_to_db(src,setup_label,"NEW",inject_flag)
+
     result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
-    copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
+    file_id = -1
+    new_file_path = "/opt/python/smhook/"+fileName
+    copyFile(file_id, fileName, checksum, new_file_path, dest, setup_label, max_retries=1) 
 
 ## main
 

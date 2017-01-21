@@ -188,8 +188,12 @@ def iterate():
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
-    destination = "/store/t0streamer/"
-    setup_label = 'TransferTest'
+
+    _dry_run = cfg.getboolean('Misc','dry_run')
+
+    _eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
+    #"/store/t0streamer/"
+    setup_label = 'TransferTestWithSafety'
 
     _renotify = cfg.getboolean('Misc','renotify')
 
@@ -429,7 +433,6 @@ def iterate():
                 try:
                     streamName = str(fileName.split('_')[2].split('stream')[1])
                 except Exception as e:                    
-                    #run271983_ls0021_index000000_fu
                     streamName = str(fileName.split('_')[2].split('index')[1])
                     logger.exception(e)
 
@@ -452,7 +455,7 @@ def iterate():
                 infoEoLS_2 = int(settings['data'][7])
 
                 destination = str(settings['data'][9])
-                logger.info("Destination in the jsn file {0} is {1}".format(jsn_file,destination))
+                logger.debug("Destination in the jsn file {0} is {1}".format(jsn_file,destination))
 
                 if destination == "ErrorArea" or "Error" in streamName:
                     errorFiles = filter(None,fileName.split(","))
@@ -460,7 +463,7 @@ def iterate():
                 dat_parts = [rundir,'data',fileName]
                 #dat_file = os.path.join(rundir, fileName)
                 dat_file = os.path.join(*dat_parts)
-                logger.info("The hex format checksum of the file {0} is {1} ".format(dat_file, checksum))
+                logger.debug("The hex format checksum of the file {0} is {1} ".format(dat_file, checksum))
 
                 ### This is a protection for bubbles
                 overwrite = False
@@ -468,6 +471,7 @@ def iterate():
                     overwrite = True
 
                 if streamName in _streams_with_scalers:
+                    continue
                     monitor_rates(jsn_file)
 
                 # Need to handle file quality control in a special case for cmssw errors
@@ -509,6 +513,7 @@ def iterate():
                             monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, time.time(), lumiSection, streamName]
                             elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
 
+                    continue
 
                 if streamName in _streams_to_ecal:
                     ## TODO: Use some other temporary directory instead of
@@ -537,12 +542,19 @@ def iterate():
                     evd_pool.apply_async(copy_move_files, args)
                     continue
 
+
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
                     continue
+
+
+                ###########################
+                ## Now doing the T0 Streams
+                ###########################
+
                 if (fileSize > max_tier0_transfer_file_size):
                     logger.warning(
                         "`{0}' too large ({1} > {2})! ".format(
@@ -553,65 +565,65 @@ def iterate():
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     
-                starttime = int(os.stat(dat_file).st_atime)
-                stoptime  = int(os.stat(jsn_file).st_ctime)
-                
-                if (streamName in _streams_to_dqm and fileSize <= max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize <= max_tier0_transfer_file_size):
-                  ## Inject worker inserts file
-                  if eventsNumber == 0:
-                      number_of_files = 0
-                  else:
-                      number_of_files = 1
-                      if setup_label == 'TransferTest':
-                          inject_into_T0=False
-                      else:
-                          inject_into_T0=True
-  
-                      result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
-                      if result is False or (result>0) is False:
-                          logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
-                          continue
-                      file_id=result
-                      logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (result, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
-  
-                      maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
-                      maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+
+                ## If dry run do not try
+                if _dry_run: 
+                    logger.debug("Running dry_run mode, will not continue with the T0 stream copying or injection")
+                    continue
+
+                ## Inject worker inserts file
+                if eventsNumber == 0:
+                    number_of_files = 0
+                else:
+                    number_of_files = 1
+                    if 'TransferTest' in setup_label:
+                        inject_into_T0=False
+                    else:
+                        inject_into_T0=True
                       
-                      new_file_path = os.path.join(new_rundir, fileName)
-                      copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, destination, setup_label, max_retries=1) 
-                  try:
-                      # Do the bookkeeping
-                      connection=databaseAgent.useConnection('bookkeeping')
-                      bookkeeper.fill_number_of_files(
-                          connection.cursor(), streamName, lumiSection, number_of_files
-                      )
-                      connection.commit()
-                  except cx_Oracle.IntegrityError:
-                      print ('WARNING: Failed to insert bookkeeping for ' +
-                             'run {0}, stream {1}, ls {2}: #files = {3}').format(
-                                 run_number, streamName, lumiSection,
-                                 number_of_files
-                             )
+                    file_id=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
+                    if file_id is False or (file_id>0) is False:
+                        logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+                        logger.error("Setting the file_id to negative to continue with the operation until fixed...")
+                        #continue
+                        file_id = -1
+                    else:
+                        logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (file_id, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
+  
+                    maybe_move(dat_file, new_rundir, force_overwrite=overwrite)
+                    maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
+                      
+                    new_file_path = os.path.join(new_rundir, fileName)
+                    copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, max_retries=1) 
+                try:
+                    # Do the bookkeeping
+                    connection=databaseAgent.useConnection('bookkeeping')
+                    bookkeeper.fill_number_of_files(
+                        connection.cursor(), streamName, lumiSection, number_of_files
+                    )
+                    connection.commit()
+                except cx_Oracle.IntegrityError:
+                    print ('WARNING: Failed to insert bookkeeping for ' +
+                           'run {0}, stream {1}, ls {2}: #files = {3}').format(
+                               run_number, streamName, lumiSection,
+                               number_of_files
+                           )
                 
-                # Do FQC for all of the following "normal" cases for streams that we aren't ignoring
-                non_tier0_streams=[]
-                non_tier0_streams.extend(_streams_to_dqm)
-                non_tier0_streams.extend(_streams_to_ecal)
-                non_tier0_streams.extend(_streams_to_evd)
-                non_tier0_streams.extend(_streams_with_scalers)
                 if streamName not in _streams_to_ignore:
                     # Oversized files
                     if copy_result is False:
                         events_lost_checksum=events_built
                         logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
-                    elif (streamName in _streams_to_dqm and fileSize > max_dqm_transfer_file_size) or (streamName not in non_tier0_streams and fileSize > max_tier0_transfer_file_size):
+                    elif (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
                         logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
                     elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
                         logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
                     else:
                         logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-                    fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+
+
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
@@ -657,7 +669,7 @@ def mkdir(path):
 def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
-    _run_number_max = 99999999999
+    _run_number_max = 999999999
 
     rundirs, runs, hltkeymap = [], [], {}
     full_list = sorted(glob.glob(os.path.join(path, 'run*')), reverse=True)
@@ -734,11 +746,11 @@ def mock_move_file_to_dir(src, dst, force_overwrite=False, suffix=None,
         name, extension = os.path.splitext(basename)
         basename = name + suffix + extension
     dst = os.path.join(dst, basename)
-    logger.info("I would do: mv %s %s" % (src, dst))
+    logger.debug("I would do: mv %s %s" % (src, dst))
     if eos:
         command =  ("xrdcp " + str(src) + " root://eoscms.cern.ch//" +
             str(dst))
-        logger.info("I woud do: %s" % command)
+        logger.debug("I woud do: %s" % command)
 ## mock_move_file_to_dir()
 
 #______________________________________________________________________________

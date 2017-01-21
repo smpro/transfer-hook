@@ -165,6 +165,7 @@ class RunInfo(object):
         self._prepare_cursor(name)
         return [self._execute_query(r) for r in run_numbers]
     def _prepare_cursor(self, name):
+        #For testing database: CMS_TEST_RUNINFO.RUNSESSION_PARAMETER
         query = """
             SELECT STRING_VALUE
             FROM CMS_RUNINFO.RUNSESSION_PARAMETER
