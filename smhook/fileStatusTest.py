@@ -49,11 +49,6 @@ def testPolling(flag):
     distr_file.close()
 
 def populateFtsTable(starting_runnumber=100001):
-    connection=databaseAgent.useConnection('file_status')
-    cursor=connection.cursor()
-    cursor.callproc("dbms_output.enable", (None,))
-    statusVar = cursor.var(cx_Oracle.NUMBER)
-    lineVar   = cursor.var(cx_Oracle.STRING)
     stream="DGH"
     time0=int(round(time.time() * 1000))
     for runnumber in range(starting_runnumber,starting_runnumber+99999):
@@ -61,6 +56,11 @@ def populateFtsTable(starting_runnumber=100001):
         time_this_runnumber=int(round(time.time() * 1000))
         file_ids_string="file_ids: "
         for ls in range(0,999):
+            connection=databaseAgent.useConnection('file_status')
+            cursor=connection.cursor()
+            cursor.callproc("dbms_output.enable", (None,))
+            statusVar = cursor.var(cx_Oracle.NUMBER)
+            lineVar   = cursor.var(cx_Oracle.STRING)
             filename="run{0}_ls{1}_stream{2}_dvmrg-c2f37-21-01.dat".format(runnumber,ls,stream)
             #query = "INSERT INTO CMS_STOMGR.FILE_TRANSFER_STATUS (FILE_ID, RUNNUMBER, LS, STREAM, FILENAME, CHECKSUM, STATUS_FLAG, DELETED_FLAG,INJECT_FLAG, BAD_CHECKSUM, P5_INJECTED_TIME) "+\
             #"VALUES (CMS_STOMGR.FILE_ID_SEQ.NEXTVAL, {0}, {1}, '{2}', '{3}', '{4}', {5}, {6}, {7}, {8}) ".format(
