@@ -20,8 +20,8 @@ debug=False
 
 production_config_file = '.db_rates_production.py'
 integration_config_file = '.db_rates_integration.py'
-the_config_file = production_config_file
-#the_config_file = integration_config_file
+#the_config_file = production_config_file
+the_config_file = integration_config_file
 myconfig = os.path.join(smhook.config.DIR, the_config_file)
 global l1_rates_table
 if the_config_file == production_config_file:
