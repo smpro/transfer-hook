@@ -91,7 +91,7 @@ def recordFileDeleted(file_id):
     query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET DELETED_FLAG = {0} "+\
       "WHERE FILE_ID={1}; COMMIT; END;"
-    query=query.format(status_flags['TRANSFERRED'], file_id)
+    query=query.format(1, file_id)
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)
     return result
 #______________________________________________________________________________
