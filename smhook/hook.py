@@ -509,8 +509,8 @@ def iterate():
                         #Elastic Monitor for DQM:
                         if not (esServerUrl=='' or esIndexName==''):
                             _id = jsn_file.replace(".jsn","")
-                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), lumiSection, streamName,1]
-                            elasticMonitor(monitorData, esServerUrl, run_number, esIndexName, _id, 5)
+                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 1]
+                            elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
 
                     continue
 
@@ -1008,16 +1008,15 @@ def get_time_since_modification(filename):
     return datetime.utcnow() - m_utc_date_time
 
 #______________________________________________________________________________
-def elasticMonitor(monitorData, esServerUrl, esIndexName, run_number, documentId, maxConnectionAttempts):
+def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
    # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
    connectionAttempts=0 #initialize                                                                                                                                                          
    # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
-   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream","status"]
+   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","runNumber","ls","stream","status"]
    values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
    transferMonitorDict=dict(zip(keys,values))
    transferMonitorDict['startTime']=transferMonitorDict['fm_date']
    transferMonitorDict['host']=os.uname()[1]
-   transferMonitorDict["runNumber"]=run_number
    while True:
        try:
            documentType='transfer'
@@ -1042,7 +1041,7 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, run_number, documentId
 
 #______________________________________________________________________________
 def elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
-   # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
+   # here the merge action is monitored by updating a record in Elastic Search database                                                                                                    
    connectionAttempts=0 #initialize                                                                                                                                                          
    # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
    keys   = ["fm_date","status"]
