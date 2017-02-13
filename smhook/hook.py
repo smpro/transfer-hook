@@ -553,6 +553,7 @@ def iterate():
                 ###########################
                 ## Now doing the T0 Streams
                 ###########################
+                copy_result=False #Initializing the boolean
 
                 if (fileSize > max_tier0_transfer_file_size):
                     logger.warning(
@@ -570,12 +571,30 @@ def iterate():
                     logger.debug("Running dry_run mode, will not continue with the T0 stream copying or injection")
                     continue
                     
-                copy_result=False
-                ## Inject worker inserts file
                 if eventsNumber == 0:
                     number_of_files = 0
                 else:
                     number_of_files = 1
+
+                ## Always fill the bookkeeping table even before the actual transfers
+                ## This is the only way to ensure we catch inconsistencies
+                try:
+                    # Do the bookkeeping
+                    connection=databaseAgent.useConnection('bookkeeping')
+                    bookkeeper.fill_number_of_files(
+                        connection.cursor(), streamName, lumiSection, number_of_files
+                    )
+                    connection.commit()
+                except cx_Oracle.IntegrityError:
+                    print ('WARNING: Failed to insert bookkeeping for ' +
+                           'run {0}, stream {1}, ls {2}: #files = {3}').format(
+                               run_number, streamName, lumiSection,
+                               number_of_files
+                           )
+
+                #Tranfser the files where the event number is not 0
+                if (number_of_files == 1):
+                    ## Inject worker inserts file and sets up the inject flag
                     if 'TransferTest' in setup_label:
                         inject_into_T0=False
                     else:
@@ -595,25 +614,15 @@ def iterate():
                       
                     new_file_path = os.path.join(new_rundir, fileName)
                     copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, max_retries=1) 
-                try:
-                    # Do the bookkeeping
-                    connection=databaseAgent.useConnection('bookkeeping')
-                    bookkeeper.fill_number_of_files(
-                        connection.cursor(), streamName, lumiSection, number_of_files
-                    )
-                    connection.commit()
-                except cx_Oracle.IntegrityError:
-                    print ('WARNING: Failed to insert bookkeeping for ' +
-                           'run {0}, stream {1}, ls {2}: #files = {3}').format(
-                               run_number, streamName, lumiSection,
-                               number_of_files
-                           )
                 
                 if streamName not in _streams_to_ignore:
-                    # Oversized files
-                    if copy_result is False:
+                    # Find the failed copies due to the checksum while ignoring events with 0 events
+                    if copy_result is False and number_of_files is 1: 
                         events_lost_checksum=events_built
                         logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
+                        maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite)
+                        maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite)
+                    # Oversized files
                     elif (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
                         logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
@@ -622,7 +631,6 @@ def iterate():
                     else:
                         logger.info("File quality control: recorded no events lost (file %s)" % fileName)
                         fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
-
 
 
         ## Move the bad area to new run dir so that we can check for run
