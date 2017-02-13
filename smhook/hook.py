@@ -570,7 +570,8 @@ def iterate():
                 if _dry_run: 
                     logger.debug("Running dry_run mode, will not continue with the T0 stream copying or injection")
                     continue
-
+                    
+                copy_result=False
                 ## Inject worker inserts file
                 if eventsNumber == 0:
                     number_of_files = 0
