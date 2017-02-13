@@ -471,7 +471,6 @@ def iterate():
                     overwrite = True
 
                 if streamName in _streams_with_scalers:
-                    continue
                     monitor_rates(jsn_file)
 
                 # Need to handle file quality control in a special case for cmssw errors
