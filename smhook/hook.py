@@ -33,6 +33,8 @@ import smhook.injectWorker as injectWorker
 import smhook.copyWorker as copyWorker
 
 from smhook.runinfo import RunInfo
+from smhook.elasticSearch import elasticMonitor, esMonitorMapping, elasticMonitorUpdate
+
 from datetime import datetime, timedelta, date
 from optparse import OptionParser
 from subprocess import call
@@ -41,7 +43,6 @@ import requests
 
 #from Logging import getLogger
 logger = logging.getLogger(__name__)
-
 
 #______________________________________________________________________________
 def main():
@@ -166,14 +167,14 @@ def iterate():
 
     # These all need to become globals read from config file, do that later
     path = cfg.get('Input', 'path')
-    _scratch_base  = cfg.get('Output','scratch_base')
-    _error_base    = cfg.get('Output','error_base')
-    _dqm_base      = cfg.get('Output','dqm_base')
-    _ecal_base     = cfg.get('Output','ecal_base')
-    _lookarea_base = cfg.get('Output','lookarea_base')
-    _evd_base      = cfg.get('Output','evd_base')
-    _evd_eosbase   = cfg.get('Output','evd_eosbase')
-    new_path_base  = cfg.get('Output', 'new_path_base')
+    _scratch_base    = cfg.get('Output','scratch_base')
+    _error_base      = cfg.get('Output','error_base')
+    _dqm_base        = cfg.get('Output','dqm_base')
+    _ecal_base       = cfg.get('Output','ecal_base')
+    _lookarea_base   = cfg.get('Output','lookarea_base')
+    _evd_base        = cfg.get('Output','evd_base')
+    _evd_eosbase     = cfg.get('Output','evd_eosbase')
+    new_path_base    = cfg.get('Output', 'new_path_base')
     _checksum_status = cfg.getboolean('Misc','checksum_status')
     setup_label      = cfg.get('Input','setup_label')
 
@@ -188,14 +189,16 @@ def iterate():
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
+    _dry_run              = cfg.getboolean('Misc','dry_run')
+    _renotify             = cfg.getboolean('Misc','renotify')
 
-    _dry_run = cfg.getboolean('Misc','dry_run')
-
+    #### Hack by hand for now!
     _eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
     #"/store/t0streamer/"
     setup_label = 'TransferTestWithSafety'
+    ####
 
-    _renotify = cfg.getboolean('Misc','renotify')
+
 
     max_tier0_transfer_file_size = cfg.getint(
         'Output', 'maximum_tier0_transfer_file_size_in_bytes'
@@ -470,8 +473,15 @@ def iterate():
                 if (inputEvents == 0):
                     overwrite = True
 
+                ###################################
+                ##Now we start sending data around
+                ###################################
+
                 if streamName in _streams_with_scalers:
-                    monitor_rates(jsn_file)
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName,'rates', 1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+                    monitor_rates(jsn_file, fileName, esServerUrl, esIndexName)
 
                 # Need to handle file quality control in a special case for cmssw errors
                 if destination == "ErrorArea" or "Error" in streamName:
@@ -503,14 +513,15 @@ def iterate():
                         jsn_file = jsn_file.replace('jsns/','')
                         dat_file = dat_file.replace(rundir, scratch_rundir)
                         dat_file = dat_file.replace('data/','')
-                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,fileSize,max_lookarea_transfer_file_size,overwrite]
-                        dqm_pool.apply_async(double_p5_location, args)
-                        
+
                         #Elastic Monitor for DQM:
                         if not (esServerUrl=='' or esIndexName==''):
-                            _id = jsn_file.replace(".jsn","")
-                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 1]
-                            elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
+                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'DQM',1]
+                            elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+
+                        args = [dat_file, jsn_file, dqm_rundir_open, dqm_rundir, lookarea_rundir_open,lookarea_rundir,fileSize,max_lookarea_transfer_file_size,overwrite, fileName, esServerUrl, esIndexName]
+                        dqm_pool.apply_async(double_p5_location, args)                        
+
 
                     continue
 
@@ -522,8 +533,14 @@ def iterate():
                     jsn_file = jsn_file.replace(rundir, scratch_rundir)
                     jsn_file = jsn_file.replace('jsns/','')
                     dat_file = dat_file.replace(rundir, scratch_rundir)
-                    dat_file = dat_file.replace('data/','')                                        
-                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir,overwrite]
+                    dat_file = dat_file.replace('data/','')                              
+
+                    #Elastic Monitor for ECAL:
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'EcalCalib',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+          
+                    args = [dat_file, jsn_file, ecal_rundir_open, ecal_rundir,overwrite, fileName, esServerUrl,esIndexName]
                     ecal_pool.apply_async(move_files, args)
                     continue
 
@@ -536,8 +553,12 @@ def iterate():
                     dat_file = dat_file.replace(rundir, scratch_rundir)
                     dat_file = dat_file.replace('data/','')
 
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'EventDisplay',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+                    
                     args = [dat_file, jsn_file, evd_rundir_open, evd_rundir,
-                            evd_eosrundir,overwrite]
+                            evd_eosrundir,overwrite, fileName, esServerUrl, esIndexName]
                     evd_pool.apply_async(copy_move_files, args)
                     continue
 
@@ -592,8 +613,15 @@ def iterate():
                                number_of_files
                            )
 
+
                 #Tranfser the files where the event number is not 0
                 if (number_of_files == 1):
+                    
+                    #Elastic Monitor for T0:
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'Tier0',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+
                     ## Inject worker inserts file and sets up the inject flag
                     if 'TransferTest' in setup_label:
                         inject_into_T0=False
@@ -613,7 +641,7 @@ def iterate():
                     maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
                       
                     new_file_path = os.path.join(new_rundir, fileName)
-                    copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, max_retries=1) 
+                    copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
                 
                 if streamName not in _streams_to_ignore:
                     # Find the failed copies due to the checksum while ignoring events with 0 events
@@ -716,7 +744,7 @@ def get_run_number(rundir):
 ## get_run_number
 
 #______________________________________________________________________________
-def monitor_rates(jsn_file):
+def monitor_rates(jsn_file, fileName, esServerUrl='', esIndexName=''):
     fname = jsn_file + 'data'
     fname = fname.replace('/jsns/','/data/')
     basename = os.path.basename(fname)
@@ -737,6 +765,9 @@ def monitor_rates(jsn_file):
                     fname, delay
                 )
             )
+        if not (esServerUrl=='' or esIndexName==''):
+            monitorData = [int(time.time()*1000.), 2]
+            elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
     except cx_Oracle.IntegrityError:
         logger.warning('DB record for %s already present!' %  basename)
 ## monitor_rates
@@ -839,7 +870,7 @@ def move_file_to_dir(src, dst_dir, force_overwrite=False, suffix=None,
 ## move_file_to_dir()
 
 #______________________________________________________________________________
-def move_files(datFile, jsnFile, final_rundir_open, final_rundir, overwrite):
+def move_files(datFile, jsnFile, final_rundir_open, final_rundir, overwrite, fileName, esServerUrl='', esIndexName=''):
     try:
         # first move to open area
         maybe_move(datFile, final_rundir_open, force_overwrite=overwrite)
@@ -849,12 +880,16 @@ def move_files(datFile, jsnFile, final_rundir_open, final_rundir, overwrite):
                    final_rundir, force_overwrite=overwrite)
         maybe_move(os.path.join(final_rundir_open,os.path.basename(jsnFile)),
                    final_rundir, force_overwrite=overwrite)
+
+        if not (esServerUrl=='' or esIndexName==''):
+            monitorData = [int(time.time()*1000.), 2]
+            elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
     except Exception as e:
         logger.exception(e)
 ## move_files()
 
 #______________________________________________________________________________
-def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir, fileSize, max_lookarea, overwrite):
+def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundir_open, move_rundir, fileSize, max_lookarea, overwrite, fileName, esServerUrl='', esIndexName=''):
     try:
         #first copy to open area dst1
         maybe_move(datFile, copy_rundir_open, force_overwrite=overwrite, suffix=None, eos=False, move=False)
@@ -872,6 +907,10 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
             maybe_move(os.path.join(move_rundir_open,os.path.basename(datFile)),move_rundir,force_overwrite=overwrite)
             maybe_move(os.path.join(move_rundir_open,os.path.basename(jsnFile)),move_rundir,force_overwrite=overwrite)               
 
+        if not (esServerUrl=='' or esIndexName==''):
+            monitorData = [int(time.time()*1000.), 2]
+            elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+
     except Exception as e:
         logger.exception(e)
 
@@ -879,7 +918,7 @@ def double_p5_location(datFile,jsnFile,copy_rundir_open, copy_rundir, move_rundi
 
 #______________________________________________________________________________
 def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir,
-                    final_eosrundir,overwrite):
+                    final_eosrundir,overwrite, fileName, esServerUrl='', esIndexName=''):
     try:
         # first copy or move to the final area with the eos parameter
         maybe_move(datFile, final_eosrundir,force_overwrite=overwrite, eos=True)
@@ -895,6 +934,11 @@ def copy_move_files(datFile, jsnFile, final_rundir_open, final_rundir,
                    final_rundir,force_overwrite=overwrite,eos=False)
         #maybe_move(datFile, final_rundir,eos=False)
         #maybe_move(jsnFile, final_rundir,eos=False)
+        
+        if not (esServerUrl=='' or esIndexName==''):
+            monitorData = [int(time.time()*1000.), 2]
+            elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+
     except Exception as e:
         logger.exception(e)
 ## copy_move_files()
@@ -1007,114 +1051,6 @@ def get_time_since_modification(filename):
     m_utc_date_time = datetime.utcfromtimestamp(m_time_stamp)
     return datetime.utcnow() - m_utc_date_time
 
-#______________________________________________________________________________
-def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
-   # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
-   connectionAttempts=0 #initialize                                                                                                                                                          
-   # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
-   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","runNumber","ls","stream","status"]
-   values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
-   transferMonitorDict=dict(zip(keys,values))
-   transferMonitorDict['startTime']=transferMonitorDict['fm_date']
-   transferMonitorDict['host']=os.uname()[1]
-   while True:
-       try:
-           documentType='transfer'
-           logger.debug("About to try to insert into ES with the following info:")
-           logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
-           logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
-           monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId,data=json.dumps(transferMonitorDict),timeout=1)
-           if monitorResponse.status_code not in [200,201]:
-               logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
-           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
-           break
-       except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           logger.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
-           logger.error(monitorResponse.raise_for_status())
-           if connectionAttempts > maxConnectionAttempts:
-               logger.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
-               break
-           else:
-               connectionAttempts+=1
-               time.sleep(0.1)
-           continue
-
-#______________________________________________________________________________
-def elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
-   # here the merge action is monitored by updating a record in Elastic Search database                                                                                                    
-   connectionAttempts=0 #initialize                                                                                                                                                          
-   # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
-   keys   = ["fm_date","status"]
-   values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
-   transferMonitorDict=dict(zip(keys,values))
-   transferMonitorDict['endTime']=transferMonitorDict['fm_date']
-   while True:
-       try:
-           documentType='transfer'
-           logger.debug("About to try to insert into ES with the following info:")
-           logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/_update' + '"')
-           logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
-           monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId+'/_update',data=json.dumps({"doc":transferMonitorDict}),timeout=1)
-           if monitorResponse.status_code not in [200,201]:
-               logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
-           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
-           break
-       except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           logger.error('elasticMonitorUpdate threw connection error: HTTP ' + monitorResponse.status_code)
-           logger.error(monitorResponse.raise_for_status())
-           if connectionAttempts > maxConnectionAttempts:
-               logger.error('connection error: elasticMonitorUpdate failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
-               break
-           else:
-               connectionAttempts+=1
-               time.sleep(0.1)
-           continue
-
-#______________________________________________________________________________
-def esMonitorMapping(esServerUrl,esIndexName):
-# subroutine which creates index and mappings in elastic search database
-   indexExists = False
-   # check if the index exists:
-   try:
-      checkIndexResponse=requests.get(esServerUrl+'/'+esIndexName+'/_stats')
-      if '_shards' in json.loads(checkIndexResponse.text):
-         logger.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
-         indexExists = True
-      else:
-         logger.info('did not find existing index '+esIndexName)
-         indexExists = False
-   except requests.exceptions.ConnectionError as e:
-      logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
-   if indexExists:
-      # if the index already exists, we put the mapping in the index for redundancy purposes:
-      # JSON follows:
-      transfer_mapping = {
-         'transfer' : {
-            '_all'          :{'enabled':False},  
-            'properties' : {
-               'fm_date'       :{'type':'date'}, #timestamp of injection
-               'startTime'     :{'type':'date'}, #timestamp of transfer start
-               'endTime'       :{'type':'date'}, #timestamp of transfer end
-               'appliance'     :{'type':'keyword'},
-               'host'          :{'type':'keyword'}, 
-               'stream'        :{'type':'keyword'},
-               'ls'            :{'type':'integer'},
-               'processed'     :{'type':'integer'},
-               'accepted'      :{'type':'integer'},
-               'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'long'},
-               'runNumber'     :{'type':'integer'},
-               'type'          :{'type':'keyword'}, #can be used for: Tier0, DQM, Error, LookArea, Calib, Special or similar
-               'status'        :{'type':'integer'}  #transfer is started or finished
-            }
-         }
-      }
-      try:
-         logger.info('esMonitorMapping: ' + esServerUrl+'/'+esIndexName+'/_mapping/transfer')
-         logger.info('esMonitorMapping: ' + json.dumps(transfer_mapping))
-         putMappingResponse=requests.put(esServerUrl+'/'+esIndexName+'/_mapping/transfer',data=json.dumps(transfer_mapping))
-      except requests.exceptions.ConnectionError as e:
-         logger.error('esMonitorMapping: Could not connect to ElasticSearch database!')
 #______________________________________________________________________________                                                                                                                                                     
 def get_files_to_copy():
     # Get files that are ready to copy to T0
