@@ -509,8 +509,8 @@ def iterate():
                         #Elastic Monitor for DQM:
                         if not (esServerUrl=='' or esIndexName==''):
                             _id = jsn_file.replace(".jsn","")
-                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, time.time(), lumiSection, streamName]
-                            elasticMonitor(monitorData, esServerUrl, esIndexName, _id, 5)
+                            monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), lumiSection, streamName,1]
+                            elasticMonitor(monitorData, esServerUrl, run_number, esIndexName, _id, 5)
 
                     continue
 
@@ -1008,15 +1008,16 @@ def get_time_since_modification(filename):
     return datetime.utcnow() - m_utc_date_time
 
 #______________________________________________________________________________
-def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
+def elasticMonitor(monitorData, esServerUrl, esIndexName, run_number, documentId, maxConnectionAttempts):
    # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
    connectionAttempts=0 #initialize                                                                                                                                                          
    # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
-   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream"]
+   keys   = ["processed","accepted","errorEvents","fname","size","eolField1","eolField2","fm_date","ls","stream","status"]
    values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
    transferMonitorDict=dict(zip(keys,values))
-   transferMonitorDict['fm_date']=float(transferMonitorDict['fm_date'])
+   transferMonitorDict['startTime']=transferMonitorDict['fm_date']
    transferMonitorDict['host']=os.uname()[1]
+   transferMonitorDict["runNumber"]=run_number
    while True:
        try:
            documentType='transfer'
@@ -1024,6 +1025,8 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnect
            logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
            logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
            monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId,data=json.dumps(transferMonitorDict),timeout=1)
+           if monitorResponse.status_code not in [200,201]:
+               logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
            logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
@@ -1036,13 +1039,45 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnect
                connectionAttempts+=1
                time.sleep(0.1)
            continue
-#______________________________________________________________________________                                                                                                                                                     
+
+#______________________________________________________________________________
+def elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, documentId, maxConnectionAttempts):
+   # here the merge action is monitored by inserting a record into Elastic Search database                                                                                                    
+   connectionAttempts=0 #initialize                                                                                                                                                          
+   # make dictionary to be JSON-ified and inserted into the Elastic Search DB as a document
+   keys   = ["fm_date","status"]
+   values = [int(f) if str(f).isdigit() else str(f) for f in monitorData]
+   transferMonitorDict=dict(zip(keys,values))
+   transferMonitorDict['endTime']=transferMonitorDict['fm_date']
+   while True:
+       try:
+           documentType='transfer'
+           logger.debug("About to try to insert into ES with the following info:")
+           logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/_update' + '"')
+           logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
+           monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId+'/_update',data=json.dumps({"doc":transferMonitorDict}),timeout=1)
+           if monitorResponse.status_code not in [200,201]:
+               logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
+           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
+           break
+       except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
+           logger.error('elasticMonitorUpdate threw connection error: HTTP ' + monitorResponse.status_code)
+           logger.error(monitorResponse.raise_for_status())
+           if connectionAttempts > maxConnectionAttempts:
+               logger.error('connection error: elasticMonitorUpdate failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
+               break
+           else:
+               connectionAttempts+=1
+               time.sleep(0.1)
+           continue
+
+#______________________________________________________________________________
 def esMonitorMapping(esServerUrl,esIndexName):
 # subroutine which creates index and mappings in elastic search database
    indexExists = False
    # check if the index exists:
    try:
-      checkIndexResponse=requests.get(esServerUrl+'/'+esIndexName+'/_stats/_shards/')
+      checkIndexResponse=requests.get(esServerUrl+'/'+esIndexName+'/_stats')
       if '_shards' in json.loads(checkIndexResponse.text):
          logger.info('found index '+esIndexName+' containing '+str(json.loads(checkIndexResponse.text)['_shards']['total'])+' total shards')
          indexExists = True
@@ -1057,18 +1092,21 @@ def esMonitorMapping(esServerUrl,esIndexName):
       transfer_mapping = {
          'transfer' : {
             '_all'          :{'enabled':False},  
-            '_timestamp'    :{'enabled':True},
             'properties' : {
-               'fm_date'       :{'type':'date','format' : 'epoch_millislldateOptionalTime'},
-               'id'            :{'type':'string','index' : 'not_analyzed'}, #run+appliance+stream+ls
-               'appliance'     :{'type':'string','index' : 'not_analyzed'},
-               'host'          :{'type':'string','index' : 'not_analyzed'}, 
-               'stream'        :{'type':'string','index' : 'not_analyzed'},
+               'fm_date'       :{'type':'date'}, #timestamp of injection
+               'startTime'     :{'type':'date'}, #timestamp of transfer start
+               'endTime'       :{'type':'date'}, #timestamp of transfer end
+               'appliance'     :{'type':'keyword'},
+               'host'          :{'type':'keyword'}, 
+               'stream'        :{'type':'keyword'},
                'ls'            :{'type':'integer'},
                'processed'     :{'type':'integer'},
                'accepted'      :{'type':'integer'},
                'errorEvents'   :{'type':'integer'},
-               'size'          :{'type':'long'}
+               'size'          :{'type':'long'},
+               'runNumber'     :{'type':'integer'},
+               'type'          :{'type':'keyword'}, #can be used for: Tier0, DQM, Error, LookArea, Calib, Special or similar
+               'status'        :{'type':'integer'}  #transfer is started or finished
             }
          }
       }
