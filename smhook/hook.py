@@ -161,12 +161,13 @@ def setup():
 def iterate():
 
     #Elastic Search Parameters
-
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
 
     # These all need to become globals read from config file, do that later
-    path = cfg.get('Input', 'path')
+    path             = cfg.get('Input', 'path')
+    setup_label      = cfg.get('Input','setup_label')
+
     _scratch_base    = cfg.get('Output','scratch_base')
     _error_base      = cfg.get('Output','error_base')
     _dqm_base        = cfg.get('Output','dqm_base')
@@ -174,9 +175,8 @@ def iterate():
     _lookarea_base   = cfg.get('Output','lookarea_base')
     _evd_base        = cfg.get('Output','evd_base')
     _evd_eosbase     = cfg.get('Output','evd_eosbase')
+    _eos_destination = cfg.get('Ouput','eos_path')
     new_path_base    = cfg.get('Output', 'new_path_base')
-    _checksum_status = cfg.getboolean('Misc','checksum_status')
-    setup_label      = cfg.get('Input','setup_label')
 
     _streams_with_scalers = cfg.getlist('Streams','streams_with_scalars')
     _streams_to_ecal      = cfg.getlist('Streams','streams_to_ecal'     )
@@ -186,19 +186,19 @@ def iterate():
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
     _stream_type          = cfg.get('Streams','stream_type')
+
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
     _dry_run              = cfg.getboolean('Misc','dry_run')
     _renotify             = cfg.getboolean('Misc','renotify')
+    _checksum_status      = cfg.getboolean('Misc','checksum_status')
 
-    #### Hack by hand for now!
+    #### Hack by hand for now!#############
     _eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
     #"/store/t0streamer/"
     setup_label = 'TransferTestWithSafety'
-    ####
-
-
+    ########################################
 
     max_tier0_transfer_file_size = cfg.getint(
         'Output', 'maximum_tier0_transfer_file_size_in_bytes'
