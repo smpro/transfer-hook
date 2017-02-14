@@ -24,6 +24,8 @@ import time
 import smhook.config as config
 import smhook.injectWorker as injectWorker
 import smhook.databaseAgent as databaseAgent
+from smhook.elasticSearch import elasticMonitorUpdate
+
 debug=True
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ if debug == True:
 #______________________________________________________________________________
 def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
-    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
+    p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
     out, error = p.communicate()
     
     return out, error, p.returncode
@@ -190,7 +192,7 @@ def copy_to_t0(src,pfn_path):
 
 
 #______________________________________________________________________________
-def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_retries=1):
+def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServerUrl='',esIndexName='', max_retries=1):
     # Main interface to the daemon for actually copying the files
     # Checksum can be falsebe provided, either file_id or fileName can be false
     if not file_id and not fileName:
@@ -236,11 +238,15 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, max_re
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
                     if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
-                    logger.warning("The file is corrupted and is moved to the bad area. The retries are stopped!")
+                    logger.warning("The file is corrupted and is moved to the bad area. Retries are stopped!")
                     return False
         else:
             if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
-            logger.info("The file transfer is complete")
+            logger.info("The file {0} is successfully transfered".format(fileName))
+            if not (esServerUrl=='' or esIndexName==''):
+                monitorData = [int(time.time()*1000.), 2]
+                elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+            
             return True
         n_retries+=1
     return False
@@ -287,7 +293,7 @@ def main():
     result=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
     file_id = -1
     new_file_path = "/opt/python/smhook/"+fileName
-    copyFile(file_id, fileName, checksum, new_file_path, dest, setup_label, max_retries=1) 
+    copyFile(file_id, fileName, checksum, new_file_path, dest, setup_label, esServerUrl='', esIndexName='' ,max_retries=1) 
 
 ## main
 
