@@ -40,7 +40,7 @@ if debug == True:
 #______________________________________________________________________________
 def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
-    p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
+    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
     out, error = p.communicate()
     
     return out, error, p.returncode

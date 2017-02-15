@@ -563,11 +563,19 @@ def iterate():
                     continue
 
 
-                if (run_key == 'TIER0_TRANSFER_OFF' or
+                if (run_key == 'TIER0_TRANSFER_OFF' or                    
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
+
+                    monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2,int(time.time()*1000.), run_number, lumiSection, streamName, 'T0Off',1]
+                    elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+                    
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
+
+                    monitorData = [int(time.time()*1000.), 2]
+                    elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+
                     continue
 
 
