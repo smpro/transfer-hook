@@ -286,6 +286,7 @@ def makeViews():
       REFRESH FAST ON COMMIT
     AS SELECT
     RUNNUMBER, 
+      COUNT(FILENAME)                   AS NUMBER_OF_FILES            ,
       SUM(NVL(EVENTS_BUILT,0))          AS TOTAL_EVENTS_BUILT         , 
       SUM(NVL(EVENTS_LOST,0))           AS TOTAL_EVENTS_LOST          , 
       SUM(NVL(EVENTS_LOST_CHECKSUM,0))  AS TOTAL_EVENTS_LOST_CHECKSUM , 
