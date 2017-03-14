@@ -101,10 +101,12 @@ def main():
     ecal_pool.close()
     dqm_pool.close()
     evd_pool.close()
+    t0_pool.close()
     logger.info('Joining ECAL, DQM and Event Display thransfer thread pools.')
     ecal_pool.join()
     dqm_pool.join()
     evd_pool.join()
+    t0_pool.join()
 ## main()
 
 
@@ -134,6 +136,7 @@ def setup():
     global dqm_pool
     global evd_pool
     global lookarea_pool
+    global t0_pool
     global cfg
     cfg = config.config
     logger.info(
@@ -144,6 +147,7 @@ def setup():
 
     bookkeeper._dry_run = _dry_run
     bookkeeper.setup()
+
     runinfo = RunInfo(os.path.join(config.DIR, '.db.omds.runinfo_r.cfg.py'))
     if _dry_run:
         log_and_maybe_exec = log_and_do_not_exec
@@ -155,6 +159,7 @@ def setup():
     dqm_pool      = ThreadPool(5)
     evd_pool      = ThreadPool(4)
     lookarea_pool = ThreadPool(4)
+    t0_pool = ThreadPool(10)
 ## setup()
 
 #______________________________________________________________________________
@@ -164,19 +169,22 @@ def iterate():
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
 
-    # These all need to become globals read from config file, do that later
-    path             = cfg.get('Input', 'path')
-    setup_label      = cfg.get('Input','setup_label')
+    ##HACK BY HAND
+    esServerUrl = 'http://es-cdaq.cms:9200'
+    esIndexName = 'merging_dv_write'
 
-    _scratch_base    = cfg.get('Output','scratch_base')
-    _error_base      = cfg.get('Output','error_base')
-    _dqm_base        = cfg.get('Output','dqm_base')
-    _ecal_base       = cfg.get('Output','ecal_base')
-    _lookarea_base   = cfg.get('Output','lookarea_base')
-    _evd_base        = cfg.get('Output','evd_base')
-    _evd_eosbase     = cfg.get('Output','evd_eosbase')
-    _eos_destination = cfg.get('Ouput','eos_path')
-    new_path_base    = cfg.get('Output', 'new_path_base')
+    # These all need to become globals read from config file, do that later
+    path = cfg.get('Input', 'path')
+    _scratch_base  = cfg.get('Output','scratch_base')
+    _error_base    = cfg.get('Output','error_base')
+    _dqm_base      = cfg.get('Output','dqm_base')
+    _ecal_base     = cfg.get('Output','ecal_base')
+    _lookarea_base = cfg.get('Output','lookarea_base')
+    _evd_base      = cfg.get('Output','evd_base')
+    _evd_eosbase   = cfg.get('Output','evd_eosbase')
+    new_path_base  = cfg.get('Output', 'new_path_base')
+    _checksum_status = cfg.getboolean('Misc','checksum_status')
+    setup_label      = cfg.get('Input','setup_label')
 
     _streams_with_scalers = cfg.getlist('Streams','streams_with_scalars')
     _streams_to_ecal      = cfg.getlist('Streams','streams_to_ecal'     )
@@ -186,19 +194,17 @@ def iterate():
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
     _stream_type          = cfg.get('Streams','stream_type')
-
     _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
-    _dry_run              = cfg.getboolean('Misc','dry_run')
-    _renotify             = cfg.getboolean('Misc','renotify')
-    _checksum_status      = cfg.getboolean('Misc','checksum_status')
 
-    #### Hack by hand for now!#############
-    _eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
-    #"/store/t0streamer/"
-    setup_label = 'TransferTestWithSafety'
-    ########################################
+    _dry_run = cfg.getboolean('Misc','dry_run')
+
+    _eos_destination = "/store/t0streamer/"
+    #"/store/group/dpg_tracker_pixel/comm_pixel/"
+    #setup_label = 'TransferTestWithSafety'
+
+    _renotify = cfg.getboolean('Misc','renotify')
 
     max_tier0_transfer_file_size = cfg.getint(
         'Output', 'maximum_tier0_transfer_file_size_in_bytes'
@@ -313,6 +319,9 @@ def iterate():
                                             'open')
         lookarea_rundir      = os.path.join(_lookarea_base  , rundir_basename)
         run_key = runinfo.get_run_key(run_number)
+
+        logger.info("********** Run %d is %s ***********" % (run_number, run_key))
+
         if not os.path.exists(scratch_rundir):
             mkdir(scratch_rundir)
             mkdir(os.path.join(scratch_rundir, 'bad'))
@@ -364,6 +373,7 @@ def iterate():
                 maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
         
         if not jsns:
+            logger.info("No proper jsns found")
             continue
 
         if (not os.path.exists(new_rundir) and
@@ -372,9 +382,11 @@ def iterate():
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
-                connection=databaseAgent.useConnection('bookkeeping')
+                #connection=databaseAgent.useConnection('bookkeeping')
+                connection=databaseAgent.makeConnection('bookkeeping')
                 bookkeeper.open_run(connection.cursor())
                 connection.commit()
+                connection.close()
             except cx_Oracle.IntegrityError:
                 logger.warning(
                     'Bookkeeping for run %d already open!' % run_number
@@ -563,26 +575,25 @@ def iterate():
                     continue
 
 
-                if (run_key == 'TIER0_TRANSFER_OFF' or                    
+                if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
-
-                    monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2,int(time.time()*1000.), run_number, lumiSection, streamName, 'T0Off',1]
+                    monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'T0Off',1]
                     elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
-                    
+
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
 
                     monitorData = [int(time.time()*1000.), 2]
                     elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
-
+                    
                     continue
 
 
                 ###########################
                 ## Now doing the T0 Streams
                 ###########################
-                copy_result=False #Initializing the boolean
+                #copy_result=False #Initializing the boolean
 
                 if (fileSize > max_tier0_transfer_file_size):
                     logger.warning(
@@ -601,7 +612,11 @@ def iterate():
                     continue
                     
                 if eventsNumber == 0:
+                    logger.info("File '%s' has 0 events" % fileName)
                     number_of_files = 0
+                    maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
+                    maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
+
                 else:
                     number_of_files = 1
 
@@ -609,11 +624,13 @@ def iterate():
                 ## This is the only way to ensure we catch inconsistencies
                 try:
                     # Do the bookkeeping
-                    connection=databaseAgent.useConnection('bookkeeping')
+                    #connection=databaseAgent.useConnection('bookkeeping')
+                    connection=databaseAgent.makeConnection('bookkeeping')
                     bookkeeper.fill_number_of_files(
                         connection.cursor(), streamName, lumiSection, number_of_files
                     )
                     connection.commit()
+                    connection.close()
                 except cx_Oracle.IntegrityError:
                     print ('WARNING: Failed to insert bookkeeping for ' +
                            'run {0}, stream {1}, ls {2}: #files = {3}').format(
@@ -639,9 +656,14 @@ def iterate():
                     file_id=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
                     if file_id is False or (file_id>0) is False:
                         logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
-                        logger.error("Setting the file_id to negative to continue with the operation until fixed...")
-                        #continue
-                        file_id = -1
+                        my_file_id, my_file_name, my_checksum = copyWorker.getFileInfo(-1,fileName,checksum)
+                        logger.info("my file_id {0}, filename {1}, checksum {2}".format(my_file_id,my_file_name,my_checksum))
+                        if my_file_id is False:                        
+                            logger.error("Setting the file_id to negative to continue with the operation until fixed...")
+                            file_id = -1
+                        else:
+                            file_id = my_file_id
+                            logger.info("Found a file ID # %d for getfileInfo('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (file_id, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
                     else:
                         logger.info("injectWorker returned file ID # %d for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (file_id, fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
   
@@ -649,17 +671,25 @@ def iterate():
                     maybe_move(jsn_file, new_rundir, force_overwrite=overwrite)
                       
                     new_file_path = os.path.join(new_rundir, fileName)
-                    copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
-                
+
+                    #copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
+                    #copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
+                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, 1]
+                    t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
+
+                ##################
+                ## For the checksum corruption, read it back from the database: because we record: injectWorker.recordCorruptedTransfer
+                ## This current logic does not make sense for the corrupted files, ignoring it for now, until fixed
+                ##################
                 if streamName not in _streams_to_ignore:
                     # Find the failed copies due to the checksum while ignoring events with 0 events
-                    if copy_result is False and number_of_files is 1: 
-                        events_lost_checksum=events_built
-                        logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
-                        maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite)
-                        maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite)
+                    #if copy_result is False and number_of_files is 1: 
+                    #    events_lost_checksum=events_built
+                    #    logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
+                    #    maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite)
+                    #    maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite)
                     # Oversized files
-                    elif (fileSize > max_tier0_transfer_file_size):
+                    if (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
                         logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
                     elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
@@ -718,11 +748,13 @@ def get_rundirs_and_hltkeys(path, new_path):
     rundirs, runs, hltkeymap = [], [], {}
     full_list = sorted(glob.glob(os.path.join(path, 'run*')), reverse=True)
 
-    for nf in range(0, min(len(full_list),50)):
+    for nf in range(0, min(len(full_list),150)):
         rundir = full_list[nf]
         run_number = get_run_number(rundir)
+        
         if _run_number_max < run_number:
             continue
+
         new_rundir = os.path.join(new_path, rundir)
         if eor.Run(new_rundir).is_closed():
             continue
