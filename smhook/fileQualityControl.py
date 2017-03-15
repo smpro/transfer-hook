@@ -42,9 +42,9 @@ def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, e
     else:
         is_good_ls=0
     if not result:
-    #if len(result) < 1:
         # No existing row. we must now try to insert:
         query="""
+         BEGIN 
             INSERT INTO CMS_STOMGR.FILE_QUALITY_CONTROL (
                 RUNNUMBER,
                 LS,
@@ -61,7 +61,9 @@ def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, e
                 IS_GOOD_LS
             ) VALUES (
                 {1}, {2}, '{3}', '{4}', {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}
-            )
+            );
+            COMMIT;
+         END;
         """
         query=query.format(
             "CMS_STOMGR.FILE_QUALITY_CONTROL",
@@ -82,11 +84,11 @@ def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, e
     else:
         # Update the existing row
         query="""
+         BEGIN
             UPDATE CMS_STOMGR.FILE_QUALITY_CONTROL SET
                 RUNNUMBER              = {1},
                 LS                     = {2},
                 STREAM                 = '{3}',
-                FILENAME               = '{4}',
                 LAST_UPDATE_TIME       = {5},
                 FILE_SIZE              = {6},
                 EVENTS_BUILT           = {7},
@@ -96,7 +98,9 @@ def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, e
                 EVENTS_LOST_CRASH      = {11},
                 EVENTS_LOST_OVERSIZED  = {12},
                 IS_GOOD_LS             = {13}
-            WHERE FILENAME='{4}'
+            WHERE FILENAME='{4}';
+            COMMIT;
+         END;
         """
         query=query.format(
             "CMS_STOMGR.FILE_QUALITY_CONTROL",
