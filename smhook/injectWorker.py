@@ -11,6 +11,7 @@ import signal
 #import multiprocessing
 
 import smhook.databaseAgent as databaseAgent
+
 import cx_Oracle
 
 # Hardcoded Config file to be used, is defined below:
@@ -37,7 +38,8 @@ def insertFile(filename, runnumber, ls, stream, checksum, inject_into_T0=True):
     # Inserts a new file into the system
     # Need to account for cases where file is already in the system!
     
-    connection=databaseAgent.useConnection('file_status')
+    #connection=databaseAgent.useConnection('file_status')
+    connection=databaseAgent.makeConnection('file_status')
     cursor=connection.cursor()
     cursor.callproc("dbms_output.enable", (None,))
     statusVar = cursor.var(cx_Oracle.NUMBER)
@@ -75,6 +77,15 @@ def recordTransferStart(file_id):
       "WHERE FILE_ID={1}; COMMIT; END;"
     query=query.format("TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", file_id)
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)
+    return result
+#______________________________________________________________________________
+def recordTransferPath(file_id,lfn):
+    query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+      "SET PATH={0}"+\
+      "WHERE FILE_ID={1}; COMMIT; END;"
+    query=query.format("'"+lfn+"'", file_id)
+    logger.info("ZEYN the query is {0}".format(query))
+    result = databaseAgent.runQuery('file_status', query, fetch_output=False)    
     return result
 #______________________________________________________________________________
 def recordTransferComplete(file_id):

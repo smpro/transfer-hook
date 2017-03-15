@@ -18,7 +18,7 @@ import logging
 import os.path
 import pprint
 import sys
-import subprocess
+import subprocess, threading
 import time
 
 import smhook.config as config
@@ -40,9 +40,8 @@ if debug == True:
 #______________________________________________________________________________
 def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
-    p = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=eos_env)
+    p = subprocess.Popen(command, shell=True, env=eos_env)    
     out, error = p.communicate()
-    
     return out, error, p.returncode
 
 #______________________________________________________________________________
@@ -113,18 +112,16 @@ def eos_makedir(lfn_path):
     '''
 
     try:
-        print("Making directory in eos `%s' (incl. parents) ..." % lfn_path)
         logger.info("Making directory in eos `%s' (incl. parents) ..." % lfn_path)
         mkdircommand = "eos mkdir -p " + lfn_path
-        print("mkdircommand is {0}".format(mkdircommand))
-        logger.info("mkdircommand is {0}".format(mkdircommand))
+        logger.debug("mkdircommand is {0}".format(mkdircommand))
         out, error, returncode = buildcommand(mkdircommand)
         if returncode != 0:
             check_known_returncodes(returncode)
+        return returncode
 
-    except Exception as error:
-        logger.exception(error)
-
+    except Exception as error:        
+        logger.exception(error)        
 
 #______________________________________________________________________________
 def compare_checksum(src,dest,checksum,local=False):
@@ -198,7 +195,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
     if not file_id and not fileName:
         # Not enough info to do the transfer
         logger.warning("copyWorker.copyFile received too little information about the file")
-        return False
+        return
     if not checksum==0 or not file_id or not fileName:
         [file_id, fileName, checksum] = getFileInfo(file_id,fileName,checksum)
     if not checksum==0 or not file_id or not fileName:
@@ -208,14 +205,22 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
         elif not fileName:
             line += " (file ID = {0})".format(file_id)
         logger.warning(line)
-        if not (file_id < 0 ): return False
+        if not (file_id < 0 ): 
+            return
         
     lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, fileName)
-    eos_makedir(lfn_path)
+    makedir_status = eos_makedir(lfn_path)
+    logger.debug("Return code for the eos directory creation was {0}".format(makedir_status))
 
-    # Record the transfer start time before the retry loop, so the retries affect the rate
-    if (file_id >= 0) : injectWorker.recordTransferStart(file_id)
+    #Record the transfer start time before the retry loop, so the retries affect the rate
+    if (file_id >= 0) : 
+        transferstart = injectWorker.recordTransferStart(file_id)
+        logger.warning("Transfer start time record status is {0}".format(transferstart))
+        setlfn = injectWorker.recordTransferPath(file_id,lfn_path)
+        logger.warning("Transfer path status in the db is {0}".format(setlfn))
+
     n_retries = 0
+    logger.warning("You are at the {0} retry out of {1} retries".format(n_retries, max_retries))
     while n_retries < max_retries:
         copy_status = copy_to_t0(path,pfn_path)
         
@@ -227,7 +232,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
             checksum_comparison_remote = compare_checksum(path,pfn_path,checksum,local=False)
             if checksum_comparison_remote is True:
                 if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
-                return True
+                return
             else:
                 checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
                 if checksum_comparison_local is True:
@@ -239,30 +244,32 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
                     # File is corrupted locally, daemon will move it to the bad area
                     if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
                     logger.warning("The file is corrupted and is moved to the bad area. Retries are stopped!")
-                    return False
+                    return
         else:
             if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
             logger.info("The file {0} is successfully transfered".format(fileName))
             if not (esServerUrl=='' or esIndexName==''):
                 monitorData = [int(time.time()*1000.), 2]
-                elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
-            
-            return True
+                elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)            
+            return
         n_retries+=1
-    return False
 
 #______________________________________________________________________________
 def getFileInfo(file_id, fileName, checksum):
     if not fileName and not file_id:
         return [file_id, fileName, checksum]
-    if not file_id:
-        where_clause = " WHERE FILENAME={0} ".format(fileName)
+    if file_id<0:
+        where_clause = " WHERE FILENAME='"+fileName+"'" 
     else:
-        where_clause = " WHERE FILE_ID={0} ".format(file_id)
+        where_clause = " WHERE FILE_ID='"+str(file_id)+"'" 
     query = "SELECT FILE_ID, FILENAME, CHECKSUM FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+where_clause
     result = databaseAgent.runQuery('file_status', query, fetch_output=True)
+
+    logger.info("{0}".format(result))
+
     if result and len(result[0])==3:
         [file_id,fileName,checksum] = result[0]
+        logger.info("file_id {0}, filename {1}, checksum {2}".format(file_id,fileName,checksum))
     return [file_id,fileName,checksum]
 #______________________________________________________________________________
 def main():
