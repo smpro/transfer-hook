@@ -28,20 +28,20 @@ if debug == True:
 # This function takes a full path to a json file, the filename of a data file, and several numeric arguments then inserts or updates the relevant information in the database
 # The number of events built is greater than or equal to number of events lost.
 
-def fileQualityControl(jsn_file, data_file, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
+def fileQualityControl(data_file, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
     events_built = max(events_built, 0) # Protect against files with -1 events built and lost
     events_lost = max(min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized),0)
     
     query="SELECT FILENAME FROM CMS_STOMGR.FILE_QUALITY_CONTROL WHERE FILENAME='"+data_file+"'"
     # See if there is an existing row
-    result = databaseAgent.runQuery('file_status', query, False)
-    if result is False:
-        return False
+    result = databaseAgent.runQuery('file_status', query, True)
+    #if len(result)==0:
+    #    return False
     if(is_good_ls):
         is_good_ls=1
     else:
         is_good_ls=0
-    if not result:
+    if len(result)==0:
         # No existing row. we must now try to insert:
         query="""
          BEGIN 

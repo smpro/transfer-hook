@@ -202,7 +202,7 @@ def iterate():
 
     _eos_destination = "/store/t0streamer/"
     #"/store/group/dpg_tracker_pixel/comm_pixel/"
-    #setup_label = 'TransferTestWithSafety'
+    setup_label = 'TransferTestWithSafety'
 
     _renotify = cfg.getboolean('Misc','renotify')
 
@@ -366,7 +366,7 @@ def iterate():
                     maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
                     continue
                 events_built=inputEvents+errorEvents
-                fileQualityControl.fileQualityControl(recovery_jsn, fileName, run_number, lumiSection, streamName, fileSize, events_built, 0,0,0, events_built,True ) 
+                fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, 0,0,0, events_built,True ) 
                 logger.info("File quality control: recorded all events built as lost for file found in recovery area (jsn file {0}, data file {1})".format(recovery_jsn, fileName))
                 if not os.path.exists(recorded_recovery_dir):
                     mkdir(recorded_recovery_dir)
@@ -382,11 +382,9 @@ def iterate():
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
-                #connection=databaseAgent.useConnection('bookkeeping')
-                connection=databaseAgent.makeConnection('bookkeeping')
+                connection=databaseAgent.useConnection('bookkeeping')
                 bookkeeper.open_run(connection.cursor())
                 connection.commit()
-                connection.close()
             except cx_Oracle.IntegrityError:
                 logger.warning(
                     'Bookkeeping for run %d already open!' % run_number
@@ -500,7 +498,7 @@ def iterate():
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(jsn_file, errorFiles[nfile], run_number, lumiSection, streamName, 0, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        fileQualityControl.fileQualityControl(errorFiles[nfile], run_number, lumiSection, streamName, 0, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
@@ -593,7 +591,6 @@ def iterate():
                 ###########################
                 ## Now doing the T0 Streams
                 ###########################
-                #copy_result=False #Initializing the boolean
 
                 if (fileSize > max_tier0_transfer_file_size):
                     logger.warning(
@@ -624,13 +621,11 @@ def iterate():
                 ## This is the only way to ensure we catch inconsistencies
                 try:
                     # Do the bookkeeping
-                    #connection=databaseAgent.useConnection('bookkeeping')
-                    connection=databaseAgent.makeConnection('bookkeeping')
+                    connection=databaseAgent.useConnection('bookkeeping')
                     bookkeeper.fill_number_of_files(
                         connection.cursor(), streamName, lumiSection, number_of_files
                     )
                     connection.commit()
-                    connection.close()
                 except cx_Oracle.IntegrityError:
                     print ('WARNING: Failed to insert bookkeeping for ' +
                            'run {0}, stream {1}, ls {2}: #files = {3}').format(
@@ -653,6 +648,9 @@ def iterate():
                     else:
                         inject_into_T0=True
                       
+                    ##HACK OVERRIDE FOR DIRK
+                    #inject_into_T0=True
+                    
                     file_id=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
                     if file_id is False or (file_id>0) is False:
                         logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
@@ -672,31 +670,17 @@ def iterate():
                       
                     new_file_path = os.path.join(new_rundir, fileName)
 
-                    #copy_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
-                    #copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, max_retries=1) 
-                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, esServerUrl, esIndexName, 1]
-                    t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
-
-                ##################
-                ## For the checksum corruption, read it back from the database: because we record: injectWorker.recordCorruptedTransfer
-                ## This current logic does not make sense for the corrupted files, ignoring it for now, until fixed
-                ##################
-                if streamName not in _streams_to_ignore:
-                    # Find the failed copies due to the checksum while ignoring events with 0 events
-                    #if copy_result is False and number_of_files is 1: 
-                    #    events_lost_checksum=events_built
-                    #    logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
-                    #    maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite)
-                    #    maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite)
-                    # Oversized files
+                    # Below we apply the copyFile call asynchronously
+                    monitor_fqc=False
+                    if streamName not in _streams_to_ignore:
+                        monitor_fqc=True
                     if (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
-                        logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
-                    elif events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized > 0:
-                        logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash+events_lost_oversized, events_built, fileName))
-                    else:
-                        logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-                        fileQualityControl.fileQualityControl(jsn_file, fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+
+                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 1]
+
+                    async_apply_result = t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
+                    # file quality control gets handled in the thread
 
 
         ## Move the bad area to new run dir so that we can check for run
@@ -743,7 +727,8 @@ def mkdir(path):
 def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
-    _run_number_max = 999999999
+    #_run_number_max = 999999999
+    _run_number_max = 99999999999
 
     rundirs, runs, hltkeymap = [], [], {}
     full_list = sorted(glob.glob(os.path.join(path, 'run*')), reverse=True)

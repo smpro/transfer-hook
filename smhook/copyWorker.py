@@ -24,6 +24,7 @@ import time
 import smhook.config as config
 import smhook.injectWorker as injectWorker
 import smhook.databaseAgent as databaseAgent
+import smhook.fileQualityControl as fileQualityControl
 from smhook.elasticSearch import elasticMonitorUpdate
 
 debug=True
@@ -189,13 +190,20 @@ def copy_to_t0(src,pfn_path):
 
 
 #______________________________________________________________________________
-def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServerUrl='',esIndexName='', max_retries=1):
+def copyFile(file_id, fileName, checksum, path, destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl='',esIndexName='', max_retries=1):
+    
     # Main interface to the daemon for actually copying the files
-    # Checksum can be falsebe provided, either file_id or fileName can be false
+    # Checksum can be given as provided or left as 0, either file_id or fileName can be false
+    # Returns False if the checksum comparison fails or we don't have enough information about the file
+    # Otherwise returns True
+
+    # import one function from the hook to use in case the checksum is bad
+    import smhook.hook as hook
+
     if not file_id and not fileName:
         # Not enough info to do the transfer
         logger.warning("copyWorker.copyFile received too little information about the file")
-        return
+        return False
     if not checksum==0 or not file_id or not fileName:
         [file_id, fileName, checksum] = getFileInfo(file_id,fileName,checksum)
     if not checksum==0 or not file_id or not fileName:
@@ -206,8 +214,13 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
             line += " (file ID = {0})".format(file_id)
         logger.warning(line)
         if not (file_id < 0 ): 
-            return
+            return False
         
+    # If the file is oversized, call FQC and return without attempting the copy
+    if events_lost_oversized > 0:
+        logger.info("File quality control: recorded all events built as lost due to oversized (file %s)" % fileName)
+        return False
+    
     lfn_path, pfn_path = lfn_and_pfn(destination, setup_label, fileName)
     makedir_status = eos_makedir(lfn_path)
     logger.debug("Return code for the eos directory creation was {0}".format(makedir_status))
@@ -219,11 +232,11 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
         setlfn = injectWorker.recordTransferPath(file_id,lfn_path)
         logger.warning("Transfer path status in the db is {0}".format(setlfn))
 
+    copy_result = False
     n_retries = 0
     logger.warning("You are at the {0} retry out of {1} retries".format(n_retries, max_retries))
-    while n_retries < max_retries:
+    while n_retries < max_retries and copy_result is False:
         copy_status = copy_to_t0(path,pfn_path)
-        
         if copy_status !=0:
             n_retries+=1
             time.sleep(30)
@@ -232,7 +245,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
             checksum_comparison_remote = compare_checksum(path,pfn_path,checksum,local=False)
             if checksum_comparison_remote is True:
                 if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
-                return
+                copy_result = True
             else:
                 checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
                 if checksum_comparison_local is True:
@@ -244,15 +257,30 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, esServ
                     # File is corrupted locally, daemon will move it to the bad area
                     if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
                     logger.warning("The file is corrupted and is moved to the bad area. Retries are stopped!")
-                    return
+                    copy_result = False
         else:
             if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
             logger.info("The file {0} is successfully transfered".format(fileName))
             if not (esServerUrl=='' or esIndexName==''):
                 monitorData = [int(time.time()*1000.), 2]
                 elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)            
-            return
+            copy_result = True
         n_retries+=1
+
+    # Do the FQC monitoring here
+    if monitor_fqc is True:
+        if copy_result is False:
+            events_lost_checksum=events_built
+            logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
+            hook.move_file_to_dir(jsn_file, new_rundir_bad, force_overwrite=overwrite)
+            hook.move_file_to_dir(dat_file, new_rundir_bad, force_overwrite=overwrite)
+        elif events_lost_checksum+events_lost_cmssw+events_lost_crash > 0:
+            logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash, events_built, fileName))
+        else:
+            logger.info("File quality control: recorded no events lost (file %s)" % fileName)
+        fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+        
+    return copy_result
 
 #______________________________________________________________________________
 def getFileInfo(file_id, fileName, checksum):

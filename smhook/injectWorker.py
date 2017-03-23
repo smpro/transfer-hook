@@ -38,10 +38,13 @@ def insertFile(filename, runnumber, ls, stream, checksum, inject_into_T0=True):
     # Inserts a new file into the system
     # Need to account for cases where file is already in the system!
     
-    #connection=databaseAgent.useConnection('file_status')
-    connection=databaseAgent.makeConnection('file_status')
+    connection=databaseAgent.useConnection('file_status')
     cursor=connection.cursor()
-    cursor.callproc("dbms_output.enable", (None,))
+
+    # Our connections are opened in mode DBMS_OUTPUT.ENABLE so we can insert a file and get the FILE_ID in one query 
+    # Looking it up afterwards would be too expensive
+    # This is now taken care of when databaseAgent creates the connections
+
     statusVar = cursor.var(cx_Oracle.NUMBER)
     lineVar   = cursor.var(cx_Oracle.STRING)
 
@@ -84,7 +87,6 @@ def recordTransferPath(file_id,lfn):
       "SET PATH={0}"+\
       "WHERE FILE_ID={1}; COMMIT; END;"
     query=query.format("'"+lfn+"'", file_id)
-    logger.info("ZEYN the query is {0}".format(query))
     result = databaseAgent.runQuery('file_status', query, fetch_output=False)    
     return result
 #______________________________________________________________________________

@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 _dry_run = False
 
 # Production DB, will be read and processed by Tier0
-_db_config = os.path.join(config.DIR, '.db_rcms_cred.py')
+#_db_config = os.path.join(config.DIR, '.db_rcms_cred.py')
+_db_config = os.path.join(config.DIR, '.db_int2r_cred.py')
 
 _input_dir = '/store/lustre/transfer'
 _run_number = 229781
@@ -89,7 +90,7 @@ def main():
             )
         present_lumi_map[stream] = present_lumis
         missing_lumi_map[stream] = missing_lumis
-    logger.debug('Connecting to %s as %s' % (_db_sid, _db_user))
+    logger.info('Connecting to (bookkeeper) %s as %s' % (_db_sid, _db_user))
     connection = cx_Oracle.connect(_db_user, _db_pwd, _db_sid)
     cursor = connection.cursor()
     #fill_streams(files_per_lumi, cursor, lumis_to_skip=missing_lumi_map)
