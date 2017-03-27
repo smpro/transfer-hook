@@ -128,4 +128,39 @@ def __pollT0ForFiles(search_flag, unmarked_flag, stream_blacklist=[], runnumber_
         query += " AND RUNNUMBER NOT IN (" + ", ".join(runnumber_blacklist) + ")"
     result=databaseAgent.runQuery('file_status_T0', query, true)
     return result
+#______________________________________________________________________________
+def findT0Files(status,changeStatus=False):
+
+    result_statusUpdate = False
+    
+    if status is "checked":
+        flag    = "CHECKED_RETRIEVE"
+        flag_SM = "T0_CHECKED"
+    elif status is "repacked":
+        flag    = "REPACKED_RETRIEVE"
+        flag_SM = "T0_REPACKED"
+    else:
+        logger.warning("Status to find files in the T0 tables is not set, exiting...")
+        return False
+
+    # Find rows in the T0 table with the search flag marked and the unmarked flag not marked
+    query = "SELECT P5_FILEID FROM CMS_T0OPS.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
+    result_fileId=databaseAgent.runQuery('file_status_T0', query, true)
+
+    if changeStatus and len(result_fileId)>0:
+        for l in range(0,len(result_fileId)):
+            query_statusUpdate = "BEGIN UPDATE CMS_T0OPS.FILE_TRANSFER_STATUS_OFFLINE "+\
+                                 "SET "+flag+"={0} "+\
+                                 "WHERE P5_FILEID={1}; COMMIT; END;"
+            #not sure how to insert null
+            query_statusUpdate =query_statusUpdate.format(Null,result_fileId[l])
+            result_statusUpdate=databaseAgent.runQuery('file_status_T0', query_statusUpdate, true)
+
+            query_statusUpdate_SM = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+                                    "STATUS_FLAG = {0}, "+\
+                                    "WHERE FILE_ID={1}; COMMIT; END;"
+            query_statusUpdate_SM = query.format(status_flags[flag_SM], result_fileId[l])
+            result_statusUpdate_SM= databaseAgent.runQuery('file_status', query, fetch_output=True)
+
+    return result_fileId, result_statusUpdate, result_statusUpdate_SM
 

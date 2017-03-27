@@ -66,6 +66,10 @@ def main():
     if not (esServerUrl == '' or esIndexName==''):
         esMonitorMapping(esServerUrl,esIndexName)
 
+    ##Set up the database connection once, and then let them use the connection
+    connection_bookkeeping = databaseAgent.makeConnection('bookkeeping')
+    connection_filestatus  = databaseAgent.makeConnection('file_status')
+
     caught_exception_count = 0
     iteration = 0
     while True:
@@ -107,6 +111,10 @@ def main():
     dqm_pool.join()
     evd_pool.join()
     t0_pool.join()
+    
+    connection_bookkeeping.close()
+    connection_filestatus.close()
+
 ## main()
 
 
@@ -201,7 +209,7 @@ def iterate():
     _dry_run = cfg.getboolean('Misc','dry_run')
 
     _eos_destination = "/store/t0streamer/"
-    #"/store/group/dpg_tracker_pixel/comm_pixel/"
+    #_eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
     setup_label = 'TransferTestWithSafety'
 
     _renotify = cfg.getboolean('Misc','renotify')
@@ -611,8 +619,19 @@ def iterate():
                 if eventsNumber == 0:
                     logger.info("File '%s' has 0 events" % fileName)
                     number_of_files = 0
+
+                    #Elastic Monitor for files with 0 events:
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [int(time.time()*1000.), 2]
+                        elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
+
+                    #Elastic Monitor for files with 0 events:
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'ZeroEvent',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
 
                 else:
                     number_of_files = 1
@@ -633,7 +652,6 @@ def iterate():
                                number_of_files
                            )
 
-
                 #Tranfser the files where the event number is not 0
                 if (number_of_files == 1):
                     
@@ -650,12 +668,12 @@ def iterate():
                       
                     ##HACK OVERRIDE FOR DIRK
                     #inject_into_T0=True
-                    
+
                     file_id=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
                     if file_id is False or (file_id>0) is False:
                         logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
                         my_file_id, my_file_name, my_checksum = copyWorker.getFileInfo(-1,fileName,checksum)
-                        logger.info("my file_id {0}, filename {1}, checksum {2}".format(my_file_id,my_file_name,my_checksum))
+                        logger.debug("my file_id {0}, filename {1}, checksum {2}".format(my_file_id,my_file_name,my_checksum))
                         if my_file_id is False:                        
                             logger.error("Setting the file_id to negative to continue with the operation until fixed...")
                             file_id = -1
@@ -681,7 +699,7 @@ def iterate():
 
                     async_apply_result = t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
                     # file quality control gets handled in the thread
-
+                
 
         ## Move the bad area to new run dir so that we can check for run
         ## completeness
@@ -696,7 +714,7 @@ def iterate():
             except ValueError:
                 logger.warning("Illegal filename `%s'!" % fname)
 
-        # Poll T0 DB for files that are injected, which we can start to copy
+        #Poll T0 DB for files that are injected, which we can start to copy
         #files_to_copy = get_files_to_copy()
         #for record in files_to_copy:
         #    [fileName, run_number, lumiSection, streamName] = record
@@ -737,6 +755,11 @@ def get_rundirs_and_hltkeys(path, new_path):
         rundir = full_list[nf]
         run_number = get_run_number(rundir)
         
+        #if run_number != 1000026359:
+        #if run_number != 1000026369:
+        #if run_number != 287464:
+            continue
+
         if _run_number_max < run_number:
             continue
 

@@ -102,7 +102,7 @@ def lfn_and_pfn(destination,setuplabel,filename):
     lfn = os.path.join(str(destination),str(setuplabel),str(stream),'000',str(run)[:3],str(run)[3:])
     pfn = os.path.join('/eos/cms/',lfn,filename)
     
-    logger.info("lfn {0}, pfn {1}, run {2}, strrun {3}".format(lfn, pfn, run, str(run)))
+    logger.debug("lfn {0}, pfn {1}, run {2}, strrun {3}".format(lfn, pfn, run, str(run)))
 
     return lfn, pfn
 
@@ -228,13 +228,13 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     #Record the transfer start time before the retry loop, so the retries affect the rate
     if (file_id >= 0) : 
         transferstart = injectWorker.recordTransferStart(file_id)
-        logger.warning("Transfer start time record status is {0}".format(transferstart))
+        logger.info("Transfer start time record status is {0} for file {1}".format(transferstart, fileName))
         setlfn = injectWorker.recordTransferPath(file_id,lfn_path)
-        logger.warning("Transfer path status in the db is {0}".format(setlfn))
+        logger.debug("Transfer path status in the db is {0} for file {1}".format(setlfn,fileName))
 
     copy_result = False
     n_retries = 0
-    logger.warning("You are at the {0} retry out of {1} retries".format(n_retries, max_retries))
+    logger.warning("You are at the {0} retry out of {1} retries for file {1}".format(n_retries, max_retries,fileName))
     while n_retries < max_retries and copy_result is False:
         copy_status = copy_to_t0(path,pfn_path)
         if copy_status !=0:
@@ -297,7 +297,7 @@ def getFileInfo(file_id, fileName, checksum):
 
     if result and len(result[0])==3:
         [file_id,fileName,checksum] = result[0]
-        logger.info("file_id {0}, filename {1}, checksum {2}".format(file_id,fileName,checksum))
+        logger.debug("file_id {0}, filename {1}, checksum {2}".format(file_id,fileName,checksum))
     return [file_id,fileName,checksum]
 #______________________________________________________________________________
 def main():

@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# Last modified by Dylan G. Hsu on 2016-11-25 :: dylan.hsu@cern.ch
+# Last modified by Dylan G. Hsu on 2017-03-21 :: dghsu@mit.edu
 
 import os,sys,socket
 import shutil
@@ -9,7 +9,6 @@ import cx_Oracle
 import json
 import logging
 import signal
-#import multiprocessing
 
 import smhook.config
 
@@ -17,7 +16,7 @@ import smhook.config
 # Hardcoded Config file to be used, is defined below:
 # We read from production DB no matter what (in either case)
 # but for testing, write to integration DB only
-debug=True
+debug=False
 
 production_config_file = '.db_rates_production.py'
 integration_config_file = '.db_rates_integration.py'
@@ -34,6 +33,7 @@ else:
 
 cxn_timeout = 60*60 # Timeout for database connection in seconds
 num_retries = 5
+#query timeout functionality is currently disabled
 query_timeout = 2 #Timeout for individual queries in seconds
 
 logger = logging.getLogger(__name__)
@@ -55,25 +55,42 @@ def returnErrorMessage(code):
     else:
         return 'Unrecognized error ({0})'.format(code)
 
-#Temp function to get rid of the initial exceptions.
 def makeConnection(cxn_name):
+    global cxn_exists, cxn_db, cxn_timestamp
     try:
-        logger.info('Try #1 to make a new database connection to "{0}"'.format(cxn_name))
-        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
+        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'],threaded=True)
         cxn_timestamp[cxn_name] = int(time.time())
         cxn_exists[cxn_name] = True
-        logger.debug('Successfully reconnected to database "{0}"'.format(cxn_name))
-        return cxn_db[cxn_name]
+        logger.info('Successfully connected to database "{0}"'.format(cxn_name))
     except cx_Oracle.DatabaseError as e:
         error, = e.args
         logger.exception(e)
         return False
+        
+    # Hack/Workaround to deal with server side issue ORA-25408 from first dbms procedure call
+    max_procedure_replays = 5
+    replay=1
+    dbms_output_enabled=False
+    cursor=cxn_db[cxn_name].cursor()
+    while dbms_output_enabled is not True and replay <= max_procedure_replays:
+        try:
+            cursor.callproc("dbms_output.enable", (None,))
+            dbms_output_enabled=True
+        except cx_Oracle.DatabaseError as e:
+            error, = e.args
+            logger.info("databaseAgent replaying call for procedure DBMS_OUTPUT.ENABLE, try #{0}".format(replay))
+        replay+=1
+        
+    if not dbms_output_enabled:
+        logger.error("databaseAgent could not call procedure DBMS_OUTPUT.ENABLE after {0} replays, returning False".format(max_procedure_replays))
+        return False
+    return True
 
 def useConnection(cxn_name):
 
-    logger.info("Called the useConnection with the cxn_name {0} and db_config {1}".format(cxn_name,db_config))
+    #logger.info("Called the useConnection with the cxn_name {0} and db_config {1}".format(cxn_name,db_config))
 
-    global cxn_exists, cxn_db, cxn_timestamp, dbpool
+    global cxn_exists, cxn_db, cxn_timestamp
     if cxn_name not in db_config:
         return False
     fresh_cxn = int(time.time()) - cxn_timestamp[cxn_name] <  cxn_timeout
@@ -82,39 +99,34 @@ def useConnection(cxn_name):
             cxn_db[cxn_name].close()
             cxn_exists[cxn_name]=False
             logger.info('Database connection "{0}" has expired. Making a new one...'.format(cxn_name))
-        retries=0
-        while not cxn_exists[cxn_name] and retries<num_retries:
-            try:
-                logger.info('Try #1 to make a new database connection to "{0}"'.format(cxn_name))
-                cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
-                cxn_timestamp[cxn_name] = int(time.time())
-                cxn_exists[cxn_name] = True
-                logger.debug('Successfully reconnected to database "{0}"'.format(cxn_name))
-            except cx_Oracle.DatabaseError as e:
-                error, = e.args
-                logger.error('Error connecting to database "{0}". Reason: {1}'.format(cxn_name, returnErrorMessage(error.code)))
-                retries+=1
+        retries=1
+        while not cxn_exists[cxn_name] and retries<=num_retries:
+            logger.info('Try #{0} to make a new database connection to "{1}"'.format(retries,cxn_name))
+            makeConnection(cxn_name)
+            retries+=1
     if not cxn_exists[cxn_name]:
         return False
     else:
         return cxn_db[cxn_name]
 
-class TimeoutError(Exception):
-    pass
-def timeoutHandler(signum, frame):
-    raise TimeoutError()
-def timeout(func, args=(), kwargs={}, timeout_duration=1, default=False):
-    # set the timeout handler
-    signal.signal(signal.SIGALRM, timeoutHandler) # Call timeoutHandler when the signal.SIGALRM is sent
-    signal.setitimer(signal.ITIMER_REAL, timeout_duration, 1) # Set interval timer to send a SIGALRM after timeout_duration and every second thereafter
-    try:
-        result = func(*args, **kwargs)
-    except TimeoutError as exc: # Raise exception if SIGALRM signal happens before we receive the query result
-        logger.error('Timeout {0} s exceeded calling function {1}'.format(timeout_duration, func.__name__))
-        result = default
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0) # Disable the alarm
-    return result
+# Disable timeout functionality for now
+
+#class TimeoutError(Exception):
+#    pass
+#def timeoutHandler(signum, frame):
+#    raise TimeoutError()
+#def timeout(func, args=(), kwargs={}, timeout_duration=1, default=False):
+#    # set the timeout handler
+#    signal.signal(signal.SIGALRM, timeoutHandler) # Call timeoutHandler when the signal.SIGALRM is sent
+#    signal.setitimer(signal.ITIMER_REAL, timeout_duration, 1) # Set interval timer to send a SIGALRM after timeout_duration and every second thereafter
+#    try:
+#        result = func(*args, **kwargs)
+#    except TimeoutError as exc: # Raise exception if SIGALRM signal happens before we receive the query result
+#        logger.error('Timeout {0} s exceeded calling function {1}'.format(timeout_duration, func.__name__))
+#        result = default
+#    finally:
+#        signal.setitimer(signal.ITIMER_REAL, 0) # Disable the alarm
+#    return result
 
 def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
     # databaseAgent.query
@@ -127,40 +139,26 @@ def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
 
     logger.info('Passing a query to database connection "{0}": "{1}"'.format(cxn_name, query.replace('\n', ' ').replace('\r', '')))
     
-    #by pass the use/make connection because doesn't work in threaded way
-    #instead establish and close a connection for each thread seperately.
-
-    #the_cxn = useConnection(cxn_name) # Get a fresh connection object
-    #the_cxn = makeConnection(cxn_name)
-    #if the_cxn==False:
-    #    logger.error('Could not run query, unable to connect to "{0}"'.format(cxn_name))
-    #    return False
-    #if custom_timeout!=0:
-    #    the_timeout = custom_timeout
-    #else:
-    #    the_timeout = query_timeout
-
-    the_cxn = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])                                                                                                 
-    
+    # Line to use the threaded mutex connection from the module
+    # Threads calling runQuery each get their own cursor in executeQuery
+    the_cxn = useConnection(cxn_name) # Get a fresh connection object
     args=[the_cxn, query, fetch_output] # Arguments to send to databaseAgent.executeQuery
     ran_query=False
     retries=0
     result=False
     while ran_query==False and retries<num_retries:
-        logger.info('Try #{0} query on database "{1}": "{2}"'.format(retries+1, cxn_name, query))
+        logger.debug('Try #{0} query on database "{1}": "{2}"'.format(retries+1, cxn_name, query))
         try:            
-            ##supress the time-out functionality, to be re-visited later
+            #supress the time-out functionality, to be re-visited later
             #result = timeout(executeQuery, args, timeout_duration=the_timeout, default=False)
             result = executeQuery(the_cxn, query, fetch_output)
             if result != False:
                 ran_query=True
         except cx_Oracle.IntegrityError as e:
             error, = e.args
-            #logger.exception(e)
-            logger.error('Error running query on databse "{0}". Reason" {1}'.format(cxn_name,error))
+            logger.error('Error running query on databse "{0}". Reason: {1}'.format(cxn_name,error))
         except cx_Oracle.DatabaseError as e:
             error, = e.args
-            #logger.error('Error running query on database "{0}". Reason: {1}'.format(cxn_name, returnErrorMessage(error.code)))
             logger.error('Error running query on database "{0}". Reason: {1}'.format(cxn_name, returnErrorMessage(error)))
             #logger.exception(e)
         except cx_Oracle.InterfaceError as e:
@@ -172,10 +170,8 @@ def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
                 logger.error("databaseAgent unknown Oracle interface error: {0}".format(e[0]))
         retries+=1
     if result==False:
-        the_cxn.close()
         return False
     else:
-        the_cxn.close()
         return result
 def executeQuery(the_cxn, query, fetch_output=True):
     # Internal function for actually executing the queries
@@ -190,7 +186,7 @@ def executeQuery(the_cxn, query, fetch_output=True):
 
 # Establish DB connections as module globals
 # This allows persistent database connection
-global cxn_exists, cxn_db, cxn_timestamp, dbpool
+global cxn_exists, cxn_db, cxn_timestamp
 cxn_exists = {}
 cxn_db = {}
 cxn_timestamp = {}
@@ -198,17 +194,5 @@ for cxn_name in db_config:
     cxn_exists[cxn_name]=False
     cxn_timestamp[cxn_name]=0
     cxn_db[cxn_name]=False
-    try:        
-        #potentially switch to using the session pool
-        #dbpool = cx_Oracle.SessionPool(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'],min=1,max=2,increment=1,threaded=True)
-        #cxn_db[cxn_name] = dbpool.acquire()
-        cxn_db[cxn_name] = cx_Oracle.connect(db_config[cxn_name]['user'], db_config[cxn_name]['pwd'], db_config[cxn_name]['sid'])
-        logger.info('Global try to make a new database connection to "{0}"'.format(cxn_name))
-        cxn_timestamp[cxn_name] = int(time.time())
-        cxn_exists[cxn_name] = True
-        logger.info('Created a connection to the database "{0}" with a session pool'.format(cxn_name))
-    except cx_Oracle.DatabaseError as e:
-        error, = e.args
-        logger.error('Error connecting to database "{0}": {1}'.format(cxn_name, returnErrorMessage(error.code)))
-
-
+    makeConnection(cxn_name)
+time.sleep(3)
