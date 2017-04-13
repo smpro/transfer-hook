@@ -144,23 +144,28 @@ def findT0Files(status,changeStatus=False):
         return False
 
     # Find rows in the T0 table with the search flag marked and the unmarked flag not marked
-    query = "SELECT P5_FILEID FROM CMS_T0OPS.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
-    result_fileId=databaseAgent.runQuery('file_status_T0', query, true)
+    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
+    result_fileId=databaseAgent.runQuery('file_status_T0', query, fetch_output=True)
+
+    logger.info("Found {0} files in T0 with status {1}".format(len(result_fileId),status))
 
     if changeStatus and len(result_fileId)>0:
         for l in range(0,len(result_fileId)):
-            query_statusUpdate = "BEGIN UPDATE CMS_T0OPS.FILE_TRANSFER_STATUS_OFFLINE "+\
+            query_statusUpdate_SM = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS " +\
+                                    "SET STATUS_FLAG={0} " +\
+                                    "WHERE FILE_ID={1}; COMMIT; END;"
+            query_statusUpdate_SM = query_statusUpdate_SM.format(status_flags[flag_SM], result_fileId[l][0])
+            result_statusUpdate_SM= databaseAgent.runQuery('file_status', query_statusUpdate_SM, fetch_output=False)
+
+            #query_statusUpdate = "BEGIN UPDATE CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE "+\
+            query_statusUpdate = "BEGIN UPDATE CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
                                  "SET "+flag+"={0} "+\
                                  "WHERE P5_FILEID={1}; COMMIT; END;"
             #not sure how to insert null
-            query_statusUpdate =query_statusUpdate.format(Null,result_fileId[l])
-            result_statusUpdate=databaseAgent.runQuery('file_status_T0', query_statusUpdate, true)
+            query_statusUpdate =query_statusUpdate.format('NULL',result_fileId[l][0])
+            result_statusUpdate=databaseAgent.runQuery('file_status_T0', query_statusUpdate, fetch_output=False)
 
-            query_statusUpdate_SM = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
-                                    "STATUS_FLAG = {0}, "+\
-                                    "WHERE FILE_ID={1}; COMMIT; END;"
-            query_statusUpdate_SM = query.format(status_flags[flag_SM], result_fileId[l])
-            result_statusUpdate_SM= databaseAgent.runQuery('file_status', query, fetch_output=True)
+    logger.info("Updated {0} files in T0 with status {1}".format(len(result_fileId),status))
 
-    return result_fileId, result_statusUpdate, result_statusUpdate_SM
+    #return result_fileId, result_statusUpdate, result_statusUpdate_SM
 

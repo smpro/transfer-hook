@@ -70,6 +70,9 @@ def main():
     connection_bookkeeping = databaseAgent.makeConnection('bookkeeping')
     connection_filestatus  = databaseAgent.makeConnection('file_status')
 
+    #initilize the time that determines the T0 checks
+    last_time_since_update = datetime.utcnow()
+
     caught_exception_count = 0
     iteration = 0
     while True:
@@ -100,12 +103,21 @@ def main():
                 raise e
         logger.info('Sleeping {0} seconds ...'.format(_seconds_to_sleep))
         time.sleep(_seconds_to_sleep)
+        
+        time_since_update = datetime.utcnow() - last_time_since_update
+        logger.info('Time since last T0 response check is {0}'.format(time_since_update))
+        if (time_since_update > timedelta(minutes=15)):
+            logger.info('Preparing to check for T0 response for files that are transferred ...')
+            injectWorker.findT0Files('checked',True)
+            injectWorker.findT0Files('repacked',True)
+            last_time_since_update = datetime.utcnow()
 
-    logger.info('Closing ECAL, DQM and Event Diplay thransfer thread pools.')
+    logger.info('Closing ECAL, DQM and Event Diplay transfer thread pools.')
     ecal_pool.close()
     dqm_pool.close()
     evd_pool.close()
     t0_pool.close()
+
     logger.info('Joining ECAL, DQM and Event Display thransfer thread pools.')
     ecal_pool.join()
     dqm_pool.join()
@@ -178,19 +190,20 @@ def iterate():
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
 
     ##HACK BY HAND
-    esServerUrl = 'http://es-cdaq.cms:9200'
-    esIndexName = 'merging_dv_write'
+    #esServerUrl = 'http://es-cdaq.cms:9200'
+    #esIndexName = 'merging_dv_write'
 
     # These all need to become globals read from config file, do that later
     path = cfg.get('Input', 'path')
-    _scratch_base  = cfg.get('Output','scratch_base')
-    _error_base    = cfg.get('Output','error_base')
-    _dqm_base      = cfg.get('Output','dqm_base')
-    _ecal_base     = cfg.get('Output','ecal_base')
-    _lookarea_base = cfg.get('Output','lookarea_base')
-    _evd_base      = cfg.get('Output','evd_base')
-    _evd_eosbase   = cfg.get('Output','evd_eosbase')
-    new_path_base  = cfg.get('Output', 'new_path_base')
+    _eos_destination = cfg.get('Output','eos_path')
+    _scratch_base    = cfg.get('Output','scratch_base')
+    _error_base      = cfg.get('Output','error_base')
+    _dqm_base        = cfg.get('Output','dqm_base')
+    _ecal_base       = cfg.get('Output','ecal_base')
+    _lookarea_base   = cfg.get('Output','lookarea_base')
+    _evd_base        = cfg.get('Output','evd_base')
+    _evd_eosbase     = cfg.get('Output','evd_eosbase')
+    new_path_base    = cfg.get('Output', 'new_path_base')
     _checksum_status = cfg.getboolean('Misc','checksum_status')
     setup_label      = cfg.get('Input','setup_label')
 
@@ -207,11 +220,6 @@ def iterate():
     _machine_instance     = cfg.get('Misc','machine_instance')
 
     _dry_run = cfg.getboolean('Misc','dry_run')
-
-    _eos_destination = "/store/t0streamer/"
-    #_eos_destination = "/store/group/dpg_tracker_pixel/comm_pixel/"
-    setup_label = 'TransferTestWithSafety'
-
     _renotify = cfg.getboolean('Misc','renotify')
 
     max_tier0_transfer_file_size = cfg.getint(
@@ -584,14 +592,17 @@ def iterate():
                 if (run_key == 'TIER0_TRANSFER_OFF' or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
-                    monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'T0Off',1]
-                    elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
+
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'T0Off',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
 
                     maybe_move(jsn_file, scratch_rundir, force_overwrite=overwrite)
                     maybe_move(dat_file, scratch_rundir, force_overwrite=overwrite)
 
-                    monitorData = [int(time.time()*1000.), 2]
-                    elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+                    if not (esServerUrl=='' or esIndexName==''):
+                        monitorData = [int(time.time()*1000.), 2]
+                        elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
                     
                     continue
 
@@ -609,32 +620,30 @@ def iterate():
                     )
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='TooLarge')
-                    
+                    continue
 
                 ## If dry run do not try
                 if _dry_run: 
                     logger.debug("Running dry_run mode, will not continue with the T0 stream copying or injection")
                     continue
                     
+                number_of_files = 1
                 if eventsNumber == 0:
                     logger.info("File '%s' has 0 events" % fileName)
                     number_of_files = 0
 
                     #Elastic Monitor for files with 0 events:
                     if not (esServerUrl=='' or esIndexName==''):
-                        monitorData = [int(time.time()*1000.), 2]
-                        elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
+                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'ZeroEvent',1]
+                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
 
                     maybe_move(jsn_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
                     maybe_move(dat_file, new_rundir_bad, force_overwrite=overwrite, suffix='ZeroEvents')
 
                     #Elastic Monitor for files with 0 events:
                     if not (esServerUrl=='' or esIndexName==''):
-                        monitorData = [inputEvents, eventsNumber, errorEvents, fileName, fileSize, infoEoLS_1, infoEoLS_2, int(time.time()*1000.), run_number, lumiSection, streamName, 'ZeroEvent',1]
-                        elasticMonitor(monitorData, esServerUrl, esIndexName, fileName, 5)
-
-                else:
-                    number_of_files = 1
+                        monitorData = [int(time.time()*1000.), 2]
+                        elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)
 
                 ## Always fill the bookkeeping table even before the actual transfers
                 ## This is the only way to ensure we catch inconsistencies
@@ -666,9 +675,6 @@ def iterate():
                     else:
                         inject_into_T0=True
                       
-                    ##HACK OVERRIDE FOR DIRK
-                    #inject_into_T0=True
-
                     file_id=injectWorker.insertFile(fileName, run_number, lumiSection, streamName, checksum, inject_into_T0)
                     if file_id is False or (file_id>0) is False:
                         logger.warning("injectWorker returned False for insertFile('%s',%d,%d,'%s','%s',inject_into_T0=%r)" % (fileName, run_number, lumiSection, streamName, checksum, inject_into_T0))
@@ -714,12 +720,6 @@ def iterate():
             except ValueError:
                 logger.warning("Illegal filename `%s'!" % fname)
 
-        #Poll T0 DB for files that are injected, which we can start to copy
-        #files_to_copy = get_files_to_copy()
-        #for record in files_to_copy:
-        #    [fileName, run_number, lumiSection, streamName] = record
-
-
 ## iterate()
 
 
@@ -745,7 +745,6 @@ def mkdir(path):
 def get_rundirs_and_hltkeys(path, new_path):
     _run_number_max = cfg.getint('Misc','run_number_max')
 
-    #_run_number_max = 999999999
     _run_number_max = 99999999999
 
     rundirs, runs, hltkeymap = [], [], {}
@@ -755,11 +754,6 @@ def get_rundirs_and_hltkeys(path, new_path):
         rundir = full_list[nf]
         run_number = get_run_number(rundir)
         
-        #if run_number != 1000026359:
-        #if run_number != 1000026369:
-        #if run_number != 287464:
-            continue
-
         if _run_number_max < run_number:
             continue
 
@@ -1098,16 +1092,6 @@ def get_time_since_modification(filename):
     m_time_stamp = int(os.stat(filename).st_mtime)
     m_utc_date_time = datetime.utcfromtimestamp(m_time_stamp)
     return datetime.utcnow() - m_utc_date_time
-
-#______________________________________________________________________________                                                                                                                                                     
-def get_files_to_copy():
-    # Get files that are ready to copy to T0
-    # Want 00000111 & status = 00000111, this means opened, closed, and injected on T0 side
-    # Want 00001000 & status = 00000000, meaning it is not copied yet
-    query="SELECT FILENAME, RUNNUMBER, LS, STREAM FROM FILE_TRANSFER_STATUS_T0 WHERE BITAND(STATUS_FLAG, {0}) = {1}".format( int('00001111',2), int('00000111',2) )
-    result=databaseAgent.runQuery('file_status_T0', query, True)
-    return result
-
 #______________________________________________________________________________                                                                                                                                                     
                                                                                                   
 if __name__ == '__main__':
