@@ -2,7 +2,7 @@
 
 # Usage: ./mkrpm.sh
 
-VERSION=3.1
+VERSION=3.3
 RELEASE=1
 
 echo 'You are trying to build an RPM for smhook version:',$VERSION,' and release: '$RELEASE   
@@ -15,8 +15,9 @@ rpmdev-setuptree
 #git checkout dbcomm
 
 cd ~/rpmbuild/SOURCES
-rsync -av --exclude=".*" /nfshome0/zdemirag/DAQ/newsystem/transfer-hook ~/rpmbuild/SOURCES/ 
+#rsync -av --exclude=".*" /nfshome0/zdemirag/DAQ/newsystem/transfer-hook ~/rpmbuild/SOURCES/ 
 #rsync -av --exclude=".*" /nfshome0/zdemirag/testRPM/transfer-hook ~/rpmbuild/SOURCES/
+rsync -av --exclude=".*" /nfshome0/zdemirag/DAQ/TransferSystem_parallel/transfer-hook ~/rpmbuild/SOURCES/
 cd transfer-hook   
 
 #Get list of files in smhook

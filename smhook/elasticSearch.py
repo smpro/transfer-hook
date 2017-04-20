@@ -2,7 +2,9 @@
 
 import os,sys,socket,time,shutil,json,datetime,logging
 import requests
+
 from datetime import datetime, timedelta, date
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +21,9 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnect
    while True:
        try:
            documentType='transfer'
-           logger.info("About to try to insert into ES with the following info:")
-           logger.info('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
-           logger.info("Data: '"+json.dumps(transferMonitorDict)+"'")
+           logger.debug("About to try to insert into ES with the following info:")
+           logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/' + '"')
+           logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
            monitorResponse=requests.put(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId,data=json.dumps(transferMonitorDict),timeout=1)
            if monitorResponse.status_code not in [200,201]:
                logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
@@ -50,13 +52,13 @@ def elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, documentId, maxC
    while True:
        try:
            documentType='transfer'
-           logger.info("About to try to insert into ES with the following info:")
-           logger.info('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/_update' + '"')
-           logger.info("Data: '"+json.dumps(transferMonitorDict)+"'")
+           logger.debug("About to try to insert into ES with the following info:")
+           logger.debug('Server: "' + esServerUrl+'/'+esIndexName+'/'+documentType+'/_update' + '"')
+           logger.debug("Data: '"+json.dumps(transferMonitorDict)+"'")
            monitorResponse=requests.post(esServerUrl+'/'+esIndexName+'/'+documentType+'/'+documentId+'/_update',data=json.dumps({"doc":transferMonitorDict}),timeout=1)
            if monitorResponse.status_code not in [200,201]:
                logger.error("elasticsearch replied with error code {0} and response: {1}".format(monitorResponse.status_code,monitorResponse.text))
-           logger.info("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
+           logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
            logger.error('elasticMonitorUpdate threw connection error: HTTP ' + monitorResponse.status_code)

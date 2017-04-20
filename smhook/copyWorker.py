@@ -27,7 +27,7 @@ import smhook.databaseAgent as databaseAgent
 import smhook.fileQualityControl as fileQualityControl
 from smhook.elasticSearch import elasticMonitorUpdate
 
-debug=True
+debug=False
 logger = logging.getLogger(__name__)
 
 _filename = "run100000_ls0001_streamExpress_StorageManager.dat"
@@ -41,8 +41,9 @@ if debug == True:
 #______________________________________________________________________________
 def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
-    p = subprocess.Popen(command, shell=True, env=eos_env)    
+    p = subprocess.Popen(command, shell=True, env=eos_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
     out, error = p.communicate()
+    logger.debug("command {0}, out {1}".format(command,out))
     return out, error, p.returncode
 
 #______________________________________________________________________________
@@ -133,16 +134,18 @@ def compare_checksum(src,dest,checksum,local=False):
     if local:
         src_checksum =  get_positive_checksum(src)
         if src_checksum == checksum:
-            logger.info("Hex checksums match (source xs='{0}', dest xs='{1}')".format(checksum, src_checksum))
+            logger.info("Hex checksums match (source xs='{0}', dest xs='{1}') for file {2}".format(checksum, src_checksum, src))
             return True
         else:
             logger.warning("Hex checksum mismatch: Recorded checksum of source file '{0}' (xs = {1}) disagrees with the locally computed checksum (xs = {2})".format(src,checksum,src_checksum))
             return False
-
     else:
         cmd_get_checksum_info="eos fileinfo {0} --checksum".format(str(dest))
+        logger.info("Running `%s' ..." % cmd_get_checksum_info)
         out, error, returncode = buildcommand(cmd_get_checksum_info)
         
+        logger.debug("Checksum output is {0}, {1}, {2}".format(out,error, returncode))
+
         if returncode != 0:
             check_known_returncodes(returncode)
 
@@ -178,7 +181,8 @@ def copy_to_t0(src,pfn_path):
     try:
         # Copy silently and overwrite the existing file if it exists.
         # Here add the tag from P5 as well to trace it in eos side
-        copycommand = ("xrdcp -f -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
+        #copycommand = ("xrdcp -f -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
+        copycommand = ("xrdcp -f -s -ODeos.app=point5 " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
         logger.info("Running `%s' ..." % copycommand)
         out, error, returncode = buildcommand(copycommand)
         if returncode != 0:
@@ -204,9 +208,11 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
         # Not enough info to do the transfer
         logger.warning("copyWorker.copyFile received too little information about the file")
         return False
-    if not checksum==0 or not file_id or not fileName:
+    #if not checksum==0 or not file_id or not fileName:
+    if not file_id or not fileName:
         [file_id, fileName, checksum] = getFileInfo(file_id,fileName,checksum)
-    if not checksum==0 or not file_id or not fileName:
+    #if not checksum==0 or not file_id or not fileName:
+    if not file_id or not fileName:
         line = "copyWorker.copyFile could not recover enough information about file from the database"
         if not file_id:
             line += " (filename = '{0}')".format(fileName)
@@ -228,27 +234,35 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     #Record the transfer start time before the retry loop, so the retries affect the rate
     if (file_id >= 0) : 
         transferstart = injectWorker.recordTransferStart(file_id)
-        logger.info("Transfer start time record status is {0} for file {1}".format(transferstart, fileName))
+        logger.debug("Transfer start time record status is {0} for file {1}".format(transferstart, fileName))
         setlfn = injectWorker.recordTransferPath(file_id,lfn_path)
         logger.debug("Transfer path status in the db is {0} for file {1}".format(setlfn,fileName))
 
     copy_result = False
     n_retries = 0
-    logger.warning("You are at the {0} retry out of {1} retries for file {1}".format(n_retries, max_retries,fileName))
+    logger.warning("At the {0} retry out of {1} retries for file {2}".format(n_retries, max_retries,fileName))
     while n_retries < max_retries and copy_result is False:
         copy_status = copy_to_t0(path,pfn_path)
         if copy_status !=0:
             n_retries+=1
             time.sleep(30)
             continue
-        if checksum != 0 and int(checksum) != 0:
+        logger.debug("The copy status is: {0} and the checksum is {1}".format(copy_status,checksum))
+        if checksum != 0: #and int(checksum) != 0:
+            logger.debug("Will compare the checksum for file {0} at EOS".format(fileName))
             checksum_comparison_remote = compare_checksum(path,pfn_path,checksum,local=False)
             if checksum_comparison_remote is True:
                 if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
+                logger.info("The file {0} is successfully transfered with checksum check".format(fileName))
+                if not (esServerUrl=='' or esIndexName==''):
+                    monitorData = [int(time.time()*1000.), 2]
+                    elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, fileName, 5)            
                 copy_result = True
             else:
+                logger.info("Checksum comparision failed, will try local checksum comparision for file {0}".format(fileName))
                 checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
                 if checksum_comparison_local is True:
+                    logger.info("Local checksum comparision succeded, will re-try the copy for file {0}".format(fileName))                
                     # Local checksum comparison is fine, need to retry in 30 seconds
                     n_retries+=1
                     time.sleep(30)
@@ -256,7 +270,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
                     if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
-                    logger.warning("The file is corrupted and is moved to the bad area. Retries are stopped!")
+                    logger.warning("The file is corrupted and retries are stopped!")
                     copy_result = False
         else:
             if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
@@ -293,7 +307,7 @@ def getFileInfo(file_id, fileName, checksum):
     query = "SELECT FILE_ID, FILENAME, CHECKSUM FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+where_clause
     result = databaseAgent.runQuery('file_status', query, fetch_output=True)
 
-    logger.info("{0}".format(result))
+    logger.debug("{0}".format(result))
 
     if result and len(result[0])==3:
         [file_id,fileName,checksum] = result[0]
