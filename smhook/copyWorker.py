@@ -152,7 +152,7 @@ def compare_checksum(src,dest,checksum,local=False):
         else:
             eos_checksum = out.split('\n')[1].split(':')[1].strip()
             if eos_checksum == checksum:
-                logger.info("Hex checksums match (source xs='{0}', dest xs='{1}')".format(checksum, eos_checksum))
+                logger.info("Hex checksums match (source xs='{0}', dest xs='{1}') for file {2}".format(checksum, eos_checksum,src))
                 return True
             else:
                 logger.warning("Hex checksum mismatch: Recorded checksum of source file '{0}' (xs = {1}) disagrees with xrdcp'd EOS file (xs = {2})".format(src,checksum,eos_checksum))
