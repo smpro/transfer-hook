@@ -144,7 +144,8 @@ def findT0Files(status,changeStatus=False):
         return False
 
     # Find rows in the T0 table with the search flag marked and the unmarked flag not marked
-    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
+    #query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
+    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
     result_fileId=databaseAgent.runQuery('file_status_T0', query, fetch_output=True)
 
     logger.info("Found {0} files in T0 with status {1}".format(len(result_fileId),status))

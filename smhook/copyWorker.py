@@ -180,7 +180,7 @@ def copy_to_t0(src,pfn_path):
 
     try:
         # Copy silently and overwrite the existing file if it exists.
-        # Here add the tag from P5 as well to trace it in eos side
+        # Add the tag from P5 as well to trace it in eos side
         #copycommand = ("xrdcp -f -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
         copycommand = ("xrdcp -f -s -ODeos.app=point5 " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
         logger.info("Running `%s' ..." % copycommand)
@@ -192,6 +192,24 @@ def copy_to_t0(src,pfn_path):
     except Exception as error:
         logger.exception(error)
 
+
+#______________________________________________________________________________
+def delete_at_t0(pfn_path):
+    
+    '''Does the operation of deletion at eos destination.
+    and checks for the failure modes.
+    '''
+
+    try:
+        deletecommand = ("eos rm root://eoscms.cern.ch//" + str(pfn_path))
+        logger.info("Running `%s' ..." % deletecommand)
+        out, error, returncode = buildcommand(deletecommand)
+        if returncode != 0:
+            check_known_returncodes(returncode)
+        return returncode
+
+    except Exception as error:
+        logger.exception(error)
 
 #______________________________________________________________________________
 def copyFile(file_id, fileName, checksum, path, destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl='',esIndexName='', max_retries=1):
@@ -269,8 +287,10 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
                     continue
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
-                    if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)
-                    logger.warning("The file is corrupted and retries are stopped!")
+                    if (file_id >= 0) : injectWorker.recordCorruptedTransfer(file_id)                    
+                    logger.warning("The file {0} is corrupted and retries are stopped! The file will be deleted in eos ...".format(fileName))
+                    # Now delete the file in eos
+                    delete_at_t0(pfn_path)                
                     copy_result = False
         else:
             if (file_id >= 0) : injectWorker.recordTransferComplete(file_id)
