@@ -151,6 +151,7 @@ def is_run_complete(
         key = (fileNameString[2])
 
         fillDictionary(key,eventsBadDict,eventsInput)
+        fillDictionary(key,eventsIDict,eventsInput)
 
     # Analyzing the information
     isComplete = True
@@ -193,8 +194,6 @@ def is_run_complete(
         if isComplete == True:
             for streamName in eventsIDict:                
                 sumEvents = eventsIDict[streamName][0]
-                if streamName in eventsBadDict:
-                    sumEvents = sumEvents + eventsBadDict[streamName][0]
                 if(sumEvents < eventsBuilt * completeMergingThreshold):
                     message = 'Run %(run)s is incomplete because ' + \
                         'sumEvents = %(sum)d is less than ' + \
