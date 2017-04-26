@@ -22,6 +22,14 @@ if debug == True:
 
 l1_rates_table = databaseAgent.l1_rates_table
 
+HLT_rates_table    ='CMS_RUNINFO.HLT_SUPERVISOR_TRIGGERPATHS'
+HLT_LS_table       ='CMS_RUNINFO.HLT_SUPERVISOR_LUMISECTIONS_V3'
+HLT_datasets_table ='CMS_RUNINFO.HLT_SUPERVISOR_DATASETS'
+
+#L1_rates_table          ='CMS_UGT_MON.ALGO_SCALERS'
+#L1_scaler_names_table   ='CMS_UGT_MON.SCALER_NAMES'
+#L1_lumisection_id_table ='CMS_UGT_MON.LUMI_SECTIONS'
+
 #############################
 # monitorRates:             #
 #############################
@@ -265,7 +273,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
             if result==False:
                 databaseAgent.cxn_db["hlt_rates_write"].rollback()
                 return False
-            datagbaseAgent.cxn_db["hlt_rates_write"].commit()
+            databaseAgent.cxn_db["hlt_rates_write"].commit()
         return True
     
     elif stream=='L1Rates':

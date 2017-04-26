@@ -69,6 +69,8 @@ def main():
     ##Set up the database connection once, and then let them use the connection
     connection_bookkeeping = databaseAgent.makeConnection('bookkeeping')
     connection_filestatus  = databaseAgent.makeConnection('file_status')
+    connection_t0status    = databaseAgent.makeConnection('file_status_T0')
+    connection_l1_rates    = databaseAgent.makeConnection('l1_rates_write')
 
     #initilize the time that determines the T0 checks
     last_time_since_update = datetime.utcnow()
@@ -126,6 +128,8 @@ def main():
     
     connection_bookkeeping.close()
     connection_filestatus.close()
+    connection_t0status.close()
+    connection_l1_rates.close()
 
 ## main()
 
@@ -215,7 +219,7 @@ def iterate():
     _streams_to_postpone  = cfg.getlist('Streams','streams_to_postpone' )
     _streams_to_ignore    = cfg.getlist('Streams','streams_to_ignore'   )
     _stream_type          = cfg.get('Streams','stream_type')
-    _run_special_streams  = cfg.getboolean('Misc','run_special_streams')
+    _run_miniEOR          = cfg.getboolean('Misc','run_miniEOR')
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
 
@@ -240,7 +244,7 @@ def iterate():
     scratch_path = get_new_path(path, _scratch_base)
     rundirs, hltkeys = get_rundirs_and_hltkeys(path, new_path)
 
-    if _run_special_streams == False:
+    if _run_miniEOR == True:
         # Just for the MiniEoR files
         for rundir in rundirs:
             logger.debug("Inspecting `%s' for EoR searching..." % rundir)

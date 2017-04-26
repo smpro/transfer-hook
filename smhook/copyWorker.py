@@ -305,9 +305,10 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     if monitor_fqc is True:
         if copy_result is False:
             events_lost_checksum=events_built
-            logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
-            hook.move_file_to_dir(jsn_file, new_rundir_bad, force_overwrite=overwrite)
-            hook.move_file_to_dir(dat_file, new_rundir_bad, force_overwrite=overwrite)
+            logger.info("File quality control: recorded all events built as lost due to failed copy (file %s)" % fileName)
+            ##to be enabled later, the function calls are wrong. Also any type of copy failure will show up here so this is wrong.
+            ##hook.move_file_to_dir(jsn_file, new_rundir_bad, force_overwrite=overwrite)
+            ##hook.move_file_to_dir(dat_file, new_rundir_bad, force_overwrite=overwrite)
         elif events_lost_checksum+events_lost_cmssw+events_lost_crash > 0:
             logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash, events_built, fileName))
         else:
