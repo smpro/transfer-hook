@@ -92,7 +92,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
         retries=0
         pathname_mapping=databaseAgent.runQuery('trigger_read', pathname_query)
         if pathname_mapping==False or len(pathname_mapping) < 1:
-            logger.error("Could not get pathname-pathID mapping for HLT rates!")
+            logger.error("Could not get pathname-pathID mapping for HLT rates! `%s'" % jsn_file)
             return False
 
         # Retrieve the mapping between dataset name and dataset ID
@@ -108,7 +108,7 @@ def monitorRates(jsndata_file,rates_jsn_file):
         """.format(str(run_number))
         dataset_name_mapping=databaseAgent.runQuery('trigger_read', dataset_name_query)
         if dataset_name_mapping==False or len(dataset_name_mapping) < 1:
-            logger.error("Could not get pathname-pathID mapping for HLT rates!")
+            logger.error("Could not get dataset-name mapping for HLT rates! `%s'" % jsn_file)
             return False
 
     # Open the jsndata file
