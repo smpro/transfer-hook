@@ -52,7 +52,7 @@ def check_known_returncodes(returncode):
     value error
     '''
 
-    error_codes={2: "no such file", 22: "eos auth", 255: "missing source file"}
+    error_codes={2: "no such file", 22: "eos auth", 255: "missing source file", 51: "socket related errors"}
     if returncode in error_codes:
         logger.exception(returncode)
         raise ValueError(error_codes[returncode])
@@ -116,7 +116,7 @@ def eos_makedir(lfn_path):
     try:
         logger.info("Making directory in eos `%s' (incl. parents) ..." % lfn_path)
         mkdircommand = "eos mkdir -p " + lfn_path
-        logger.debug("mkdircommand is {0}".format(mkdircommand))
+        logger.info("mkdircommand is {0}".format(mkdircommand))
         out, error, returncode = buildcommand(mkdircommand)
         if returncode != 0:
             check_known_returncodes(returncode)
@@ -152,7 +152,7 @@ def compare_checksum(src,dest,checksum,local=False):
         else:
             eos_checksum = out.split('\n')[1].split(':')[1].strip()
             if eos_checksum == checksum:
-                logger.info("Hex checksums match (source xs='{0}', dest xs='{1}') for file {2}".format(checksum, eos_checksum,src))
+                logger.info("Hex checksums match (source xs='{0}', dest xs='{1}') for file {2}".format(checksum, eos_checksum, src))
                 return True
             else:
                 logger.warning("Hex checksum mismatch: Recorded checksum of source file '{0}' (xs = {1}) disagrees with xrdcp'd EOS file (xs = {2})".format(src,checksum,eos_checksum))
@@ -305,10 +305,10 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     if monitor_fqc is True:
         if copy_result is False:
             events_lost_checksum=events_built
-            logger.info("File quality control: recorded all events built as lost due to failed copy (file %s)" % fileName)
-            ##to be enabled later, the function calls are wrong. Also any type of copy failure will show up here so this is wrong.
-            ##hook.move_file_to_dir(jsn_file, new_rundir_bad, force_overwrite=overwrite)
-            ##hook.move_file_to_dir(dat_file, new_rundir_bad, force_overwrite=overwrite)
+            logger.info("File quality control: recorded all events built as lost due to checksum (file %s)" % fileName)
+            overwrite = True
+            #hook.move_file_to_dir(jsn_file, new_rundir_bad, force_overwrite=overwrite)
+            #hook.move_file_to_dir(dat_file, new_rundir_bad, force_overwrite=overwrite)
         elif events_lost_checksum+events_lost_cmssw+events_lost_crash > 0:
             logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash, events_built, fileName))
         else:

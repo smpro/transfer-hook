@@ -150,6 +150,13 @@ def is_run_complete(
         fileNameString = afterStringBad[nb].split('_')
         key = (fileNameString[2])
 
+        if "DQM" in key:
+            continue
+        if "streamError" in key:
+            continue
+        if  key.replace("stream","") in streamsToExclude:
+            continue
+
         fillDictionary(key,eventsBadDict,eventsInput)
         fillDictionary(key,eventsIDict,eventsInput)
 
@@ -157,7 +164,6 @@ def is_run_complete(
     isComplete = True
     eventsBuilt = eventsTotalRun - eventsLostBUs
 
-    # Need at least one MiniEoRFile to be completed
     if numberMiniEoRFiles > 0:
         # Check if the number of bus per Stream coming from the ini files is 
         # consistent with the number of miniEoRFiles.

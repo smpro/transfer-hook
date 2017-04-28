@@ -31,7 +31,7 @@ reverse_status_flags = {v: k for k, v in status_flags.iteritems()}
 
 def checkRunStatus(status, runnumber):
     query  = "SELECT FILE_ID FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+\
-            " WHERE STATUS_FLAG={0} AND RUNNUMBER={1}"
+             "WHERE STATUS_FLAG={0} AND RUNNUMBER={1}"
     query  = query.format(str(status),str(runnumber))
     result = databaseAgent.runQuery('file_status', query, fetch_output=True)
     return len(result)
@@ -44,7 +44,7 @@ def checkStatus(file_id):
     return result[0][0]
 
 def findstatus_T0(status):
-    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE WHERE "+status+"_RETRIEVE=1"
+    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE WHERE "+status+"_RETRIEVE=1"
     result_fileId=databaseAgent.runQuery('file_status_T0', query, fetch_output=True)
     return result_fileId
 
@@ -55,9 +55,9 @@ def findstatus(status,runnumber):
     return result_fileId
 
 def checkStatus_T0(file_id):
-    query = "SELECT CHECKED_RETRIEVE FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE "+\
+    query = "SELECT CHECKED_RETRIEVE FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
             " WHERE P5_FILEID={0}" 
-    query2 = "SELECT REPACKED_RETRIEVE FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE "+\
+    query2 = "SELECT REPACKED_RETRIEVE FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
             " WHERE P5_FILEID={0}" 
     query=query.format(str(file_id))  
     query2=query2.format(str(file_id))  
@@ -71,7 +71,7 @@ def checkStatus_T0(file_id):
 
 def findInconsistency(origstatus):        
 
-    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE "+\
+    query = "SELECT P5_FILEID FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
             " WHERE T0_"+origstatus+"_TIME IS NOT NULL AND "+origstatus+"_RETRIEVE IS NULL"
     file_ids=databaseAgent.runQuery('file_status_T0', query, fetch_output=True)
 
@@ -96,6 +96,25 @@ def updateStatus(file_id, status, dryrun=False):
         return True
     else:
         result = databaseAgent.runQuery('file_status',query,fetch_output=True)
+        return result
+
+def checkDeletedStatus(runnumber):
+    query = "SELECT FILE_ID FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+            "WHERE DELETED_FLAG=1 AND RUNNUMBER={0}"
+    query  = query.format(str(runnumber))
+    result = databaseAgent.runQuery('file_status', query, fetch_output=True)
+    return len(result)
+
+def updateDeleted(file_id, dryrun=False):
+    query = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS " +\
+            "SET DELETED_FLAG=1 "+\
+            "WHERE FILE_ID={0}; COMMIT; END;"
+    query=query.format(file_id)
+    if dryrun:
+        logger.info("Running in try mode, the query that would have been executed is {0}".format(query))
+        return True
+    else:
+        result = databaseAgent.runQuery('file_status',query,fetch_output=False)
         return result
 
 def checkFileQuality(filename):
@@ -159,6 +178,7 @@ def main():
 
     parser.add_argument("-us","--updatestatus" ,dest="updatestatus"  , help="updates to a given transfer status for the specified file, options are 'P5_INJECTED','TRANSFERRED','T0_CHECKED','T0_REPACKED'")
     parser.add_argument("-uq","--updatequality",dest="updatequality" , help="updates the file quality information for the specified file, options are True or False")
+    parser.add_argument("-ud","--updatedeleted",dest="updatedeleted", help="updates the deleted flag status for the specified file, options are True or False")  
 
     parser.add_argument("-d" , "--dry-run"     , dest="dryrun"       , help="when set to True status updates will not be executed, the default value is False",type=bool)
 
@@ -170,7 +190,7 @@ def main():
         n_transferred = checkRunStatus(2,args.runnumber)
         n_checked     = checkRunStatus(3,args.runnumber)
         n_repacked    = checkRunStatus(4,args.runnumber)
-        n_deleted     = checkRunStatus(5,args.runnumber)
+        n_deleted     = checkDeletedStatus(args.runnumber)
 
         logger.info("Checking run {0} ...".format(args.runnumber))
         logger.info("      # of injected files    {0}".format(n_injected))
@@ -185,14 +205,14 @@ def main():
         logger.info("The list of files with status {0} in T0:".format(args.t0status))
         for counter in range(0,len(result_ids)):
             t0file =  copyWorker.getFileInfo(result_ids[counter][0],"",0)[1]
-            logger.info("     {0}".format(t0file))
+            logger.info("      {0}".format(t0file))
 
     if args.smstatus is not None and args.runnumber>0:
         result_ids = findstatus(args.smstatus,args.runnumber)
         logger.info("The list of files with status {0} in SM:".format(args.smstatus))
         for counter in range(0,len(result_ids)):            
             smfile =  copyWorker.getFileInfo(result_ids[counter][0],"",0)[1]
-            logger.info("     {0}".format(smfile))
+            logger.info("      {0}".format(smfile))
 
     if args.filename:
         logger.info("Checking file {0} ...".format(args.filename))
@@ -222,6 +242,9 @@ def main():
         if args.updatequality:
             updateFileQuality(args.filename,args.dryrun)
 
+        if args.updatedeleted:
+            result_deleted = updateDeleted(fileid,args.dryrun)
+            logger.info("The deleted status for file {0} is updated".format(args.filename))
 
 #______________________________________________________________________________                                                                                                                                                            
 if __name__ == '__main__':

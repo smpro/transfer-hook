@@ -705,7 +705,7 @@ def iterate():
                     if (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
 
-                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 1]
+                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
 
                     async_apply_result = t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
                     # file quality control gets handled in the thread

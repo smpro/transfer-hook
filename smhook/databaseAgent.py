@@ -20,8 +20,8 @@ debug=False
 
 production_config_file = '.db_rates_production.py'
 integration_config_file = '.db_rates_integration.py'
-#the_config_file = production_config_file
-the_config_file = integration_config_file
+the_config_file = production_config_file
+#the_config_file = integration_config_file
 myconfig = os.path.join(smhook.config.DIR, the_config_file)
 
 global l1_rates_table
@@ -137,7 +137,7 @@ def runQuery(cxn_name, query, fetch_output=True, custom_timeout=0):
     # fetch_output:     whether to try to fetch output (will cause an error if you try to fetch from an UPDATE statement)
     # custom_timeout:   override default query timeout, unit is seconds
 
-    logger.info('Passing a query to database connection "{0}": "{1}"'.format(cxn_name, query.replace('\n', ' ').replace('\r', '')))
+    logger.debug('Passing a query to database connection "{0}": "{1}"'.format(cxn_name, query.replace('\n', ' ').replace('\r', '')))
     
     # Line to use the threaded mutex connection from the module
     # Threads calling runQuery each get their own cursor in executeQuery
