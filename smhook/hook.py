@@ -55,6 +55,7 @@ def main():
     _max_exceptions = cfg.getint('Misc','max_exceptions')
     _seconds_to_sleep = cfg.getint('Misc','seconds_to_sleep')
     _max_iterations = cfg.getfloat('Misc', 'max_iterations')
+    _check_t0 = cfg.get('Misc','t0_check')
 
     logger.info('input path is {0}'.format(_input_path))
 
@@ -108,7 +109,7 @@ def main():
         
         time_since_update = datetime.utcnow() - last_time_since_update
         logger.info('Time since last T0 response check is {0}'.format(time_since_update))
-        if (time_since_update > timedelta(minutes=15)):
+        if (time_since_update > timedelta(minutes=15) and _check_t0):
             t0check_pool.apply_async(check_T0_response)
             last_time_since_update = datetime.utcnow()
 
