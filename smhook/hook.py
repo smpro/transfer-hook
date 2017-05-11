@@ -450,7 +450,8 @@ def iterate():
 
                 if inputEvents == 0:
                     logger.warning("There are 0 input events in this jsn %s" % jsn_file)
-                    maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
+                    maybe_move(jsn_file, new_rundir_bad, force_overwrite=True, suffix='ZeroInput')
+                    #maybe_move(jsn_file, scratch_rundir, force_overwrite=True)
                     continue
 
                 eventsNumber = int(settings['data'][1])

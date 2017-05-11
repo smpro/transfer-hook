@@ -54,6 +54,13 @@ def findstatus(status,runnumber):
     result_fileId=databaseAgent.runQuery('file_status', query, fetch_output=True)
     return result_fileId
 
+def findStatusNotDeleted(status, runnumber):
+    query = "SELECT FILE_ID FROM CMS_STOMGR.FILE_TRANSFER_STATUS WHERE DELETED_FLAG=0 AND STATUS_FLAG={0} AND RUNNUMBER={1}"
+    query = query.format(reverse_status_flags[status], str(runnumber))
+    result_fileId=databaseAgent.runQuery('file_status', query, fetch_output=True)
+    return result_fileId
+
+
 def checkStatus_T0(file_id):
     query = "SELECT CHECKED_RETRIEVE FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
             " WHERE P5_FILEID={0}" 
@@ -85,7 +92,6 @@ def findInconsistency(origstatus):
             result_statusUpdate_SM = databaseAgent.runQuery('file_status', query_statusUpdate_SM, fetch_output=False)
             status2 = checkStatus(file_ids[l][0])
 
-
 def updateStatus(file_id, status, dryrun=False):    
     query = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS " +\
             "SET STATUS_FLAG={0} " +\
@@ -104,6 +110,13 @@ def checkDeletedStatus(runnumber):
     query  = query.format(str(runnumber))
     result = databaseAgent.runQuery('file_status', query, fetch_output=True)
     return len(result)
+
+def checkDeletedStatus_perfile(fileid):
+    query = "SELECT DELETED_FLAG FROM CMS_STOMGR.FILE_TRANSFER_STATUS "+\
+            "WHERE FILE_ID={0}"
+    query  = query.format(fileid)
+    result = databaseAgent.runQuery('file_status', query, fetch_output=True)
+    return result
 
 def updateDeleted(file_id, dryrun=False):
     query = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS " +\
@@ -159,8 +172,7 @@ def updateFileQuality(filename,dryrun=False):
     if dryrun:
         logger.info("Running in drymode, would have executed the fileQuality Update for file {0}".format(filename))
     else:
-        fileQualityControl.fileQualityControl(jsn_file, filename, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls)
-
+        fileQualityControl.fileQualityControl(filename, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls)
 
 def main():
     
@@ -236,8 +248,11 @@ def main():
             logger.info("The new status for file {0} is {1}".format(args.filename, status_flags[updated_status]))
 
         if args.file_quality:
-            filesize, eventsbuilt, eventslost, isgoodls =  checkFileQuality(args.filename)[0]
-            logger.info("The file {0} has size of {1} MB, {2} built events and {3} lost events. The lumi section is good: {4}".format(args.filename,filesize,eventsbuilt,eventslost,isgoodls))
+            if (checkFileQuality(args.filename)):
+                filesize, eventsbuilt, eventslost, isgoodls =  checkFileQuality(args.filename)[0]
+                logger.info("The file {0} has size of {1} MB, {2} built events and {3} lost events. The lumi section is good: {4}".format(args.filename,filesize,eventsbuilt,eventslost,isgoodls))
+            else:
+                logger.info("File quality info is not filled for file {0}".format(args.filename))
 
         if args.updatequality:
             updateFileQuality(args.filename,args.dryrun)
