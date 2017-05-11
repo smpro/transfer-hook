@@ -109,9 +109,7 @@ def main():
         time_since_update = datetime.utcnow() - last_time_since_update
         logger.info('Time since last T0 response check is {0}'.format(time_since_update))
         if (time_since_update > timedelta(minutes=15)):
-            logger.info('Preparing to check for T0 response for files that are transferred ...')
-            injectWorker.findT0Files('checked',True)
-            injectWorker.findT0Files('repacked',True)
+            t0check_pool.apply_async(check_T0_response)
             last_time_since_update = datetime.utcnow()
 
     logger.info('Closing ECAL, DQM and Event Diplay transfer thread pools.')
@@ -119,19 +117,28 @@ def main():
     dqm_pool.close()
     evd_pool.close()
     t0_pool.close()
+    t0check_pool.close()
 
     logger.info('Joining ECAL, DQM and Event Display thransfer thread pools.')
     ecal_pool.join()
     dqm_pool.join()
     evd_pool.join()
     t0_pool.join()
-    
+    t0check_pool.join()    
+
     connection_bookkeeping.close()
     connection_filestatus.close()
     connection_t0status.close()
     connection_l1_rates.close()
 
 ## main()
+
+#______________________________________________________________________________                                              
+def check_T0_response():
+    '''                                                                                                                         Check for T0 response for files that are checked and transferred                                                            '''
+    logger.info('Preparing to check for T0 response for files that are transferred ...')
+    injectWorker.findT0Files('checked',True)
+    injectWorker.findT0Files('repacked',True)
 
 
 #______________________________________________________________________________
@@ -161,6 +168,7 @@ def setup():
     global evd_pool
     global lookarea_pool
     global t0_pool
+    global t0check_pool
     global cfg
     cfg = config.config
     logger.info(
@@ -183,7 +191,8 @@ def setup():
     dqm_pool      = ThreadPool(5)
     evd_pool      = ThreadPool(4)
     lookarea_pool = ThreadPool(4)
-    t0_pool = ThreadPool(10)
+    t0_pool       = ThreadPool(10)
+    t0check_pool  = ThreadPool(1)
 ## setup()
 
 #______________________________________________________________________________
