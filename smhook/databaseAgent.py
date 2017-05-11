@@ -95,7 +95,7 @@ def useConnection(cxn_name):
         return False
     fresh_cxn = int(time.time()) - cxn_timestamp[cxn_name] <  cxn_timeout
     if not cxn_exists[cxn_name] or not fresh_cxn:
-        if cxn_exists:
+        if cxn_exists[cxn_name]:
             cxn_db[cxn_name].close()
             cxn_exists[cxn_name]=False
             logger.info('Database connection "{0}" has expired. Making a new one...'.format(cxn_name))
