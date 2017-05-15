@@ -108,8 +108,8 @@ def main():
         time.sleep(_seconds_to_sleep)
         
         time_since_update = datetime.utcnow() - last_time_since_update
-        logger.info('Time since last T0 response check is {0}'.format(time_since_update))
-        if (time_since_update > timedelta(minutes=15) and _check_t0):
+        logger.info('Time since last T0 response check is {0} and the flag for T0 check is {1}'.format(time_since_update,_check_t0))
+        if (time_since_update > timedelta(minutes=15) and _check_t0 == True):
             t0check_pool.apply_async(check_T0_response)
             last_time_since_update = datetime.utcnow()
 
@@ -360,6 +360,11 @@ def iterate():
         recorded_recovery_dir = os.path.join(rundir, 'recovery', 'recorded')
         
         for recovery_jsn in recovery_jsns:
+                
+            if (isStreamDQMExpress != True):
+                if (int(jsn_file.split("_")[1].split("ls")[1])%int(_total_machines) != int(_machine_instance)):
+                    continue
+
             if ('BoLS' not in recovery_jsn and
                 'EoLS' not in recovery_jsn and
                 'index' not in recovery_jsn):
