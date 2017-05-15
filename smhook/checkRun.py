@@ -92,7 +92,7 @@ def findInconsistency(origstatus):
             result_statusUpdate_SM = databaseAgent.runQuery('file_status', query_statusUpdate_SM, fetch_output=False)
             status2 = checkStatus(file_ids[l][0])
 
-def updateStatus(file_id, status, dryrun=False):    
+def updateStatus(status, file_id, dryrun=False):    
     query = "BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS " +\
             "SET STATUS_FLAG={0} " +\
             "WHERE FILE_ID={1}; COMMIT; END;"

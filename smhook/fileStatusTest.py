@@ -187,6 +187,7 @@ def makeTestTables():
       "FILE_SIZE                  NUMBER(22), "+\
       "EVENTS_BUILT               NUMBER(22), "+\
       "EVENTS_LOST                NUMBER(22), "+\
+      "EVENTS_ACCEPTED            NUMBER(22), "+\
       "EVENTS_LOST_CHECKSUM       NUMBER(22),        "+\
       "EVENTS_LOST_CMSSW          NUMBER(22),        "+\
       "EVENTS_LOST_CRASH          NUMBER(22),        "+\

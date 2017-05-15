@@ -28,7 +28,7 @@ if debug == True:
 # This function takes a full path to a json file, the filename of a data file, and several numeric arguments then inserts or updates the relevant information in the database
 # The number of events built is greater than or equal to number of events lost.
 
-def fileQualityControl(data_file, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
+def fileQualityControl(data_file, run_number, ls, stream, file_size, events_built, events_accepted, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls):
     events_built = max(events_built, 0) # Protect against files with -1 events built and lost
     events_lost = max(min(events_built, events_lost_checksum + events_lost_cmssw + events_lost_crash + events_lost_oversized),0)
     
@@ -53,6 +53,7 @@ def fileQualityControl(data_file, run_number, ls, stream, file_size, events_buil
                 LAST_UPDATE_TIME,
                 FILE_SIZE,
                 EVENTS_BUILT,
+                EVENTS_ACCEPTED,
                 EVENTS_LOST,
                 EVENTS_LOST_CHECKSUM,
                 EVENTS_LOST_CMSSW,
@@ -60,7 +61,7 @@ def fileQualityControl(data_file, run_number, ls, stream, file_size, events_buil
                 EVENTS_LOST_OVERSIZED,
                 IS_GOOD_LS
             ) VALUES (
-                {1}, {2}, '{3}', '{4}', {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}
+                {1}, {2}, '{3}', '{4}', {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14}
             );
             COMMIT;
          END;
@@ -74,6 +75,7 @@ def fileQualityControl(data_file, run_number, ls, stream, file_size, events_buil
             "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
             file_size,
             events_built,
+            events_accepted,
             events_lost,
             events_lost_checksum,
             events_lost_cmssw,
@@ -92,12 +94,13 @@ def fileQualityControl(data_file, run_number, ls, stream, file_size, events_buil
                 LAST_UPDATE_TIME       = {5},
                 FILE_SIZE              = {6},
                 EVENTS_BUILT           = {7},
-                EVENTS_LOST            = {8},
-                EVENTS_LOST_CHECKSUM   = {9},
-                EVENTS_LOST_CMSSW      = {10},
-                EVENTS_LOST_CRASH      = {11},
-                EVENTS_LOST_OVERSIZED  = {12},
-                IS_GOOD_LS             = {13}
+                EVENTS_ACCEPTED        = {8},
+                EVENTS_LOST            = {9},
+                EVENTS_LOST_CHECKSUM   = {10},
+                EVENTS_LOST_CMSSW      = {11},
+                EVENTS_LOST_CRASH      = {12},
+                EVENTS_LOST_OVERSIZED  = {13},
+                IS_GOOD_LS             = {14}
             WHERE FILENAME='{4}';
             COMMIT;
          END;
@@ -111,6 +114,7 @@ def fileQualityControl(data_file, run_number, ls, stream, file_size, events_buil
             "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')", #UTC timestamp -> oracle
             file_size,
             events_built,
+            events_accepted,
             events_lost,
             events_lost_checksum,
             events_lost_cmssw,

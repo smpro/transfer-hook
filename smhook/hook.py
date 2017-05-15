@@ -136,7 +136,7 @@ def main():
 
 #______________________________________________________________________________                                              
 def check_T0_response():
-    '''                                                                                                                         Check for T0 response for files that are checked and transferred                                                            '''
+    ''' Check for T0 response for files that are checked and transferred  '''
     logger.info('Preparing to check for T0 response for files that are transferred ...')
     injectWorker.findT0Files('checked',True)
     injectWorker.findT0Files('repacked',True)
@@ -396,7 +396,9 @@ def iterate():
                     maybe_move(recovery_jsn, recorded_recovery_dir, force_overwrite=True)
                     continue
                 events_built=inputEvents+errorEvents
-                fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, 0,0,0, events_built,True ) 
+                ##HACK FOR NOW
+                fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, eventsNumber, eventsNumber, 0,0,0, events_built,True ) 
+                #fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, 0,0,0, events_built,True ) 
                 logger.info("File quality control: recorded all events built as lost for file found in recovery area (jsn file {0}, data file {1})".format(recovery_jsn, fileName))
                 if not os.path.exists(recorded_recovery_dir):
                     mkdir(recorded_recovery_dir)
@@ -529,7 +531,9 @@ def iterate():
                     for nfile in range(0, len(errorFiles)):
                         events_lost_cmssw=events_built
                         logger.info("File quality control: recorded all events built as lost due to CMSSW error and moved to error run dir (file %s)" % errorFiles[nfile])
-                        fileQualityControl.fileQualityControl(errorFiles[nfile], run_number, lumiSection, streamName, 0, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+                        ##HACK FOR NOW
+                        fileQualityControl.fileQualityControl(errorFiles[nfile], run_number, lumiSection, streamName, 0, eventsNumber, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);       
+                        #fileQualityControl.fileQualityControl(errorFiles[nfile], run_number, lumiSection, streamName, 0, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
                         dat_parts = [rundir, 'data',errorFiles[nfile]]
                         dat_file = os.path.join(*dat_parts)
                         maybe_move(dat_file, error_rundir, force_overwrite=overwrite)
@@ -716,7 +720,9 @@ def iterate():
                     if (fileSize > max_tier0_transfer_file_size):
                         events_lost_oversized=events_built
 
-                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
+                    ##HACK FOR NOW
+                    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, eventsNumber, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
+                    #arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
 
                     async_apply_result = t0_pool.apply_async(copyWorker.copyFile,arguments_t0)
                     # file quality control gets handled in the thread
@@ -728,6 +734,7 @@ def iterate():
             logger.info("fname %s" %fname)
             try:
                 jsn = metafile.File(fname)
+                overwrite = True
                 if jsn.type == metafile.Type.MacroMerger:
                     dat_path = jsn.path.replace('.jsn', '.dat')
                     maybe_move(jsn.path, new_rundir_bad, force_overwrite=overwrite)

@@ -52,7 +52,7 @@ def check_known_returncodes(returncode):
     value error
     '''
 
-    error_codes={2: "no such file", 22: "eos auth", 255: "missing source file", 51: "socket related errors"}
+    error_codes={2: "no such file", 22: "eos auth", 255: "missing source file", 51: "socket related errors", 17: "file or directory exits"}
     if returncode in error_codes:
         logger.exception(returncode)
         raise ValueError(error_codes[returncode])
@@ -212,7 +212,7 @@ def delete_at_t0(pfn_path):
         logger.exception(error)
 
 #______________________________________________________________________________
-def copyFile(file_id, fileName, checksum, path, destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl='',esIndexName='', max_retries=1):
+def copyFile(file_id, fileName, checksum, path, destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl='',esIndexName='', max_retries=1):
     
     # Main interface to the daemon for actually copying the files
     # Checksum can be given as provided or left as 0, either file_id or fileName can be false
@@ -313,7 +313,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
             logger.info("File quality control: recorded %d/%d events lost (file %s)" % (events_lost_checksum+events_lost_cmssw+events_lost_crash, events_built, fileName))
         else:
             logger.info("File quality control: recorded no events lost (file %s)" % fileName)
-        fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
+        fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls);
         
     return copy_result
 
