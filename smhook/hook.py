@@ -192,7 +192,7 @@ def setup():
     dqm_pool      = ThreadPool(5)
     evd_pool      = ThreadPool(4)
     lookarea_pool = ThreadPool(4)
-    t0_pool       = ThreadPool(10)
+    t0_pool       = ThreadPool(40)
     t0check_pool  = ThreadPool(1)
 ## setup()
 
