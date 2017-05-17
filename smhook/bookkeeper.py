@@ -311,7 +311,7 @@ def fill_runs(last_lumi, cursor):
         end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
-        setuplabel       = "Empty",
+        setuplabel       = "'Empty'",
         )
     insert(values_to_insert, target_table, cursor)
 ## fill_runs
@@ -361,7 +361,7 @@ def open_run(cursor,_setuplabel):
         end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         max_lumisection  = 0,
         last_consecutive = 0,
-        setuplabel       = _setuplabel,
+        setuplabel       = "'%s'" % _setuplabel,
         )
     insert(values_to_insert, target_table, cursor)
 ## open_run
