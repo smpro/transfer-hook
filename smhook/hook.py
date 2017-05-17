@@ -281,7 +281,7 @@ def iterate():
                         maybe_move(jsn_file, new_rundir, force_overwrite=True)    
                     continue
     else:
-        logger.info("The other machine is moving the miniEoR files so I will ignore")
+        logger.info("Some other machine is moving the miniEoR files so I will ignore")
 
     # check if there are any stream directories 
     check_rundirs = []  
