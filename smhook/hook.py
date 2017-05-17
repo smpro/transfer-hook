@@ -55,7 +55,7 @@ def main():
     _max_exceptions = cfg.getint('Misc','max_exceptions')
     _seconds_to_sleep = cfg.getint('Misc','seconds_to_sleep')
     _max_iterations = cfg.getfloat('Misc', 'max_iterations')
-    _check_t0 = cfg.get('Misc','t0_check')
+    _check_t0 = cfg.getboolean('Misc','t0_check')
 
     logger.info('input path is {0}'.format(_input_path))
 
@@ -188,12 +188,12 @@ def setup():
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
-    ecal_pool     = ThreadPool(4)
-    dqm_pool      = ThreadPool(5)
-    evd_pool      = ThreadPool(4)
-    lookarea_pool = ThreadPool(4)
-    t0_pool       = ThreadPool(40)
-    t0check_pool  = ThreadPool(1)
+    ecal_pool     = multiprocessing.Pool(4)
+    dqm_pool      = multiprocessing.Pool(5)
+    evd_pool      = multiprocessing.Pool(4)
+    lookarea_pool = multiprocessing.Pool(4)
+    t0_pool       = multiprocessing.Pool(40)
+    t0check_pool  = multiprocessing.Pool(1)
 ## setup()
 
 #______________________________________________________________________________
@@ -420,7 +420,7 @@ def iterate():
             logger.info("Opening bookkeeping for run %d ..." % run_number)
             try:
                 connection=databaseAgent.useConnection('bookkeeping')
-                bookkeeper.open_run(connection.cursor())
+                bookkeeper.open_run(connection.cursor(),setup_label)
                 connection.commit()
             except cx_Oracle.IntegrityError:
                 logger.warning(
