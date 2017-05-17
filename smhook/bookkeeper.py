@@ -290,7 +290,7 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
         stream      = "'" + stream + "'",
         instance    = 1,
         filecount   = number_of_files,
-        ctime       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        ctime       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         eols        = 1,
         )
     insert(values_to_insert, target_table, cursor)
@@ -307,8 +307,8 @@ def fill_runs(last_lumi, cursor):
         n_instances      = 1,
         n_lumisections   = last_lumi,
         status           = 0,
-        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
-        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         setuplabel       = "Empty",
@@ -339,7 +339,7 @@ def update_run(last_lumi, cursor):
     values_to_set = dict(
         n_lumisections   = last_lumi,
         status           = 0,
-        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         )
@@ -357,8 +357,8 @@ def open_run(cursor,_setuplabel):
         n_instances      = 1,
         n_lumisections   = 0,
         status           = 1,
-        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
-        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
         max_lumisection  = 0,
         last_consecutive = 0,
         setuplabel       = _setuplabel,
