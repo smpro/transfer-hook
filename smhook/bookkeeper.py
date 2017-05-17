@@ -32,6 +32,8 @@ import pprint
 import socket
 import sys
 
+import time,datetime
+
 import cx_Oracle
 
 import smhook.config as config
@@ -288,9 +290,7 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
         stream      = "'" + stream + "'",
         instance    = 1,
         filecount   = number_of_files,
-        ## dummy for now
-        ctime       = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
+        ctime       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
         eols        = 1,
         )
     insert(values_to_insert, target_table, cursor)
@@ -307,14 +307,11 @@ def fill_runs(last_lumi, cursor):
         n_instances      = 1,
         n_lumisections   = last_lumi,
         status           = 0,
-        ## dummy for now
-        start_time       = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
-        ## dummy for now
-        end_time         = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
+        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
+        setuplabel       = "Empty",
         )
     insert(values_to_insert, target_table, cursor)
 ## fill_runs
@@ -342,9 +339,7 @@ def update_run(last_lumi, cursor):
     values_to_set = dict(
         n_lumisections   = last_lumi,
         status           = 0,
-        ## dummy for now
-        end_time         = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
         max_lumisection  = last_lumi,
         last_consecutive = last_lumi,
         )
@@ -353,7 +348,7 @@ def update_run(last_lumi, cursor):
 
 
 #______________________________________________________________________________
-def open_run(cursor):
+def open_run(cursor,_setuplabel):
     target_table = 'cms_stomgr.runs'
     values_to_insert = dict(
         runnumber        = _run_number,
@@ -362,14 +357,11 @@ def open_run(cursor):
         n_instances      = 1,
         n_lumisections   = 0,
         status           = 1,
-        ## dummy for now
-        start_time       = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
-        ## dummy for now
-        end_time         = ("TO_DATE('2014-10-08 14:33:48', " +
-                               "'YYYY-MM-DD HH24:MI:SS')"),
+        start_time       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
+        end_time         = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')"
         max_lumisection  = 0,
         last_consecutive = 0,
+        setuplabel       = _setuplabel,
         )
     insert(values_to_insert, target_table, cursor)
 ## open_run
