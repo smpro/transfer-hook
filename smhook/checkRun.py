@@ -131,7 +131,7 @@ def updateDeleted(file_id, dryrun=False):
         return result
 
 def checkFileQuality(filename):
-    query = "SELECT FILE_SIZE, EVENTS_BUILT, EVENTS_LOST, IS_GOOD_LS FROM CMS_STOMGR.FILE_QUALITY_CONTROL "+\
+    query = "SELECT FILE_SIZE, EVENTS_BUILT, EVENTS_ACCEPTED, EVENTS_LOST, IS_GOOD_LS FROM CMS_STOMGR.FILE_QUALITY_CONTROL "+\
             " WHERE FILENAME={0}"
     query=query.format("'"+filename+"'")
     result = databaseAgent.runQuery('file_status', query, fetch_output=True)
@@ -172,7 +172,7 @@ def updateFileQuality(filename,dryrun=False):
     if dryrun:
         logger.info("Running in drymode, would have executed the fileQuality Update for file {0}".format(filename))
     else:
-        fileQualityControl.fileQualityControl(filename, run_number, ls, stream, file_size, events_built, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls)
+        fileQualityControl.fileQualityControl(filename, run_number, ls, stream, file_size, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls)
 
 def main():
     
@@ -249,8 +249,8 @@ def main():
 
         if args.file_quality:
             if (checkFileQuality(args.filename)):
-                filesize, eventsbuilt, eventslost, isgoodls =  checkFileQuality(args.filename)[0]
-                logger.info("The file {0} has size of {1} MB, {2} built events and {3} lost events. The lumi section is good: {4}".format(args.filename,filesize,eventsbuilt,eventslost,isgoodls))
+                filesize, eventsbuilt, eventsaccepted, eventslost, isgoodls =  checkFileQuality(args.filename)[0]
+                logger.info("The file {0} has size of {1} MB, {2} built events, {3} accepted events, and {4} lost events. The lumi section is good: {5}".format(args.filename,filesize,eventsbuilt,eventsaccepted,eventslost,isgoodls))
             else:
                 logger.info("File quality info is not filled for file {0}".format(args.filename))
 
