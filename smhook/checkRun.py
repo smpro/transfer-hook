@@ -267,13 +267,3 @@ if __name__ == '__main__':
     #logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s in %(module)s: %(message)s')
     main()
-
-
-
-
-
-
-
-
-
-    
