@@ -150,15 +150,14 @@ def updateFileQuality(filename,dryrun=False):
         stream_token[:len('stream')] != 'stream'      or
         sm_token                     != 'StorageManager'):
         print run_token, ls_token, stream_token, sm_token
-        #return None
 
-    run_number    = int(run_token   [len('run')   :])
-    ls            = int(ls_token    [len('ls')    :])
-    stream        = stream_token[len('stream'):]
+    run_number  = int(run_token[len('run')   :])
+    lumiSection = int(ls_token [len('ls')    :])
+    streamName  = stream_token [len('stream'):]
 
     settings_textI = open("/store/lustre/transfer/run"+str(run_number)+"/"+jsn_file, "r").read()
     settings = json.loads(settings_textI)
-    file_size = int(settings['data'][4])
+    fileSize = int(settings['data'][4])
     inputEvents = int(settings['data'][0])
     eventsNumber = int(settings['data'][1])
     errorEvents = int(settings['data'][2]) # BU/FU crash                                                                                                                                                                 
@@ -172,7 +171,81 @@ def updateFileQuality(filename,dryrun=False):
     if dryrun:
         logger.info("Running in drymode, would have executed the fileQuality Update for file {0}".format(filename))
     else:
-        fileQualityControl.fileQualityControl(filename, run_number, ls, stream, file_size, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls)
+        fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, eventsNumber, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls) 
+       #fileQualityControl.fileQualityControl(fileName, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls) 
+
+def copyFileToT0(dat_file,file_id,dryrun=False):
+    jsn_file = dat_file.replace('.dat','.jsn')
+    tokens = jsn_file.split('_')
+    if len(tokens) !=4:
+        return None
+    run_token, ls_token, stream_token, sm_token = tokens
+    run_len, ls_len, stream_len, sm_len = map(len, tokens)
+    if (run_token   [:len('run')   ] != 'run'         or
+        ls_token    [:len('ls')    ] != 'ls'          or
+        stream_token[:len('stream')] != 'stream'      or
+        sm_token                     != 'StorageManager'):
+        print run_token, ls_token, stream_token, sm_token
+
+    run_number  = int(run_token[len('run')   :])
+    lumiSection = int(ls_token [len('ls')    :])
+    streamName  = stream_token [len('stream'):]
+
+    settings_textI = open("/store/lustre/transfer/run"+str(run_number)+"/"+jsn_file, "r").read()
+    settings = json.loads(settings_textI)
+
+    inputEvents = int(settings['data'][0])
+
+    if inputEvents == 0:
+    	logger.warning("There are 0 input events in this jsn %s" % jsn_file)
+    	return None
+
+    eventsNumber = int(settings['data'][1])
+    errorEvents = int(settings['data'][2]) # BU/FU crash
+    fileName = str(settings['data'][3])
+    if fileName == "":
+    	logger.warning("There are no filenames specified in this jsn %s" % jsn_file)
+    	return None
+    fileSize = int(settings['data'][4])
+
+    _checksum_status = True
+    if ( _checksum_status ):
+    	checksum_int = int(settings['data'][5]) 
+    	checksum = format(checksum_int, 'x').zfill(8)	 #making sure it is 8 digits
+    else:
+    	checksum = 0
+    
+    # FQC: File quality control numbers for the normal json files
+    events_built = inputEvents+errorEvents # events lost to BU/FU crash are not included in inputEvents total!
+    events_lost_checksum=0
+    events_lost_cmssw=0
+    events_lost_crash=errorEvents
+    events_lost_oversized=0
+    is_good_ls=True
+
+    ## Here you might want to check if they exist first, this is only needed for elastic monitoring
+    infoEoLS_1 = int(settings['data'][6])
+    infoEoLS_2 = int(settings['data'][7])
+
+    destination = str(settings['data'][9])
+    logger.debug("Destination in the jsn file {0} is {1}".format(jsn_file,destination))
+
+    esServerUrl = ""
+    esIndexName = ""
+    monitor_fqc = False
+    new_file_path = "/store/lustre/transfer/run"+str(run_number)+"/"+dat_file
+    new_rundir_bad = "/store/lustre/transfer/run"+str(run_number)+"/bad"
+    _eos_destination = "/store/t0streamer/"
+    setup_label = "Data"
+
+    arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, eventsNumber, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
+   #arguments_t0 = [file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5]
+
+    if dryrun:
+        logger.info("Running in drymode, would have the file {0} to T0 with these arguments {1}".format(fileName,arguments_t0))
+    else:
+        apply_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, eventsNumber, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5)
+       #apply_result = copyWorker.copyFile(file_id, fileName, checksum, new_file_path, _eos_destination, setup_label, monitor_fqc, jsn_file, run_number, lumiSection, streamName, fileSize, events_built, eventsNumber, events_lost_checksum, events_lost_cmssw, events_lost_crash, events_lost_oversized, is_good_ls, new_rundir_bad, esServerUrl, esIndexName, 5)
 
 def main():
     
@@ -186,13 +259,15 @@ def main():
 
     parser.add_argument("-sm","--smstatus"     ,dest="smstatus"      , help="find the list of files with a given status and run, options are 'P5_INJECTED','TRANSFERRED','T0_CHECKED','T0_REPACKED'")
     parser.add_argument("-t0","--t0status"     ,dest="t0status"      , help="find the list of files with a given t0 status, options are 'CHECKED' and 'REPACKED'")
-    parser.add_argument("-q", "--quality"      ,dest="file_quality"  , help="display the information about the size, built events, lost events for the specified file, options are True or False")
+    parser.add_argument("-q", "--quality"      ,dest="file_quality"  , help="display the information about the size, built events, lost events for the specified file, options are True or False",type=bool)
+
+    parser.add_argument("-x", "--xrdcp"        ,dest="xrdcp"         , help="copy a file to T0, options are True or False",type=bool)
 
     parser.add_argument("-us","--updatestatus" ,dest="updatestatus"  , help="updates to a given transfer status for the specified file, options are 'P5_INJECTED','TRANSFERRED','T0_CHECKED','T0_REPACKED'")
-    parser.add_argument("-uq","--updatequality",dest="updatequality" , help="updates the file quality information for the specified file, options are True or False")
-    parser.add_argument("-ud","--updatedeleted",dest="updatedeleted", help="updates the deleted flag status for the specified file, options are True or False")  
+    parser.add_argument("-uq","--updatequality",dest="updatequality" , help="updates the file quality information for the specified file, options are True or False",type=bool)
+    parser.add_argument("-ud","--updatedeleted",dest="updatedeleted" , help="updates the deleted flag status for the specified file, options are True or False",type=bool)  
 
-    parser.add_argument("-d" , "--dry-run"     , dest="dryrun"       , help="when set to True status updates will not be executed, the default value is False",type=bool)
+    parser.add_argument("-d", "--dry-run"      , dest="dryrun"       , help="when set to True status updates will not be executed, the default value is False",type=bool)
 
     args = parser.parse_args()    
 
@@ -256,6 +331,10 @@ def main():
 
         if args.updatequality:
             updateFileQuality(args.filename,args.dryrun)
+
+        if args.xrdcp:
+	    logger.info("Copying file {0} to T0".format(args.filename))
+            copyFileToT0(args.filename,fileid,args.dryrun)
 
         if args.updatedeleted:
             result_deleted = updateDeleted(fileid,args.dryrun)
