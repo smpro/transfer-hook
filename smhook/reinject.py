@@ -18,7 +18,7 @@ def main():
     
 def findmissingfiles(watchpath,mergeMacroPath):
 
-    print 'Looking at',watchpath,'...'
+    #print 'Looking at',watchpath,'...'
 
     full_run_list = sorted(glob.glob(os.path.join(watchpath, 'run*')), reverse=True)
 
@@ -96,6 +96,6 @@ def findmissingfiles(watchpath,mergeMacroPath):
     
 
 if __name__ == '__main__':
-    print 'Running the re-inject script for cdaq and minidaq'
+    #print 'Running the re-inject script for cdaq and minidaq'
     main()
 
