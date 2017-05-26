@@ -189,10 +189,10 @@ def setup():
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
     ecal_pool     = ThreadPool(4)
-    dqm_pool      = ThreadPool(5)
+    dqm_pool      = multiprocessing.Pool(5)
     evd_pool      = ThreadPool(4)
     lookarea_pool = ThreadPool(4)
-    t0_pool       = ThreadPool(40)
+    t0_pool       = multiprocessing.Pool(10)
     t0check_pool  = ThreadPool(1)
 ## setup()
 
