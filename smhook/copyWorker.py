@@ -40,7 +40,8 @@ if debug == True:
 
 #______________________________________________________________________________
 def buildcommand(command):
-    eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
+    eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0', 'XRD_WRITERECOVERY':'0'}
+    #eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
     p = subprocess.Popen(command, shell=True, env=eos_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
     out, error = p.communicate()
     logger.debug("command {0}, out {1}".format(command,out))
@@ -219,9 +220,6 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     # Returns False if the checksum comparison fails or we don't have enough information about the file
     # Otherwise returns True
 
-    # import one function from the hook to use in case the checksum is bad
-    import smhook.hook as hook
-
     if not file_id and not fileName:
         # Not enough info to do the transfer
         logger.warning("copyWorker.copyFile received too little information about the file")
@@ -249,12 +247,10 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
     makedir_status = eos_makedir(lfn_path)
     logger.debug("Return code for the eos directory creation was {0}".format(makedir_status))
 
-    #Record the transfer start time before the retry loop, so the retries affect the rate
+    #Record the transfer start time and path before the retry loop, so the retries affect the rate
     if (file_id >= 0) : 
-        transferstart = injectWorker.recordTransferStart(file_id)
-        logger.debug("Transfer start time record status is {0} for file {1}".format(transferstart, fileName))
-        setlfn = injectWorker.recordTransferPath(file_id,lfn_path)
-        logger.debug("Transfer path status in the db is {0} for file {1}".format(setlfn,fileName))
+        transferstart = injectWorker.recordTransferStart(file_id,lfn_path)
+        logger.debug("Transfer start time and path record status is {0} for file {1}".format(transferstart, fileName))
 
     copy_result = False
     n_retries = 0
