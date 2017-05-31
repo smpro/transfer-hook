@@ -362,7 +362,7 @@ def iterate():
         for recovery_jsn in recovery_jsns:
                 
             if (isStreamDQMExpress != True):
-                if (int(jsn_file.split("_")[1].split("ls")[1])%int(_total_machines) != int(_machine_instance)):
+                if (int(recovery_jsn.split("_")[1].split("ls")[1])%int(_total_machines) != int(_machine_instance)):
                     continue
 
             if ('BoLS' not in recovery_jsn and
