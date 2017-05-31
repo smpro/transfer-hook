@@ -1,0 +1,20 @@
+CREATE TABLE FILE_QUALITY_CONTROL
+(
+    RUNNUMBER                  NUMBER(22)        NOT NULL,
+    LS                         NUMBER(22)        NOT NULL,
+    STREAM                     VARCHAR2(256)      NOT NULL,
+    FILENAME                   VARCHAR2(1000)    NOT NULL,
+    LAST_UPDATE_TIME           TIMESTAMP(6),
+    FILE_SIZE                  NUMBER(22),
+    EVENTS_ACCEPTED            NUMBER(22),
+    EVENTS_BUILT               NUMBER(22),
+    EVENTS_LOST                NUMBER(22),
+    EVENTS_LOST_CHECKSUM       NUMBER(22),       
+    EVENTS_LOST_CMSSW          NUMBER(22),       
+    EVENTS_LOST_CRASH          NUMBER(22),       
+    EVENTS_LOST_OVERSIZED      NUMBER(22),       
+    IS_GOOD_LS                 NUMBER(1)         NOT NULL,
+    PRIMARY KEY (FILENAME)
+)
+GRANT ALL PRIVILEGES ON FILE_QUALITY_CONTROL TO CMS_STOMGR_W
+GRANT SELECT ON FILE_QUALITY_CONTROL TO PUBLIC
