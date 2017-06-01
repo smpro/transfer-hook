@@ -407,9 +407,9 @@ def makeDummyViews():
 def makeViewsLive():
   # views that work in the production environment
   # status streams currently only the last 5 runs, for performance reasons
-  q_view_status_streams="""
+  q_mview_status_streams="""
     BEGIN
-    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW STATUS_STREAMS 
+    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW MVIEW_STATUS_STREAMS 
       REFRESH COMPLETE START WITH (SYSDATE) NEXT (SYSDATE + 2/1440.)
     AS
     WITH RUNNUMBER_CUTOFF AS (SELECT MIN(RUNNUMBER) FROM (SELECT RUNNUMBER FROM CMS_STOMGR.RUNS WHERE RUNNUMBER<999999999 ORDER BY RUNNUMBER DESC) WHERE ROWNUM<=5)
@@ -437,9 +437,9 @@ def makeViewsLive():
     EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_STREAMS TO PUBLIC';
     END;
   """
-  q_view_status_runs="""
+  q_mview_status_runs="""
     BEGIN
-    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW STATUS_RUNS
+    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW MVIEW_STATUS_RUNS
       REFRESH COMPLETE START WITH (SYSDATE) NEXT (SYSDATE + 2/1440.)
     AS
     WITH RUNNUMBER_CUTOFF AS (SELECT MIN(RUNNUMBER) FROM (SELECT RUNNUMBER FROM CMS_STOMGR.RUNS WHERE RUNNUMBER<999999999 ORDER BY RUNNUMBER DESC) WHERE ROWNUM<=1000),
@@ -488,9 +488,9 @@ def makeViewsLive():
     EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_RUNS TO PUBLIC';
     END;
   """
-  q_view_run_file_quality="""
+  q_mview_run_file_quality="""
     BEGIN 
-    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW RUN_FILE_QUALITY 
+    EXECUTE IMMEDIATE 'CREATE MATERIALIZED VIEW MVIEW_RUN_FILE_QUALITY 
       REFRESH COMPLETE START WITH (SYSDATE) NEXT (SYSDATE + 2/1440.)
     AS
     WITH RUNNUMBER_CUTOFF AS (SELECT MIN(RUNNUMBER) FROM (SELECT RUNNUMBER FROM CMS_STOMGR.RUNS WHERE RUNNUMBER<999999999 ORDER BY RUNNUMBER DESC) WHERE ROWNUM<=1000)
@@ -515,35 +515,50 @@ def makeViewsLive():
     EXECUTE IMMEDIATE 'GRANT SELECT ON RUN_FILE_QUALITY TO PUBLIC';
     END;
   """
+  q_views="""
+    BEGIN
+    EXECUTE IMMEDIATE 'CREATE VIEW RUN_FILE_QUALITY AS SELECT * FROM MVIEW_RUN_FILE_QUALITY ORDER BY RUNNUMBER DESC';
+    EXECUTE IMMEDIATE 'GRANT SELECT ON RUN_FILE_QUALITY TO PUBLIC';
+    EXECUTE IMMEDIATE 'CREATE VIEW STATUS_RUNS AS SELECT * FROM MVIEW_STATUS_RUNS ORDER BY LAST_INJECTION_TIME_RUN DESC';
+    EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_RUNS TO PUBLIC';
+    EXECUTE IMMEDIATE 'CREATE VIEW STATUS_STREAMS AS SELECT * FROM MVIEW_STATUS_STREAMS ORDER BY RUNNUMBER DESC';
+    EXECUTE IMMEDIATE 'GRANT SELECT ON STATUS_STREAMS TO PUBLIC';
+    END;
+  """
   t1=time.time()
-  databaseAgent.runQuery('CMS_STOMGR', q_view_run_file_quality)
-  print("q_view_run_file_quality done")
-  databaseAgent.runQuery('CMS_STOMGR', q_view_status_runs)
-  print("q_view_status_runs done")
-  databaseAgent.runQuery('CMS_STOMGR', q_view_status_streams)
-  print("q_view_status_streams done")
+  databaseAgent.runQuery('CMS_STOMGR', q_mview_run_file_quality)
+  print("q_mview_run_file_quality done")
+  databaseAgent.runQuery('CMS_STOMGR', q_mview_status_runs)
+  print("q_mview_status_runs done")
+  databaseAgent.runQuery('CMS_STOMGR', q_mview_status_streams)
+  print("q_mview_status_streams done")
   databaseAgent.cxn_db['CMS_STOMGR'].commit()
-  print("views created, took {0} seconds".format(time.time()-t1))
+  print("mviews created, took {0} seconds".format(time.time()-t1))
+  databaseAgent.runQuery('CMS_STOMGR', q_views)
+  databaseAgent.cxn_db['CMS_STOMGR'].commit()
 
 def refreshViews():
     cursor=databaseAgent.cxn_db['CMS_STOMGR'].cursor()
     t1=time.time()
-    cursor.callproc("DBMS_MVIEW.REFRESH", ['STATUS_RUNS','C','',True, False,0,0,0,True,False])
+    cursor.callproc("DBMS_MVIEW.REFRESH", ['MVIEW_STATUS_RUNS','C','',True, False,0,0,0,True,False])
     t2=time.time()
-    print "refreshed STATUS_RUNS in ", t2-t1, "s"
+    print "refreshed MVIEW_STATUS_RUNS in ", t2-t1, "s"
     t1=time.time()
-    cursor.callproc("DBMS_MVIEW.REFRESH", ['STATUS_STREAMS','C','',True, False,0,0,0,True,False])
+    cursor.callproc("DBMS_MVIEW.REFRESH", ['MVIEW_STATUS_STREAMS','C','',True, False,0,0,0,True,False])
     t2=time.time()
-    print "refreshed STATUS_STREAMS in ", t2-t1, "s"
+    print "refreshed MVIEW_STATUS_STREAMS in ", t2-t1, "s"
     t1=time.time()
-    cursor.callproc("DBMS_MVIEW.REFRESH", ['RUN_FILE_QUALITY','C','',True, False,0,0,0,True,False])
+    cursor.callproc("DBMS_MVIEW.REFRESH", ['MVIEW_RUN_FILE_QUALITY','C','',True, False,0,0,0,True,False])
     t2=time.time()
-    print "refreshed RUN_FILE_QUALITY in ", t2-t1, "s"
+    print "refreshed MVIEW_RUN_FILE_QUALITY in ", t2-t1, "s"
 
 def dropViews():
-    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW STATUS_RUNS", False)
-    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW STATUS_STREAMS", False)
-    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW RUN_FILE_QUALITY", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW MVIEW_STATUS_RUNS", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW MVIEW_STATUS_STREAMS", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP MATERIALIZED VIEW MVIEW_RUN_FILE_QUALITY", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP VIEW RUN_FILE_QUALITY", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP VIEW STATUS_RUNS", False)
+    databaseAgent.runQuery('CMS_STOMGR', "DROP VIEW STATUS_STREAMS", False)
     databaseAgent.cxn_db['CMS_STOMGR'].commit()
 
 # Don't run this in the production environment, ever.
