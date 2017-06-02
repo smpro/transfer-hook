@@ -272,6 +272,9 @@ def main():
             else:
                 logger.info("The latest status for file {0} at T0 is not available ...".format(args.filename))            
 
+            deletedstatus = checkDeletedStatus_perfile(fileid)
+            logger.info("The latest status for file {0} for deletion is {1}".format(args.filename, deletedstatus))
+
         if args.updatestatus is not None:
             result_status  = updateStatus(args.updatestatus,fileid,args.dryrun)
             updated_status = checkStatus(fileid)
