@@ -159,7 +159,7 @@ def is_run_complete(
 
         fillDictionary(key,eventsBadDict,eventsInput)
         ## ZD disabling temporarily, until rest of the changes are in
-        #fillDictionary(key,eventsIDict,eventsInput)
+        fillDictionary(key,eventsIDict,eventsInput)
 
     # Analyzing the information
     isComplete = True
@@ -202,8 +202,8 @@ def is_run_complete(
             for streamName in eventsIDict:                
                 sumEvents = eventsIDict[streamName][0]
                 ## ZD temporarily adding back until the proper changes are put in
-                if streamName in eventsBadDict:
-                    sumEvents = sumEvents + eventsBadDict[streamName][0]
+                #if streamName in eventsBadDict:
+                #    sumEvents = sumEvents + eventsBadDict[streamName][0]
                 if(sumEvents < eventsBuilt * completeMergingThreshold):
                     message = 'Run %(run)s is incomplete because ' + \
                         'sumEvents = %(sum)d is less than ' + \

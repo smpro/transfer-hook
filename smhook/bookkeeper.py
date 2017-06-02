@@ -60,7 +60,17 @@ def main():
     run_dir            = os.path.join(_input_dir, 'run%d' % _run_number)
     json_filenames     = get_json_filenames(run_dir)
     stream_lumi_map    = parse_json_filenames(json_filenames)
-    last_lumi          = get_last_lumi(stream_lumi_map)
+    last_lumi_good     = get_last_lumi(stream_lumi_map)
+    
+    ## set for the bad lumis
+    run_dir_bad          = os.path.join(_input_dir, 'run%d' % _run_number, 'bad')
+    json_filenames_bad   = get_json_filenames(run_dir_bad)
+    stream_lumi_map_bad  = parse_json_filenames(json_filenames_bad)
+    last_lumi_bad        = get_last_lumi(stream_lumi_map_bad)
+
+    last_lumi = max(last_lumi_good, last_lumi_bad)
+    logger.debug('Number of LSs for this run: %d' % last_lumi)
+
     ## Dictionary of lists giving the number of files for given lumi and
     ## stream.
     ## Stream is given by the dictionary key. The dictionary value is a list
