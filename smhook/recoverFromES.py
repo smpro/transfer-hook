@@ -43,9 +43,6 @@ def write_json(jsnfile,mode):
     theMergedJSONfile.close()
 
 
-write_json("run295810_ls0011_streamNanoDST_StorageManager.jsn","cdaq")
-write_json("run295810_ls0014_streamCalibration_StorageManager.jsn","cdaq")
-write_json("run295810_ls0006_streamPhysicsCommissioning_StorageManager.jsn","cdaq")
-write_json("run295810_ls0009_streamALCALUMIPIXELS_StorageManager.jsn","cdaq")
-write_json("run295810_ls0012_streamPhysicsCommissioning_StorageManager.jsn","cdaq")
-write_json("run295810_ls0012_streamCalibration_StorageManager.jsn","cdaq")
+##example:
+#write_json("run295810_ls0011_streamNanoDST_StorageManager.jsn","cdaq")
+
