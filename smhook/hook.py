@@ -192,7 +192,7 @@ def setup():
     dqm_pool      = multiprocessing.Pool(5)
     evd_pool      = ThreadPool(4)
     lookarea_pool = ThreadPool(4)
-    t0_pool       = multiprocessing.Pool(10)
+    t0_pool       = multiprocessing.Pool(20)
     t0check_pool  = ThreadPool(1)
 ## setup()
 
