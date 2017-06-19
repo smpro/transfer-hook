@@ -30,8 +30,9 @@ def elasticMonitor(monitorData, esServerUrl, esIndexName, documentId, maxConnect
            logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           logger.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
-           logger.error(monitorResponse.raise_for_status())
+           #logger.error('elasticMonitor threw connection error: HTTP ' + monitorResponse.status_code)
+           #logger.error(monitorResponse.raise_for_status())
+           logger.exception(e)
            if connectionAttempts > maxConnectionAttempts:
                logger.error('connection error: elasticMonitor failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
                break
@@ -61,8 +62,9 @@ def elasticMonitorUpdate(monitorData, esServerUrl, esIndexName, documentId, maxC
            logger.debug("{0}: Merger monitor produced response: {1}".format(datetime.now().strftime("%H:%M:%S"), monitorResponse.text))
            break
        except (requests.exceptions.ConnectionError,requests.exceptions.Timeout) as e:
-           logger.error('elasticMonitorUpdate threw connection error: HTTP ' + monitorResponse.status_code)
-           logger.error(monitorResponse.raise_for_status())
+           #logger.error('elasticMonitorUpdate threw connection error: HTTP ' + monitorResponse.status_code)
+           #logger.error(monitorResponse.raise_for_status())
+           logger.exception(e)
            if connectionAttempts > maxConnectionAttempts:
                logger.error('connection error: elasticMonitorUpdate failed to record '+documentType+' after '+ str(maxConnectionAttempts)+'attempts')
                break

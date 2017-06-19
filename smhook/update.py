@@ -68,7 +68,7 @@ def updatemissingfiles(watchpath,mergeMacroPath):
             if file_update.rstrip('\n') is not '':
                 command5 = "export PYTHONPATH=/opt/python/; python checkRun.py -f "+str(file_update).rstrip('\n')+ " -uq True"
                 print command5
-                os.system(command5)
+                #os.system(command5)
                 
         i=i+1
     

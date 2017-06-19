@@ -179,8 +179,8 @@ def parse_single_json_filename(filename):
     run_len, ls_len, stream_len, sm_len = map(len, tokens)
     if (run_token   [:len('run')   ] != 'run'         or
         ls_token    [:len('ls')    ] != 'ls'          or
-        stream_token[:len('stream')] != 'stream'      or
-        sm_token                     != 'StorageManager'):
+        stream_token[:len('stream')] != 'stream'      ):#or
+        #sm_token                     != 'StorageManager'):
         logger.debug(skip_message)
         return None
 
