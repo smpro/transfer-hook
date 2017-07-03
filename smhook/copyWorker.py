@@ -150,7 +150,8 @@ def compare_checksum(src,dest,checksum,local=False):
 
         if returncode != 0:
             check_known_returncodes(returncode)
-
+            logger.info("Command `%s' did not return valid return code" % cmd_get_checksum_info)
+            return False
         else:
             eos_checksum = out.split('\n')[1].split(':')[1].strip()
             if eos_checksum == checksum:
@@ -261,7 +262,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
         copy_status = copy_to_t0(path,pfn_path)
         if copy_status !=0:
             n_retries+=1
-            time.sleep(30)
+            time.sleep(60)
             continue
         logger.debug("The copy status is: {0} and the checksum is {1}".format(copy_status,checksum))
         if checksum != 0: #and int(checksum) != 0:
@@ -281,7 +282,7 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
                     logger.info("Local checksum comparision succeded, will re-try the copy for file {0}".format(fileName))                
                     # Local checksum comparison is fine, need to retry in 30 seconds
                     n_retries+=1
-                    time.sleep(30)
+                    time.sleep(60)
                     continue
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
