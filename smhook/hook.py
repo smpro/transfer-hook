@@ -491,7 +491,7 @@ def iterate_private_data():
 	#scratch_base = cfg.get('Output','scratch_base')
 	#path = cfg.get('Private_Data_Settings', 'path')
 	trash_dir = cfg.get('Output', 'trash_dir')
-	safety_dir = cfg.get('Output', 'safety_dir')
+	#safety_dir = cfg.get('Output', 'safety_dir')
 	valid_pdt_symlinks = cfg.getlist('Private_Data_Settings', 'symlinks')
 	
 	logger.debug("Inspecting `%s' ..." % path)
@@ -508,8 +508,9 @@ def iterate_private_data():
 		if not jsns:
 			continue
 		for jsn_file in jsns:
-			safety_subdir=os.path.join(safety_dir,dpg_base)
-			#jsn_info=parse_jsn_file(jsn_file, safety_subdir)
+			#safety_subdir=os.path.join(safety_dir,dpg_base)
+			safety_subdir=os.path.join(dpg_dir, "pdt_safety")
+            #jsn_info=parse_jsn_file(jsn_file, safety_subdir)
 			#if jsn_info:
 			#	[runnumber, lumiSection, streamName, eventsNumber, fileName, fileSize, checksum, symlink] = jsn_info
 			#else:
@@ -548,8 +549,8 @@ def iterate_private_data():
 
 			# Make sure the symlink is legit
 			if symlink not in valid_pdt_symlinks:
-				logger.warning("{0} contains a symlink not accounted for in configuration mapping. Moving it to {1}".format(jsn_file, safety_dir))
-				maybe_move(jsn_file, os.path.join(safety_dir, dpg_base), suffix='BadSymlink')
+				logger.warning("{0} contains a symlink not accounted for in configuration mapping. Moving it to {1}".format(jsn_file, safety_subdir))
+				maybe_move(jsn_file, safety_subdir, suffix='BadSymlink')
 				continue
 			EOS_dir = os.path.join( cfg.get('Private_Data_Symlinks', symlink), 'run'+str(runnumber))
 			dat_file = os.path.join(path, dpg_dir, fileName)
