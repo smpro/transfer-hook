@@ -280,9 +280,9 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
                 checksum_comparison_local = compare_checksum(path,pfn_path,checksum,local=True)
                 if checksum_comparison_local is True:
                     logger.info("Local checksum comparision succeded, will re-try the copy for file {0}".format(fileName))                
-                    # Local checksum comparison is fine, need to retry in 30 seconds
+                    # Local checksum comparison is fine, need to retry in 60 * n_retries seconds
+                    time.sleep(60*n_retries)
                     n_retries+=1
-                    time.sleep(60)
                     continue
                 else:
                     # File is corrupted locally, daemon will move it to the bad area
