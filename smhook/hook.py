@@ -392,7 +392,8 @@ def iterate():
                     streamName = str(fileName.split('_')[2].split('stream')[1])
                 except Exception as e:                    
                     #run271983_ls0021_index000000_fu
-                    streamName = str(fileName.split('_')[2].split('index')[1])
+                    #this means that it is an error stream. we can try to parse the json file instead of the data file
+                    streamName = str(recovery_jsn.split('_')[2].split('stream')[1])
                     logger.exception(e)
                 eventsNumber = int(settings['data'][1])
                 errorEvents = int(settings['data'][2]) # BU/FU crash
@@ -484,7 +485,9 @@ def iterate():
                 try:
                     streamName = str(fileName.split('_')[2].split('stream')[1])
                 except Exception as e:                    
-                    streamName = str(fileName.split('_')[2].split('index')[1])
+                    #run271983_ls0021_index000000_fu
+                    #this means that it is an error stream. we can try to parse the json file instead of the data file
+                    streamName = str(jsn_file.split('_')[2].split('stream')[1])
                     logger.exception(e)
 
                 if ( _checksum_status ):

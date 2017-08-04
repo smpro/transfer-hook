@@ -20,6 +20,7 @@ import pprint
 import sys
 import subprocess, threading
 import time
+import zlib
 
 import smhook.config as config
 import smhook.injectWorker as injectWorker
@@ -41,10 +42,8 @@ if debug == True:
 #______________________________________________________________________________
 def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0', 'XRD_WRITERECOVERY':'0'}
-    #eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0'}
     p = subprocess.Popen(command, shell=True, env=eos_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
     out, error = p.communicate()
-    #logger.debug("command {0}, out {1}".format(command,out))
     logger.warning("TO DEBUG RETRY: command {0}, out {1}, error{2}, returncode {3}".format(command,out,error,p.returncode))
     return out, error, p.returncode
 
@@ -163,16 +162,17 @@ def compare_checksum(src,dest,checksum,local=False):
 
 #______________________________________________________________________________                                                                      
 def get_positive_checksum(path):
-    checkSumIni=1
+    checkSum=1
     with open(path, 'r') as fsrc:
         length=16*1024
         while 1:
             buf = fsrc.read(length)
             if not buf:
                 break
-            checkSumIni=zlib.adler32(buf,checkSumIni)
-    return checkSumIni & 0xffffffff
-
+            checkSum=zlib.adler32(buf,checkSum)
+    fsrc.close()
+    checksum_int = checkSum & 0xffffffff
+    return format(checksum_int, 'x').zfill(8)
 
 #______________________________________________________________________________
 def copy_to_t0(src,pfn_path):
@@ -184,9 +184,8 @@ def copy_to_t0(src,pfn_path):
     try:
         # Copy silently and overwrite the existing file if it exists.
         # Add the tag from P5 as well to trace it in eos side
-        #copycommand = ("xrdcp -f -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
         #copycommand = ("xrdcp -f -s -ODeos.app=point5 " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))
-        copycommand = ("eoscp -n -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))+"?eos.app=point5"
+        copycommand = ("eoscp -x -n -s " + str(src) + " root://eoscms.cern.ch//" + str(pfn_path))+"?eos.app=point5"
         logger.info("Running `%s' ..." % copycommand)
         out, error, returncode = buildcommand(copycommand)
         if returncode != 0:
@@ -205,7 +204,7 @@ def delete_at_t0(pfn_path):
     '''
 
     try:
-        deletecommand = ("eos rm root://eoscms.cern.ch//" + str(pfn_path))
+        deletecommand = ("eos rm " + str(pfn_path))
         logger.info("Running `%s' ..." % deletecommand)
         out, error, returncode = buildcommand(deletecommand)
         if returncode != 0:
@@ -257,12 +256,13 @@ def copyFile(file_id, fileName, checksum, path, destination, setup_label, monito
 
     copy_result = False
     n_retries = 0
-    logger.warning("At the {0} retry out of {1} retries for file {2}".format(n_retries, max_retries,fileName))
     while n_retries < max_retries and copy_result is False:
+        logger.warning("At the {0} retry out of {1} retries for file {2}".format(n_retries, max_retries,fileName))
         copy_status = copy_to_t0(path,pfn_path)
         if copy_status !=0:
             n_retries+=1
             time.sleep(60)
+            delete_at_t0(pfn_path)                
             continue
         logger.debug("The copy status is: {0} and the checksum is {1}".format(copy_status,checksum))
         if checksum != 0: #and int(checksum) != 0:
