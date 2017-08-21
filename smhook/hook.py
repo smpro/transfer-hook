@@ -233,8 +233,9 @@ def iterate():
     _total_machines       = cfg.get('Misc','total_machines')
     _machine_instance     = cfg.get('Misc','machine_instance')
 
-    _dry_run = cfg.getboolean('Misc','dry_run')
+    _dry_run  = cfg.getboolean('Misc','dry_run')
     _renotify = cfg.getboolean('Misc','renotify')
+    _no_tier0_transfer = cfg.getboolean('Misc','no_tier0_transfer')
 
     max_tier0_transfer_file_size = cfg.getint(
         'Output', 'maximum_tier0_transfer_file_size_in_bytes'
@@ -654,6 +655,11 @@ def iterate():
                     logger.debug("Running dry_run mode, will not continue with the T0 stream copying or injection")
                     continue
                     
+                ## If the operator chose not to allow any T0 transfers
+                if _no_tier0_transfer:
+                    logger.debug("Operator requested no T0 transfer, skipping over the T0 files")
+                    continue
+
                 number_of_files = 1
                 if eventsNumber == 0:
                     logger.info("File '%s' has 0 events" % fileName)
