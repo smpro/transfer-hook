@@ -44,7 +44,7 @@ def buildcommand(command):
     eos_env={'EOS_MGM_URL':'root://eoscms.cern.ch','KRB5CCNAME':'FILE:/tmp/krb5cc_0', 'XRD_WRITERECOVERY':'0'}
     p = subprocess.Popen(command, shell=True, env=eos_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)    
     out, error = p.communicate()
-    logger.warning("TO DEBUG RETRY: command {0}, out {1}, error{2}, returncode {3}".format(command,out,error,p.returncode))
+    logger.info("command {0}, out {1}, error{2}, returncode {3}".format(command,out,error,p.returncode))
     return out, error, p.returncode
 
 #______________________________________________________________________________

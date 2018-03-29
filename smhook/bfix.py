@@ -15,13 +15,11 @@ def main():
     parser.add_argument("-sl", "--streamlumi" , dest="streamlumi",default=-1, help="stream lumi you want to correct", type=int)
     parser.add_argument("-sf",  "--streamfill", dest="streamfill",default=-1, help="stream lumi fill you want to correct, 0 or 1", type=int)
 
+    parser.add_argument("-f", "--fill", dest="fill", action='store_true' , help="determines whether you want to update or fill for the first time, if you specify it, it will fill")
+
     args = parser.parse_args()
 
-    filename = os.path.join(config.DIR, '.db_rcms_cred.py') # production DB                                                                                                                                                   
-    cred = config.load(filename)
-    connection = cx_Oracle.connect(cred.db_user, cred.db_pwd, cred.db_sid)
-    cursor = connection.cursor()
-    bookkeeper.setup()
+    filename = os.path.join(config.DIR, '.db_rcms_cred_master.py') # production DB with write access
 
     if args.runnumber > 0 and args.totallumi >-1 :
         bookkeeper._run_number = args.runnumber
@@ -31,7 +29,13 @@ def main():
 
     if args.runnumber>0 and args.streamlumi>-1 and args.streamfill>-1:
         bookkeeper._run_number = args.runnumber
-        bookkeeper.fill_number_of_files(cursor, args.stream, args.streamlumi, args.streamfill)
+        if args.fill:
+            print "Filling the table"
+            bookkeeper.fill_number_of_files(cursor, args.stream, args.streamlumi, args.streamfill)
+        else:
+            print "Updating the table"
+            bookkeeper.update_number_of_files(cursor, args.stream, args.streamlumi, args.streamfill)
+
         connection.commit()
         connection.close()
 

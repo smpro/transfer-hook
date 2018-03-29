@@ -306,6 +306,24 @@ def fill_number_of_files(cursor, stream, lumi, number_of_files):
     insert(values_to_insert, target_table, cursor)
 ## fill_number_of_files
 
+#______________________________________________________________________________
+def update_number_of_files(cursor, stream, lumi, number_of_files):
+    '''
+    Define the values to be filled for the streams table. 
+    '''
+    target_table = 'cms_stomgr.streams'
+    values_to_insert = dict(
+        runnumber   = _run_number,
+        lumisection = lumi,
+        stream      = "'" + stream + "'",
+        instance    = 1,
+        filecount   = number_of_files,
+        ctime       = "TO_TIMESTAMP('"+str(datetime.datetime.utcnow())+"','YYYY-MM-DD HH24:MI:SS.FF6')",
+        eols        = 1,
+        )
+    update_ls(values_to_insert, target_table, cursor)
+## fill_number_of_files
+
 
 #______________________________________________________________________________
 def fill_runs(last_lumi, cursor):
@@ -392,7 +410,6 @@ def insert(values, table, cursor):
     execute_sql(cursor, statement)
 ## insert
 
-
 #______________________________________________________________________________
 def update(values, table, cursor):
     columns = values.keys()
@@ -405,7 +422,22 @@ def update(values, table, cursor):
     statement = '\n'.join(lines)
     execute_sql(cursor, statement)
 ## insert
-
+#______________________________________________________________________________
+def update_ls(values, table, cursor):
+    columns = values.keys()    
+    expression_to_format = ', '.join(['%s={%s}' % (c, c) for c in columns])
+    lines = ['update %(table)s' % locals()                 ,
+             'set filecount = %d' % values['filecount'],
+             'where runnumber = %d' % _run_number ,
+             'and lumisection = %d' % values['lumisection'],
+             'and stream = %s ' % values['stream'] 
+         ]
+    for line in lines + [';']:
+        logger.debug('SQL> ' + line)
+    statement = '\n'.join(lines)
+    print statement
+    execute_sql(cursor, statement)
+## update_ls
 
 #______________________________________________________________________________
 if __name__ == '__main__':

@@ -54,6 +54,8 @@ su - smpro -c "cat ~smpro/confidential_v2/.db_rates_integration.py" > /opt/pytho
 chmod 400 /opt/python/smhook/config/.db_rates_integration.py
 su - smpro -c "cat ~smpro/confidential_v2/.db_rcms_cred.py" > /opt/python/smhook/config/.db_rcms_cred.py
 chmod 400 /opt/python/smhook/config/.db_rcms_cred.py
+su - smpro -c "cat ~smpro/confidential_v2/.db_rcms_cred_master.py" > /opt/python/smhook/config/.db_rcms_cred_master.py
+chmod 400 /opt/python/smhook/config/.db_rcms_cred_master.py
 su - smpro -c "cat ~smpro/confidential_v2/.db_runinfo_cred.py" > /opt/python/smhook/config/.db_runinfo_cred.py
 chmod 400 /opt/python/smhook/config/.db_runinfo_cred.py
 su - smpro -c "cat ~smpro/confidential_v2/.smpro_cern_cred" > /opt/python/smhook/config/.smpro_cern_cred

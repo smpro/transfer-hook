@@ -63,6 +63,7 @@ def main():
 
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
+    checkTier0Flag   = cfg.getboolean('Misc','check_Tier0_flag')
 
     if not (esServerUrl == '' or esIndexName==''):
         esMonitorMapping(esServerUrl,esIndexName)
@@ -127,11 +128,6 @@ def main():
     t0_pool.join()
     t0check_pool.join()    
 
-    connection_bookkeeping.close()
-    connection_filestatus.close()
-    connection_t0status.close()
-    connection_l1_rates.close()
-
 ## main()
 
 #______________________________________________________________________________                                              
@@ -188,12 +184,14 @@ def setup():
     else:
         log_and_maybe_exec = log_and_exec
         maybe_move = move_file_to_dir
-    ecal_pool     = ThreadPool(4)
+
+    ecal_pool     = multiprocessing.Pool(2)
     dqm_pool      = multiprocessing.Pool(5)
-    evd_pool      = ThreadPool(4)
-    lookarea_pool = ThreadPool(4)
+    evd_pool      = multiprocessing.Pool(2)
+    lookarea_pool = multiprocessing.Pool(2)
     t0_pool       = multiprocessing.Pool(20)
-    t0check_pool  = ThreadPool(1)
+    t0check_pool  = multiprocessing.Pool(1)
+
 ## setup()
 
 #______________________________________________________________________________
@@ -202,6 +200,7 @@ def iterate():
     #Elastic Search Parameters
     esServerUrl      = cfg.get('ElasticSearch','esServerUrl')
     esIndexName      = cfg.get('ElasticSearch','esIndexName')
+    checkTier0Flag   = cfg.getboolean('Misc','check_Tier0_flag')
 
     ##HACK BY HAND
     #esServerUrl = 'http://es-cdaq.cms:9200'
@@ -275,7 +274,7 @@ def iterate():
                     'EoLS'  not in jsn_file and
                     'index' not in jsn_file and
                     'EoR' in jsn_file):
-                    if run_key == 'TIER0_TRANSFER_OFF':
+                    if run_key == 'TIER0_TRANSFER_OFF' and checkTier0Flag:
                         maybe_move(jsn_file, scratch_rundir,
                                    force_overwrite=True)
                     else:
@@ -416,7 +415,7 @@ def iterate():
             continue
 
         if (not os.path.exists(new_rundir) and
-            not run_key == 'TIER0_TRANSFER_OFF'):
+            (not run_key == 'TIER0_TRANSFER_OFF' or not checkTier0Flag)):
             mkdir(new_rundir)
             mkdir(os.path.join(new_rundir, 'bad'))
             logger.info("Opening bookkeeping for run %d ..." % run_number)
@@ -617,7 +616,7 @@ def iterate():
                     continue
 
 
-                if (run_key == 'TIER0_TRANSFER_OFF' or
+                if ((run_key == 'TIER0_TRANSFER_OFF' and checkTier0Flag) or
                     streamName in (_streams_with_scalers +
                                    _streams_to_ignore)):
 

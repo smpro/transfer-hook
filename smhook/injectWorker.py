@@ -75,6 +75,7 @@ def insertFile(filename, runnumber, ls, stream, checksum, inject_into_T0=True):
       return file_id
 #______________________________________________________________________________
 def recordTransferStart(file_id,lfn):
+
     query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_START_TIME={0}, "+\
       "PATH={1}"+\
@@ -84,6 +85,7 @@ def recordTransferStart(file_id,lfn):
     return result
 #______________________________________________________________________________
 def recordTransferComplete(file_id):
+
     query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_END_TIME = {0}, "+\
       "STATUS_FLAG = {1}, "+\
@@ -102,6 +104,7 @@ def recordFileDeleted(file_id):
     return result
 #______________________________________________________________________________
 def recordCorruptedTransfer(file_id):
+
     query="BEGIN UPDATE CMS_STOMGR.FILE_TRANSFER_STATUS "+\
       "SET TRANSFER_END_TIME = {0}, "+\
       "STATUS_FLAG = {1}, "+\
@@ -124,6 +127,10 @@ def __pollT0ForFiles(search_flag, unmarked_flag, stream_blacklist=[], runnumber_
 #______________________________________________________________________________
 def findT0Files(status,changeStatus=False):
 
+    #Make a connections first, now we are in multi processing
+    connection_t0status    = databaseAgent.makeConnection('file_status_T0')
+    connection_filestatus  = databaseAgent.makeConnection('file_status')
+
     result_statusUpdate = False
     
     if status is "checked":
@@ -136,7 +143,8 @@ def findT0Files(status,changeStatus=False):
         logger.warning("Status to find files in the T0 tables is not set, exiting...")
         return False
 
-    # Find rows in the T0 table with the search flag marked and the unmarked flag not marked
+    ## Find rows in the T0 table with the search flag marked and the unmarked flag not marked
+    ## REPLAY is T0's test database
     #query = "SELECT P5_FILEID FROM CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
     query = "SELECT P5_FILEID FROM CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE WHERE "+flag+"=1"
     result_fileId=databaseAgent.runQuery('file_status_T0', query, fetch_output=True)
@@ -151,15 +159,15 @@ def findT0Files(status,changeStatus=False):
             query_statusUpdate_SM = query_statusUpdate_SM.format(status_flags[flag_SM], result_fileId[l][0])
             result_statusUpdate_SM= databaseAgent.runQuery('file_status', query_statusUpdate_SM, fetch_output=False)
 
+            ## REPLAY is T0's test database
             #query_statusUpdate = "BEGIN UPDATE CMS_T0DATASVC_REPLAY2.FILE_TRANSFER_STATUS_OFFLINE "+\
             query_statusUpdate = "BEGIN UPDATE CMS_T0DATASVC_PROD.FILE_TRANSFER_STATUS_OFFLINE "+\
                                  "SET "+flag+"={0} "+\
                                  "WHERE P5_FILEID={1}; COMMIT; END;"
-            #not sure how to insert null
             query_statusUpdate =query_statusUpdate.format('NULL',result_fileId[l][0])
             result_statusUpdate=databaseAgent.runQuery('file_status_T0', query_statusUpdate, fetch_output=False)
 
-    logger.info("Updated {0} files in T0 with status {1}".format(len(result_fileId),status))
-
+        logger.info("Updated {0} files in T0 with status {1}".format(len(result_fileId),status))
+            
     #return result_fileId, result_statusUpdate, result_statusUpdate_SM
 
